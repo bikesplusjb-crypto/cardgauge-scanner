@@ -55,14 +55,55 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 /* UPLOAD */
 .upload{border:2px dashed rgba(34,197,94,.4);border-radius:var(--radius);padding:30px 20px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(34,197,94,.03);}
 .upload:hover,.upload.drag{border-color:var(--green);background:rgba(34,197,94,.07);}
-.upload-icon{font-size:42px;margin-bottom:10px;}
-.upload-title{font-family:var(--f);font-weight:800;font-size:17px;color:var(--text);margin-bottom:5px;}
-.upload-sub{font-size:12.5px;color:var(--text3);}
 .upload img.preview{max-width:130px;max-height:180px;border-radius:8px;margin:0 auto 6px;display:none;object-fit:contain;}
 input[type=file]{display:none;}
+
+/* SCANNING TARGET FRAME (Card Ladder style) */
+.scanframe{
+  position:relative;width:118px;height:164px;margin:0 auto 16px;
+  border-radius:10px;
+  background:linear-gradient(180deg,rgba(34,197,94,.05),rgba(34,197,94,.01));
+}
+/* the four L-shaped corner brackets */
+.scanframe .corner{position:absolute;width:28px;height:28px;border:3px solid var(--green);}
+.scanframe .tl{top:0;left:0;border-right:none;border-bottom:none;border-top-left-radius:8px;}
+.scanframe .tr{top:0;right:0;border-left:none;border-bottom:none;border-top-right-radius:8px;}
+.scanframe .bl{bottom:0;left:0;border-right:none;border-top:none;border-bottom-left-radius:8px;}
+.scanframe .br{bottom:0;right:0;border-left:none;border-top:none;border-bottom-right-radius:8px;}
+/* sweeping scan line */
+.scanframe .scanline{
+  position:absolute;left:8px;right:8px;height:2px;top:8px;
+  background:linear-gradient(90deg,transparent,var(--green),transparent);
+  box-shadow:0 0 10px 2px rgba(34,197,94,.55);
+  border-radius:2px;
+  animation:scanSweep 2.4s ease-in-out infinite;
+}
+@keyframes scanSweep{
+  0%{top:8px;opacity:0;}
+  12%{opacity:1;}
+  50%{top:calc(100% - 10px);opacity:1;}
+  88%{opacity:1;}
+  100%{top:8px;opacity:0;}
+}
+/* subtle card icon behind the frame */
+.scanframe .fcard{
+  position:absolute;inset:20px;border-radius:6px;
+  background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(34,197,94,.06));
+  border:1px solid rgba(148,163,184,.12);
+  display:flex;align-items:center;justify-content:center;
+  font-size:30px;opacity:.6;
+}
+.upload:hover .corner{border-color:var(--green);box-shadow:0 0 8px rgba(34,197,94,.4);}
+.upload:hover .scanframe{transform:scale(1.03);transition:transform .25s;}
+@media(prefers-reduced-motion:reduce){.scanframe .scanline{animation:none;top:50%;}}
+
+.upload-title{font-family:var(--f);font-weight:800;font-size:17px;color:var(--text);margin-bottom:5px;}
+.upload-sub{font-size:12.5px;color:var(--text3);}
 .scan-btn{width:100%;margin-top:14px;padding:15px;border-radius:12px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;display:none;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
 .scan-btn:hover{background:#16a34a;}
 .scan-btn:disabled{opacity:.6;cursor:not-allowed;}
+.accuracy-note{font-size:11.5px;color:var(--text3);text-align:center;margin-top:11px;line-height:1.5;}
+.accuracy-note a{color:var(--gold);text-decoration:none;font-weight:700;}
 
 /* OR + SEARCH */
 .or-line{text-align:center;font-family:var(--fm);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin:18px 0;position:relative;}
@@ -150,12 +191,20 @@ input[type=file]{display:none;}
   <div class="scan-card">
     <label class="upload" id="upload" for="fileInput">
       <img class="preview" id="preview" alt=""/>
-      <div class="upload-icon" id="upIcon">📷</div>
+      <div class="scanframe" id="upIcon">
+        <div class="fcard">🃏</div>
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="scanline"></div>
+      </div>
       <div class="upload-title" id="upTitle">Snap or upload a card</div>
-      <div class="upload-sub">Clear photo of the front works best</div>
+      <div class="upload-sub">Center the card in frame — front works best</div>
     </label>
     <input type="file" id="fileInput" accept="image/*"/>
     <button class="scan-btn" id="scanBtn">🔍 Scan This Card</button>
+    <div class="accuracy-note">📸 Quick front-only scan. For vintage, Pokémon, or tricky cards, the full front + back scanner at <a href="https://www.cardgauge.com/card-scanner" target="_top" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'accuracy_note_to_scanner',content_type:'scanner_standalone'})">CardGauge</a> is more accurate.</div>
 
     <div class="or-line">or type a card name</div>
     <div class="search-row">
@@ -289,7 +338,6 @@ function renderResult(d){
       +'<div class="rpbox"><div class="rplabel">AVG</div><div class="rpval main">'+fmtMoney(s.avg)+'</div></div>'
       +'<div class="rpbox"><div class="rplabel">HIGH</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
       +'</div>';
-    // grade ROI
     html+='<div class="roi"><div class="roi-head">💎 If you graded it (est. value)</div><div class="roi-grid">';
     ['7','8','9','10'].forEach(function(g){
       var val=Math.round(s.avg*GRADE_MULTS[g]);
