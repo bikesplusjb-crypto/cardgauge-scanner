@@ -169,6 +169,13 @@ input[type=file]{display:none;}
   body{-webkit-overflow-scrolling:touch;}
   .hero-free{white-space:nowrap;}
 }
+
+/* iOS Safari ghost-corner repaint fix */
+.scan-card,.upload,.hero-free{
+  -webkit-transform:translateZ(0);
+  transform:translateZ(0);
+  -webkit-mask-image:-webkit-radial-gradient(white,black);
+}
 </style>
 </head>
 <body>
