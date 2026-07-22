@@ -99,6 +99,7 @@ input[type=file]{display:none;}
 
 /* ===== REWARDS PANEL ===== */
 .rewards{background:linear-gradient(160deg,rgba(245,158,11,.09),rgba(17,24,39,.4));border:1px solid rgba(245,158,11,.28);border-radius:var(--radius-lg);padding:20px;margin-bottom:18px;position:relative;z-index:1;overflow:hidden;}
+.rw-eyebrow{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);text-align:center;margin-bottom:14px;}
 .rw-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
 .rw-badgewrap{display:flex;align-items:center;gap:12px;}
 .rw-badgeicon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.35);flex-shrink:0;}
@@ -210,33 +211,7 @@ input[type=file]{display:none;}
 
 <div class="wrap">
 
-  <!-- REWARDS PANEL -->
-  <div class="rewards" id="rewards">
-    <div class="rw-top">
-      <div class="rw-badgewrap">
-        <div class="rw-badgeicon" id="rwBadgeIcon">🥉</div>
-        <div>
-          <div class="rw-badgelabel">Your rank</div>
-          <div class="rw-badgename" id="rwBadgeName">Rookie</div>
-        </div>
-      </div>
-      <div class="rw-coins">
-        <div class="rw-coinval" id="rwCoinVal">0</div>
-        <div class="rw-coinlabel">CardCoins</div>
-      </div>
-    </div>
-    <div class="rw-progresswrap">
-      <div class="rw-progresshead"><span id="rwProgLabel">To Collector</span><span id="rwProgNums">0 / 100</span></div>
-      <div class="rw-bar"><div class="rw-fill" id="rwFill"></div></div>
-      <div class="rw-nextnote" id="rwNextNote">Scan or search cards to earn CardCoins</div>
-    </div>
-    <div class="rw-entries">
-      <div class="rw-entriestxt">Weekly giveaway: <b id="rwEntryCount">0</b> entries earned<br><span style="font-size:11px;color:var(--text3)">Every 50 CardCoins = 1 entry</span></div>
-      <button class="rw-claim locked" id="rwClaim">No entries yet</button>
-    </div>
-    <div class="rw-how">🪙 Scan +10 · Search +5 · Daily streak bonus · Coins &amp; badges are saved on this device</div>
-  </div>
-
+  <!-- SCANNER (now the main feature, on top) -->
   <div class="scan-card">
     <label class="upload" id="upload" for="fileInput">
       <img class="preview" id="preview" alt=""/>
@@ -265,6 +240,34 @@ input[type=file]{display:none;}
   </div>
 
   <div class="result" id="result"></div>
+
+  <!-- REWARDS PANEL (now below the scanner) -->
+  <div class="rewards" id="rewards">
+    <div class="rw-eyebrow">🪙 CardCoin Rewards</div>
+    <div class="rw-top">
+      <div class="rw-badgewrap">
+        <div class="rw-badgeicon" id="rwBadgeIcon">🥉</div>
+        <div>
+          <div class="rw-badgelabel">Your rank</div>
+          <div class="rw-badgename" id="rwBadgeName">Rookie</div>
+        </div>
+      </div>
+      <div class="rw-coins">
+        <div class="rw-coinval" id="rwCoinVal">0</div>
+        <div class="rw-coinlabel">CardCoins</div>
+      </div>
+    </div>
+    <div class="rw-progresswrap">
+      <div class="rw-progresshead"><span id="rwProgLabel">To Collector</span><span id="rwProgNums">0 / 100</span></div>
+      <div class="rw-bar"><div class="rw-fill" id="rwFill"></div></div>
+      <div class="rw-nextnote" id="rwNextNote">Scan or search cards to earn CardCoins</div>
+    </div>
+    <div class="rw-entries">
+      <div class="rw-entriestxt">Weekly giveaway: <b id="rwEntryCount">0</b> entries earned<br><span style="font-size:11px;color:var(--text3)">Every 50 CardCoins = 1 entry</span></div>
+      <button class="rw-claim locked" id="rwClaim">No entries yet</button>
+    </div>
+    <div class="rw-how">🪙 Scan +10 · Search +5 · Daily streak bonus · Coins &amp; badges are saved on this device</div>
+  </div>
 
   <!-- CTA to full CardGauge -->
   <div class="cg-cta">
