@@ -4,10 +4,10 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CardGauge Scanner — Price Any Card Free</title>
-<meta name="description" content="Snap a photo or type a card name to get its real eBay market price instantly. Free, no signup. See if it's worth grading."/>
+<meta name="description" content="Snap a photo or type a card name to get its real eBay market price instantly. Free, no signup. Earn CardCoins toward the weekly giveaway."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet"/>
 <!-- TikTok pixel -->
 <script>
 !function (w, d, t) {
@@ -36,12 +36,12 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .tb-logo{font-family:var(--fbig);font-size:22px;color:var(--text);letter-spacing:0.5px;}
 .tb-logo span{color:var(--gold);}
 .tb-badge{font-size:10px;font-weight:700;color:var(--green);border:1px solid var(--green);padding:2px 9px;border-radius:20px;letter-spacing:1px;}
-.tb-cta{font-family:var(--f);font-size:12px;font-weight:800;color:var(--gold);text-decoration:none;padding:8px 15px;border:1px solid var(--gold);border-radius:100px;transition:all .2s;white-space:nowrap;}
-.tb-cta:hover{background:var(--gold);color:var(--bg);}
-@media(max-width:520px){.tb-cta{font-size:11px;padding:7px 11px;}.tb-badge{display:none;}}
+.tb-coins{display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:13px;font-weight:700;color:var(--gold);border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08);padding:6px 12px;border-radius:100px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.tb-coins:hover{background:rgba(245,158,11,.16);}
+.tb-coins .cico{font-size:14px;}
 
 /* HERO */
-.hero{text-align:center;padding:40px 20px 20px;max-width:640px;margin:0 auto;}
+.hero{text-align:center;padding:36px 20px 16px;max-width:640px;margin:0 auto;}
 .hero-eyebrow{font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--green);margin-bottom:14px;}
 .hero h1{font-family:var(--fbig);font-size:clamp(34px,7vw,54px);line-height:0.98;letter-spacing:0.5px;margin-bottom:14px;}
 .hero h1 span{color:var(--green);}
@@ -49,7 +49,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .hero-free{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:7px 16px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:100px;font-family:var(--fm);font-size:12px;font-weight:600;color:var(--green);}
 
 /* MAIN CARD */
-.wrap{max-width:640px;margin:0 auto;padding:20px 20px 60px;}
+.wrap{max-width:640px;margin:0 auto;padding:16px 20px 60px;}
 .scan-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px 22px;margin-bottom:18px;position:relative;z-index:1;}
 
 /* UPLOAD */
@@ -58,41 +58,16 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .upload img.preview{max-width:130px;max-height:180px;border-radius:8px;margin:0 auto 6px;display:none;object-fit:contain;}
 input[type=file]{display:none;}
 
-/* SCANNING TARGET FRAME (Card Ladder style) */
-.scanframe{
-  position:relative;width:118px;height:164px;margin:0 auto 16px;
-  border-radius:10px;
-  background:linear-gradient(180deg,rgba(34,197,94,.05),rgba(34,197,94,.01));
-}
-/* the four L-shaped corner brackets */
+/* SCANNING TARGET FRAME */
+.scanframe{position:relative;width:118px;height:164px;margin:0 auto 16px;border-radius:10px;background:linear-gradient(180deg,rgba(34,197,94,.05),rgba(34,197,94,.01));}
 .scanframe .corner{position:absolute;width:28px;height:28px;border:3px solid var(--green);}
 .scanframe .tl{top:0;left:0;border-right:none;border-bottom:none;border-top-left-radius:8px;}
 .scanframe .tr{top:0;right:0;border-left:none;border-bottom:none;border-top-right-radius:8px;}
 .scanframe .bl{bottom:0;left:0;border-right:none;border-top:none;border-bottom-left-radius:8px;}
 .scanframe .br{bottom:0;right:0;border-left:none;border-top:none;border-bottom-right-radius:8px;}
-/* sweeping scan line */
-.scanframe .scanline{
-  position:absolute;left:8px;right:8px;height:2px;top:8px;
-  background:linear-gradient(90deg,transparent,var(--green),transparent);
-  box-shadow:0 0 10px 2px rgba(34,197,94,.55);
-  border-radius:2px;
-  animation:scanSweep 2.4s ease-in-out infinite;
-}
-@keyframes scanSweep{
-  0%{top:8px;opacity:0;}
-  12%{opacity:1;}
-  50%{top:calc(100% - 10px);opacity:1;}
-  88%{opacity:1;}
-  100%{top:8px;opacity:0;}
-}
-/* subtle card icon behind the frame */
-.scanframe .fcard{
-  position:absolute;inset:20px;border-radius:6px;
-  background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(34,197,94,.06));
-  border:1px solid rgba(148,163,184,.12);
-  display:flex;align-items:center;justify-content:center;
-  font-size:30px;opacity:.6;
-}
+.scanframe .scanline{position:absolute;left:8px;right:8px;height:2px;top:8px;background:linear-gradient(90deg,transparent,var(--green),transparent);box-shadow:0 0 10px 2px rgba(34,197,94,.55);border-radius:2px;animation:scanSweep 2.4s ease-in-out infinite;}
+@keyframes scanSweep{0%{top:8px;opacity:0;}12%{opacity:1;}50%{top:calc(100% - 10px);opacity:1;}88%{opacity:1;}100%{top:8px;opacity:0;}}
+.scanframe .fcard{position:absolute;inset:20px;border-radius:6px;background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(34,197,94,.06));border:1px solid rgba(148,163,184,.12);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.6;}
 .upload:hover .corner{border-color:var(--green);box-shadow:0 0 8px rgba(34,197,94,.4);}
 .upload:hover .scanframe{transform:scale(1.03);transition:transform .25s;}
 @media(prefers-reduced-motion:reduce){.scanframe .scanline{animation:none;top:50%;}}
@@ -121,6 +96,38 @@ input[type=file]{display:none;}
 .status.error{background:rgba(239,68,68,.1);color:var(--red);}
 .spinner{width:14px;height:14px;border:2px solid rgba(59,130,246,.25);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* ===== REWARDS PANEL ===== */
+.rewards{background:linear-gradient(160deg,rgba(245,158,11,.09),rgba(17,24,39,.4));border:1px solid rgba(245,158,11,.28);border-radius:var(--radius-lg);padding:20px;margin-bottom:18px;position:relative;z-index:1;overflow:hidden;}
+.rw-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.rw-badgewrap{display:flex;align-items:center;gap:12px;}
+.rw-badgeicon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.35);flex-shrink:0;}
+.rw-badgename{font-family:var(--fbig);font-size:19px;letter-spacing:0.5px;color:var(--text);line-height:1;}
+.rw-badgelabel{font-family:var(--fm);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:3px;}
+.rw-coins{text-align:right;flex-shrink:0;}
+.rw-coinval{font-family:var(--fbig);font-size:26px;color:var(--gold-warm);line-height:1;}
+.rw-coinlabel{font-family:var(--fm);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+.rw-progresswrap{margin-bottom:6px;}
+.rw-progresshead{display:flex;justify-content:space-between;font-family:var(--fm);font-size:10.5px;color:var(--text2);margin-bottom:6px;}
+.rw-bar{height:9px;border-radius:100px;background:var(--surface3);overflow:hidden;}
+.rw-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--gold),var(--gold-warm));width:0%;transition:width .6s cubic-bezier(.2,.8,.2,1);}
+.rw-nextnote{font-family:var(--fm);font-size:10px;color:var(--text3);margin-top:7px;text-align:center;}
+.rw-entries{margin-top:16px;padding-top:16px;border-top:1px solid rgba(245,158,11,.18);display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.rw-entriestxt{font-size:13px;color:var(--text2);line-height:1.4;}
+.rw-entriestxt b{color:var(--gold-warm);font-family:var(--fm);}
+.rw-claim{background:var(--gold);color:var(--bg);font-family:var(--f);font-weight:800;font-size:13px;padding:11px 18px;border-radius:10px;text-decoration:none;white-space:nowrap;transition:all .2s;border:none;cursor:pointer;}
+.rw-claim:hover{background:var(--gold-warm);transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,158,11,.3);}
+.rw-claim.locked{background:var(--surface3);color:var(--text3);cursor:default;pointer-events:none;box-shadow:none;transform:none;}
+.rw-how{font-family:var(--fm);font-size:10px;color:var(--text3);text-align:center;margin-top:12px;line-height:1.5;}
+
+.coinfloat{position:fixed;font-family:var(--fbig);font-size:28px;color:var(--gold-warm);pointer-events:none;z-index:9999;text-shadow:0 2px 8px rgba(0,0,0,.5);animation:floatUp 1.1s ease-out forwards;}
+@keyframes floatUp{0%{opacity:0;transform:translateY(0) scale(.6);}20%{opacity:1;transform:translateY(-10px) scale(1.1);}100%{opacity:0;transform:translateY(-70px) scale(1);}}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120px);background:var(--surface);border:1px solid rgba(245,158,11,.5);border-radius:14px;padding:16px 22px;display:flex;align-items:center;gap:14px;z-index:9998;box-shadow:0 12px 40px rgba(0,0,0,.5);transition:transform .5s cubic-bezier(.2,.9,.2,1);max-width:calc(100% - 32px);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast .tico{font-size:30px;}
+.toast .ttitle{font-family:var(--fbig);font-size:17px;color:var(--gold-warm);letter-spacing:.5px;line-height:1;}
+.toast .tsub{font-size:12px;color:var(--text2);margin-top:4px;}
 
 /* RESULTS */
 .result{margin-top:4px;}
@@ -169,9 +176,13 @@ input[type=file]{display:none;}
   body{-webkit-overflow-scrolling:touch;}
   .hero-free{white-space:nowrap;}
 }
+@media(max-width:420px){
+  .tb-coins{font-size:12px;padding:5px 10px;}
+  .tb-badge{display:none;}
+}
 
 /* iOS Safari ghost-corner repaint fix */
-.scan-card,.upload,.hero-free{
+.scan-card,.upload,.hero-free,.rewards{
   -webkit-transform:translateZ(0);
   transform:translateZ(0);
   -webkit-mask-image:-webkit-radial-gradient(white,black);
@@ -185,17 +196,47 @@ input[type=file]{display:none;}
     <div class="tb-logo">CARD<span>GAUGE</span></div>
     <div class="tb-badge">SCANNER</div>
   </a>
-  <a href="https://www.cardgauge.com" target="_top" class="tb-cta" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'topbar_to_cardgauge',content_type:'scanner_standalone'})">All tools → CardGauge</a>
+  <div class="tb-coins" id="coinPill" onclick="document.getElementById('rewards').scrollIntoView({behavior:'smooth',block:'center'})">
+    <span class="cico">🪙</span><span id="coinPillVal">0</span>
+  </div>
 </div>
 
 <div class="hero">
   <div class="hero-eyebrow">AI Card Scanner</div>
   <h1>Price any card in <span>seconds.</span></h1>
   <p>Snap a photo or type a card name — get its real eBay market price instantly.</p>
-  <div class="hero-free">✓ Free · No signup · Real eBay data</div>
+  <div class="hero-free">✓ Free · No signup · Earn CardCoins</div>
 </div>
 
 <div class="wrap">
+
+  <!-- REWARDS PANEL -->
+  <div class="rewards" id="rewards">
+    <div class="rw-top">
+      <div class="rw-badgewrap">
+        <div class="rw-badgeicon" id="rwBadgeIcon">🥉</div>
+        <div>
+          <div class="rw-badgelabel">Your rank</div>
+          <div class="rw-badgename" id="rwBadgeName">Rookie</div>
+        </div>
+      </div>
+      <div class="rw-coins">
+        <div class="rw-coinval" id="rwCoinVal">0</div>
+        <div class="rw-coinlabel">CardCoins</div>
+      </div>
+    </div>
+    <div class="rw-progresswrap">
+      <div class="rw-progresshead"><span id="rwProgLabel">To Collector</span><span id="rwProgNums">0 / 100</span></div>
+      <div class="rw-bar"><div class="rw-fill" id="rwFill"></div></div>
+      <div class="rw-nextnote" id="rwNextNote">Scan or search cards to earn CardCoins</div>
+    </div>
+    <div class="rw-entries">
+      <div class="rw-entriestxt">Weekly giveaway: <b id="rwEntryCount">0</b> entries earned<br><span style="font-size:11px;color:var(--text3)">Every 50 CardCoins = 1 entry</span></div>
+      <button class="rw-claim locked" id="rwClaim">No entries yet</button>
+    </div>
+    <div class="rw-how">🪙 Scan +10 · Search +5 · Daily streak bonus · Coins &amp; badges are saved on this device</div>
+  </div>
+
   <div class="scan-card">
     <label class="upload" id="upload" for="fileInput">
       <img class="preview" id="preview" alt=""/>
@@ -248,11 +289,170 @@ input[type=file]{display:none;}
   Part of <a href="https://www.cardgauge.com" target="_top">CardGauge</a> · your sports card workstation.
 </div>
 
+<!-- toast -->
+<div class="toast" id="toast"><div class="tico" id="toastIco">🎉</div><div><div class="ttitle" id="toastTitle"></div><div class="tsub" id="toastSub"></div></div></div>
+
 <script>
 const API = 'https://stock-card-api.onrender.com';
 const GRADE_MULTS = { '7':1.1, '8':1.45, '9':2.9, '10':6.5 };
 const GRADE_COST = 25;
 
+/* ===================== LOYALTY ENGINE ===================== */
+const GIVEAWAY_URL = 'https://www.cardgauge.com/grade-gauge';
+const COINS_PER_ENTRY = 50;
+const SCAN_COINS = 10;
+const SEARCH_COINS = 5;
+const LS_KEY = 'cg_loyalty_v1';
+
+const BADGES = [
+  {name:'Rookie',      icon:'🥉', at:0},
+  {name:'Collector',   icon:'🥈', at:100},
+  {name:'Veteran',     icon:'🥇', at:500},
+  {name:'Hall of Fame',icon:'🏆', at:1500}
+];
+
+function todayStr(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+
+function loadState(){
+  var s;
+  try{ s=JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){ s=null; }
+  if(!s||typeof s!=='object') s={};
+  if(typeof s.coins!=='number') s.coins=0;
+  if(typeof s.claimed!=='number') s.claimed=0;
+  if(typeof s.streak!=='number') s.streak=0;
+  if(typeof s.lastDay!=='string') s.lastDay='';
+  if(typeof s.badgeIdx!=='number') s.badgeIdx=0;
+  return s;
+}
+function saveState(s){ try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(e){} }
+
+var LS = loadState();
+
+function currentBadge(coins){
+  var b=BADGES[0];
+  for(var i=0;i<BADGES.length;i++){ if(coins>=BADGES[i].at) b=BADGES[i]; }
+  return b;
+}
+function nextBadge(coins){
+  for(var i=0;i<BADGES.length;i++){ if(coins<BADGES[i].at) return BADGES[i]; }
+  return null;
+}
+function badgeIndex(coins){
+  var idx=0;
+  for(var i=0;i<BADGES.length;i++){ if(coins>=BADGES[i].at) idx=i; }
+  return idx;
+}
+function totalEntriesEarned(coins){ return Math.floor(coins / COINS_PER_ENTRY); }
+function unclaimedEntries(){ return Math.max(0, totalEntriesEarned(LS.coins) - LS.claimed); }
+
+function renderRewards(){
+  var coins=LS.coins;
+  var cb=currentBadge(coins), nb=nextBadge(coins);
+  document.getElementById('coinPillVal').textContent=coins.toLocaleString();
+  document.getElementById('rwCoinVal').textContent=coins.toLocaleString();
+  document.getElementById('rwBadgeIcon').textContent=cb.icon;
+  document.getElementById('rwBadgeName').textContent=cb.name;
+
+  var fill=document.getElementById('rwFill');
+  if(nb){
+    var span=nb.at-cb.at, into=coins-cb.at;
+    var pct=Math.max(0,Math.min(100, Math.round((into/span)*100)));
+    fill.style.width=pct+'%';
+    document.getElementById('rwProgLabel').textContent='To '+nb.name;
+    document.getElementById('rwProgNums').textContent=coins.toLocaleString()+' / '+nb.at.toLocaleString();
+    document.getElementById('rwNextNote').textContent=(nb.at-coins).toLocaleString()+' CardCoins to '+nb.name+' '+nb.icon;
+  }else{
+    fill.style.width='100%';
+    document.getElementById('rwProgLabel').textContent='Max rank';
+    document.getElementById('rwProgNums').textContent=coins.toLocaleString();
+    document.getElementById('rwNextNote').textContent='🏆 Hall of Fame — top rank reached';
+  }
+
+  var un=unclaimedEntries();
+  document.getElementById('rwEntryCount').textContent=un;
+  var claim=document.getElementById('rwClaim');
+  if(un>0){
+    claim.classList.remove('locked');
+    claim.textContent='Claim '+un+' '+(un===1?'entry':'entries')+' →';
+    claim.disabled=false;
+  }else{
+    claim.classList.add('locked');
+    var need=COINS_PER_ENTRY-(LS.coins%COINS_PER_ENTRY);
+    claim.textContent=need+' coins to entry';
+  }
+}
+
+function showToast(ico,title,sub){
+  document.getElementById('toastIco').textContent=ico;
+  document.getElementById('toastTitle').textContent=title;
+  document.getElementById('toastSub').textContent=sub;
+  var t=document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(window.__toastT);
+  window.__toastT=setTimeout(function(){t.classList.remove('show');},3800);
+}
+
+function floatCoins(amount){
+  var pill=document.getElementById('coinPill');
+  var r=pill.getBoundingClientRect();
+  var el=document.createElement('div');
+  el.className='coinfloat';
+  el.textContent='+'+amount;
+  el.style.left=(r.left+r.width/2-14)+'px';
+  el.style.top=(r.bottom+2)+'px';
+  document.body.appendChild(el);
+  setTimeout(function(){el.remove();},1100);
+}
+
+function awardCoins(amount, kind){
+  var beforeBadge=badgeIndex(LS.coins);
+  var beforeEntries=totalEntriesEarned(LS.coins);
+
+  var streakBonus=0, streakMsg='';
+  var today=todayStr();
+  if(LS.lastDay!==today){
+    var y=new Date(); y.setDate(y.getDate()-1);
+    var yStr=y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
+    if(LS.lastDay===yStr) LS.streak=(LS.streak||0)+1; else LS.streak=1;
+    LS.lastDay=today;
+    streakBonus=10+Math.min(LS.streak,7)*5;
+    streakMsg='🔥 Day '+LS.streak+' streak +'+streakBonus;
+  }
+
+  LS.coins += amount + streakBonus;
+  saveState(LS);
+
+  floatCoins(amount+(streakBonus||0));
+  renderRewards();
+
+  var afterBadge=badgeIndex(LS.coins);
+  if(afterBadge>beforeBadge){
+    var nb=BADGES[afterBadge];
+    showToast(nb.icon,'Rank unlocked: '+nb.name,'You reached '+nb.at.toLocaleString()+' CardCoins');
+    if(window.ttq)ttq.track('Achievement',{content_name:'badge_'+nb.name});
+  }else if(streakMsg){
+    showToast('🔥','Streak bonus!',streakMsg);
+  }
+
+  var afterEntries=totalEntriesEarned(LS.coins);
+  if(afterEntries>beforeEntries && afterBadge<=beforeBadge){
+    var un=unclaimedEntries();
+    showToast('🎟️','Giveaway entry earned!','You now have '+un+' unclaimed '+(un===1?'entry':'entries'));
+  }
+}
+
+document.getElementById('rwClaim').addEventListener('click',function(){
+  var un=unclaimedEntries();
+  if(un<=0) return;
+  LS.claimed += un;
+  saveState(LS);
+  renderRewards();
+  if(window.ttq)ttq.track('ClickButton',{content_name:'claim_entries',value:un});
+  var url=GIVEAWAY_URL+'?entries='+un+'&src=scanner';
+  window.top.location.href=url;
+});
+
+/* ===================== SCANNER ===================== */
 var frontFile = null, scanning = false;
 
 function fmtMoney(n){var v=Number(n||0);return v>0?'$'+Math.round(v).toLocaleString():'—';}
@@ -265,7 +465,6 @@ function setStatus(msg,type){
   el.innerHTML=(type==='loading'?'<div class="spinner"></div>':'')+msg;
 }
 
-/* UPLOAD handling */
 var fileInput=document.getElementById('fileInput');
 var uploadBox=document.getElementById('upload');
 fileInput.addEventListener('change',function(e){var f=e.target.files&&e.target.files[0];if(f)setFile(f);});
@@ -298,7 +497,8 @@ async function doScan(){
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Scan failed');
     renderResult(d);
-    setStatus('',''); 
+    setStatus('','');
+    awardCoins(SCAN_COINS,'scan');
     if(window.ttq)ttq.track('ViewContent',{content_name:d.cardName,content_type:'scan_result'});
   }catch(e){setStatus('❌ '+e.message,'error');}
   scanning=false;btn.disabled=false;btn.textContent='🔍 Scan Another';
@@ -317,6 +517,7 @@ async function doSearch(){
     d.cardName=d.cardName||q;
     renderResult(d);
     setStatus('','');
+    awardCoins(SEARCH_COINS,'search');
   }catch(e){setStatus('❌ '+e.message,'error');}
 }
 
@@ -360,6 +561,7 @@ function renderResult(d){
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
 }
 
+renderRewards();
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
 </script>
 </body>
