@@ -42,6 +42,10 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .hero h1 span{color:var(--green);}
 .hero p{font-size:16px;color:var(--text2);line-height:1.55;max-width:34ch;margin:0 auto;}
 .hero-free{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:7px 16px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:100px;font-family:var(--fm);font-size:12px;font-weight:600;color:var(--green);}
+/* SCAN COUNTER BADGE */
+.cg-count{display:none;align-items:center;gap:7px;margin:10px auto 0;padding:6px 15px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.32);border-radius:100px;font-family:var(--fm);font-size:11.5px;font-weight:700;color:var(--gold-warm);}
+.cg-count .ico{font-size:12px;}
+.cg-count b{font-family:var(--fbig);font-size:14px;letter-spacing:.5px;color:var(--gold-warm);font-weight:400;}
 .wrap{max-width:640px;margin:0 auto;padding:20px 20px 60px;}
 .scan-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px 22px;margin-bottom:18px;position:relative;z-index:1;}
 .upload{position:relative;z-index:1;border:1px solid rgba(34,197,94,.15);border-radius:var(--radius);padding:30px 20px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(34,197,94,.03);overflow:hidden;}
@@ -133,6 +137,7 @@ input[type=file]{display:none;}
   <h1>Price any card in <span>seconds.</span></h1>
   <p>Snap a photo or type a card name — get its real eBay market price instantly.</p>
   <div class="hero-free">✓ Free · No signup · Real eBay data</div>
+  <div class="cg-count" id="cgCount"><span class="ico">🔍</span><b id="cgCountNum">0</b> cards priced</div>
 </div>
 
 <div class="wrap">
@@ -191,6 +196,31 @@ input[type=file]{display:none;}
 const API = 'https://stock-card-api.onrender.com';
 const GRADE_MULTS = { '7':1.1, '8':1.45, '9':2.9, '10':6.5 };
 const GRADE_COST = 25;
+
+/* ===== SCAN COUNTER ===== */
+const SB_URL='https://nlaqvfplecacbbdbmhxd.supabase.co';
+const SB_KEY='sb_publishable_9e5zQmOwtT6aJM1t-xSEyQ_jA2tDY5N';
+function cgSetCount(n){
+  var el=document.getElementById('cgCountNum');
+  var wrap=document.getElementById('cgCount');
+  if(el)el.textContent=Number(n).toLocaleString();
+  if(wrap)wrap.style.display='inline-flex';
+}
+async function cgLoadCount(){
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/scan_counter?select=total&id=eq.1',{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
+    var d=await r.json();
+    if(d&&d[0]&&typeof d[0].total==='number')cgSetCount(d[0].total);
+  }catch(e){}
+}
+async function cgBumpCount(){
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/rpc/increment_scan_counter',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},body:'{}'});
+    var d=await r.json();
+    if(typeof d==='number')cgSetCount(d);
+  }catch(e){}
+}
+
 var frontFile = null, scanning = false;
 function fmtMoney(n){var v=Number(n||0);return v>0?'$'+Math.round(v).toLocaleString():'—';}
 function safeNum(v){var n=Number(v||0);return isFinite(n)&&n>0?n:0;}
@@ -203,6 +233,7 @@ uploadBox.addEventListener('dragleave',function(){uploadBox.classList.remove('dr
 uploadBox.addEventListener('drop',function(e){e.preventDefault();uploadBox.classList.remove('drag');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)setFile(f);});
 function setFile(f){frontFile=f;var prev=document.getElementById('preview');prev.src=URL.createObjectURL(f);prev.style.display='block';document.getElementById('upIcon').style.display='none';document.getElementById('upTitle').textContent='Image ready — tap Scan';document.getElementById('scanBtn').style.display='flex';}
 document.getElementById('scanBtn').addEventListener('click',doScan);
+
 async function doScan(){
   if(!frontFile||scanning)return;
   scanning=true;var btn=document.getElementById('scanBtn');btn.disabled=true;btn.textContent='⏳ Scanning…';
@@ -215,10 +246,12 @@ async function doScan(){
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Scan failed');
     renderResult(d);setStatus('','');
+    cgBumpCount();
     if(window.ttq)ttq.track('ViewContent',{content_name:d.cardName,content_type:'scan_result'});
   }catch(e){setStatus('❌ '+e.message,'error');}
   scanning=false;btn.disabled=false;btn.textContent='🔍 Scan Another';
 }
+
 async function doSearch(){
   var q=(document.getElementById('searchInput').value||'').trim();
   if(!q){setStatus('Enter a card name first','error');return;}
@@ -230,8 +263,10 @@ async function doSearch(){
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Search failed');
     d.cardName=d.cardName||q;renderResult(d);setStatus('','');
+    cgBumpCount();
   }catch(e){setStatus('❌ '+e.message,'error');}
 }
+
 function computeStats(d){
   var listings=Array.isArray(d.listings)?d.listings:[];
   var prices=listings.map(function(l){return safeNum(l.price);}).filter(function(p){return p>0;}).sort(function(a,b){return a-b;});
@@ -240,6 +275,7 @@ function computeStats(d){
   var high=prices.length?prices[prices.length-1]:safeNum(d.highPrice);
   return {avg:Math.round(avg),low:Math.round(low),high:Math.round(high)};
 }
+
 function renderResult(d){
   var el=document.getElementById('result');var s=computeStats(d);
   var cardName=d.cardName||'Card';var meta=[d.year,d.brand,d.set].filter(Boolean).join(' · ')||'Trading card';var hasData=s.avg>0;
@@ -255,6 +291,8 @@ function renderResult(d){
   html+='</div>';el.innerHTML=html;
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
 }
+
+cgLoadCount();
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
 </script>
 </body>
