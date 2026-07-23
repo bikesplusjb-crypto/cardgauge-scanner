@@ -98,13 +98,21 @@ input[type=file]{display:none;}
 .rnodata{padding:18px 16px;text-align:center;font-size:13px;color:var(--gold);background:rgba(245,158,11,.06);line-height:1.65;}
 .rnodata b{color:var(--gold-warm);font-size:14px;}
 .rnodata-eg{display:inline-block;margin-top:8px;font-family:var(--fm);font-size:11.5px;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;}
+/* RAW vs GRADED split */
+.rsplit{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-top:1px solid var(--border);}
+.rsplit-box{background:var(--surface2);padding:14px 12px;text-align:center;}
+.rsplit-lbl{font-family:var(--fm);font-size:9px;letter-spacing:1.5px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;}
+.rsplit-val{font-family:var(--fbig);font-size:20px;letter-spacing:.5px;color:var(--text);}
+.rsplit-sub{font-family:var(--fm);font-size:9.5px;color:var(--text3);margin-top:4px;}
 .roi{padding:20px;border-top:1px solid var(--border);}
 .roi-head{font-family:var(--fm);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:14px;text-align:center;}
 .roi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .roi-cell{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;}
+.roi-cell.real{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.06);}
 .roi-grade{font-family:var(--fbig);font-size:15px;color:var(--text);}
 .roi-val{font-family:var(--fm);font-size:14px;font-weight:600;color:var(--green);margin-top:4px;}
 .roi-mult{font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:2px;}
+.roi-mult.real{color:var(--green);font-weight:700;}
 .roi-note{font-size:11px;color:var(--text3);text-align:center;margin-top:12px;line-height:1.5;}
 .cg-cta{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.03));border:1px solid rgba(245,158,11,.35);border-radius:var(--radius-lg);padding:24px;text-align:center;margin-top:18px;}
 .cg-cta-eyebrow{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
@@ -273,10 +281,29 @@ async function doSearch(){
 function computeStats(d){
   var listings=Array.isArray(d.listings)?d.listings:[];
   var prices=listings.map(function(l){return safeNum(l.price);}).filter(function(p){return p>0;}).sort(function(a,b){return a-b;});
-  var avg=prices.length?prices.reduce(function(a,b){return a+b;},0)/prices.length:safeNum(d.avgPrice||d.avgSoldPrice);
-  var low=prices.length?prices[0]:safeNum(d.lowPrice);
-  var high=prices.length?prices[prices.length-1]:safeNum(d.highPrice);
-  return {avg:Math.round(avg),low:Math.round(low),high:Math.round(high)};
+  if(!prices.length){
+    return {avg:Math.round(safeNum(d.avgPrice||d.avgSoldPrice)),low:Math.round(safeNum(d.lowPrice)),high:Math.round(safeNum(d.highPrice))};
+  }
+  var n=prices.length,mid=Math.floor(n/2);
+  var med=(n%2===0)?((prices[mid-1]+prices[mid])/2):prices[mid];
+  var cut=n>=5?Math.floor(n*0.1):0;
+  return {avg:Math.round(med),low:Math.round(prices[cut]),high:Math.round(prices[n-1-cut])};
+}
+
+/* Build the grading ROI rows — use REAL per-grade medians from the
+   backend when available, fall back to fixed multipliers otherwise. */
+function buildRoiRows(d, avgPrice){
+  var bd = Array.isArray(d.gradeBreakdown) ? d.gradeBreakdown : [];
+  var real = {};
+  bd.forEach(function(g){
+    var parts = String(g.grade).split(' ');
+    var comp = parts[0], val = parts[1];
+    if(!real[val] || comp === 'PSA') real[val] = { median:g.median, count:g.count, company:comp };
+  });
+  return ['7','8','9','10'].map(function(gr){
+    if(real[gr]) return { grade:gr, value:real[gr].median, isReal:true, count:real[gr].count, company:real[gr].company };
+    return { grade:gr, value:Math.round(avgPrice*GRADE_MULTS[gr]), isReal:false, count:0, company:null };
+  });
 }
 
 function renderResult(d){
@@ -286,10 +313,24 @@ function renderResult(d){
   html+=d.image?'<img class="rimg" src="'+d.image+'" onerror="this.outerHTML=\'<div class=rimg-ph>🃏</div>\'"/>':'<div class="rimg-ph">🃏</div>';
   html+='<div><div class="rname">'+cardName+'</div><div class="rmeta">'+meta+'</div></div></div>';
   if(hasData){
-    html+='<div class="rprices">'+'<div class="rpbox"><div class="rplabel">LOW</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'+'<div class="rpbox"><div class="rplabel">AVG</div><div class="rpval main">'+fmtMoney(s.avg)+'</div></div>'+'<div class="rpbox"><div class="rplabel">HIGH</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'+'</div>';
-    html+='<div class="roi"><div class="roi-head">💎 If you graded it (est. value)</div><div class="roi-grid">';
-    ['7','8','9','10'].forEach(function(g){var val=Math.round(s.avg*GRADE_MULTS[g]);html+='<div class="roi-cell"><div class="roi-grade">PSA '+g+'</div><div class="roi-val">'+fmtMoney(val)+'</div><div class="roi-mult">'+GRADE_MULTS[g]+'x</div></div>';});
-    html+='</div><div class="roi-note">Rough estimate from raw avg × typical grade multiples. Grading ~$'+GRADE_COST+'. Want the full ROI calculator? → CardGauge.</div></div>';
+    html+='<div class="rprices">'+'<div class="rpbox"><div class="rplabel">LOW</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'+'<div class="rpbox"><div class="rplabel">MARKET</div><div class="rpval main">'+fmtMoney(s.avg)+'</div></div>'+'<div class="rpbox"><div class="rplabel">HIGH</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'+'</div>';
+
+    // RAW vs GRADED split (only when the backend supplied both)
+    var rawG=d.raw, grG=d.graded;
+    if(rawG && grG && (rawG.count>0 || grG.count>0)){
+      html+='<div class="rsplit">';
+      html+='<div class="rsplit-box"><div class="rsplit-lbl">Raw copies</div><div class="rsplit-val">'+(rawG.count?fmtMoney(rawG.median):'—')+'</div><div class="rsplit-sub">'+(rawG.count?(rawG.count+' listing'+(rawG.count>1?'s':'')):'none found')+'</div></div>';
+      html+='<div class="rsplit-box"><div class="rsplit-lbl">Graded slabs</div><div class="rsplit-val">'+(grG.count?fmtMoney(grG.median):'—')+'</div><div class="rsplit-sub">'+(grG.count?(grG.count+' listing'+(grG.count>1?'s':'')):'none found')+'</div></div>';
+      html+='</div>';
+    }
+
+    var rows=buildRoiRows(d,s.avg);
+    var anyReal=rows.some(function(r){return r.isReal;});
+    html+='<div class="roi"><div class="roi-head">💎 '+(anyReal?'Graded values — live market':'If you graded it (est. value)')+'</div><div class="roi-grid">';
+    rows.forEach(function(r){
+      html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div><div class="roi-val">'+fmtMoney(r.value)+'</div><div class="roi-mult'+(r.isReal?' real':'')+'">'+(r.isReal?(r.count+' live'):(GRADE_MULTS[r.grade]+'x est.'))+'</div></div>';
+    });
+    html+='</div><div class="roi-note">'+(anyReal?'Green = real listings for this card right now. Others estimated from typical grade multiples.':'Estimated from market value × typical grade multiples.')+' Grading ~$'+GRADE_COST+'. Full ROI calculator → CardGauge.</div></div>';
   } else {
     html+='<div class="rnodata"><b>No price data found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
   }
