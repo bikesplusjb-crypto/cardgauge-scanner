@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="CardGauge"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-<meta name="description" content="Snap a photo or type a card name to get its real eBay market price instantly. Free, no signup. See if it's worth grading."/>
+<meta name="description" content="Snap a photo or type a card name to get live eBay asking prices instantly. Free, no signup. Honest about where the numbers come from."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet"/>
@@ -101,6 +101,12 @@ input[type=file]{display:none;}
 .rplabel{font-family:var(--fm);font-size:9px;letter-spacing:1px;color:var(--text3);margin-bottom:5px;}
 .rpval{font-family:var(--fbig);font-size:22px;letter-spacing:0.5px;}
 .rpval.main{color:var(--green);} .rpval.low{color:var(--text2);} .rpval.high{color:var(--gold-warm);}
+.rpsub{font-family:var(--fm);font-size:8.5px;color:var(--text3);margin-top:4px;letter-spacing:.5px;}
+/* SOLD COMPS CALLOUT — the honesty line */
+.sold-check{display:block;text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(59,130,246,.04));border-top:1px solid rgba(59,130,246,.28);border-bottom:1px solid rgba(59,130,246,.28);padding:14px 16px;text-align:center;transition:all .2s;}
+.sold-check:hover{background:rgba(59,130,246,.18);}
+.sold-check-main{display:block;font-family:var(--f);font-size:14px;font-weight:800;color:var(--blue);letter-spacing:.2px;}
+.sold-check-sub{display:block;font-family:var(--fm);font-size:10px;color:var(--text3);margin-top:5px;line-height:1.5;}
 .rnodata{padding:18px 16px;text-align:center;font-size:13px;color:var(--gold);background:rgba(245,158,11,.06);line-height:1.65;}
 .rnodata b{color:var(--gold-warm);font-size:14px;}
 .rnodata-eg{display:inline-block;margin-top:8px;font-family:var(--fm);font-size:11.5px;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;}
@@ -151,8 +157,8 @@ input[type=file]{display:none;}
 <div class="hero">
   <div class="hero-eyebrow">AI Card Scanner</div>
   <h1>Price any card in <span>seconds.</span></h1>
-  <p>Snap a photo or type a card name — get its real eBay market price instantly.</p>
-  <div class="hero-free">✓ Free · No signup · Real eBay data</div>
+  <p>Snap a photo or type a card name — see live eBay asking prices instantly.</p>
+  <div class="hero-free">✓ Free · No signup · Shows its work</div>
   <div class="cg-count" id="cgCount"><span class="ico">🔍</span><b id="cgCountNum">0</b> cards priced</div>
 </div>
 
@@ -205,7 +211,7 @@ input[type=file]{display:none;}
     <a href="https://www.cardgauge.com" target="_top">CardGauge.com</a>
     <a href="https://www.tiktok.com/@cardgauge" target="_blank" rel="noopener">TikTok @cardgauge</a>
   </div>
-  Prices pulled live from eBay's public data. Educational tool — not financial advice.<br/>
+  Prices shown are <b>active eBay asking prices</b>, not completed sales. Always verify with sold comps before buying, selling, or grading.<br/>
   Part of <a href="https://www.cardgauge.com" target="_top">CardGauge</a> · your sports card workstation.
 </div>
 
@@ -254,7 +260,7 @@ document.getElementById('scanBtn').addEventListener('click',doScan);
 async function doScan(){
   if(!frontFile||scanning)return;
   scanning=true;var btn=document.getElementById('scanBtn');btn.disabled=true;btn.textContent='⏳ Scanning…';
-  setStatus('AI identifying card + pulling live eBay prices…','loading');
+  setStatus('AI identifying card + pulling live eBay listings…','loading');
   if(window.ttq)ttq.track('Search',{content_type:'card_scan',content_name:'standalone_scan'});
   try{
     var fd=new FormData();fd.append('front',frontFile);
@@ -288,12 +294,12 @@ function computeStats(d){
   var listings=Array.isArray(d.listings)?d.listings:[];
   var prices=listings.map(function(l){return safeNum(l.price);}).filter(function(p){return p>0;}).sort(function(a,b){return a-b;});
   if(!prices.length){
-    return {avg:Math.round(safeNum(d.avgPrice||d.avgSoldPrice)),low:Math.round(safeNum(d.lowPrice)),high:Math.round(safeNum(d.highPrice))};
+    return {avg:Math.round(safeNum(d.avgPrice||d.avgSoldPrice)),low:Math.round(safeNum(d.lowPrice)),high:Math.round(safeNum(d.highPrice)),cnt:0};
   }
   var n=prices.length,mid=Math.floor(n/2);
   var med=(n%2===0)?((prices[mid-1]+prices[mid])/2):prices[mid];
   var cut=n>=5?Math.floor(n*0.1):0;
-  return {avg:Math.round(med),low:Math.round(prices[cut]),high:Math.round(prices[n-1-cut])};
+  return {avg:Math.round(med),low:Math.round(prices[cut]),high:Math.round(prices[n-1-cut]),cnt:n};
 }
 
 function buildRoiRows(d, avgPrice){
@@ -313,6 +319,7 @@ function buildRoiRows(d, avgPrice){
 function renderResult(d){
   var el=document.getElementById('result');var s=computeStats(d);
   var cardName=d.cardName||'Card';var meta=[d.year,d.brand,d.set].filter(Boolean).join(' · ')||'Trading card';var hasData=s.avg>0;
+  var soldUrl = d.soldCompsUrl || ('https://www.ebay.com/sch/i.html?_nkw='+encodeURIComponent(cardName)+'&LH_Sold=1&LH_Complete=1');
   var html='<div class="rcard"><div class="rtop">';
   html+=d.image?'<img class="rimg" src="'+d.image+'" onerror="this.outerHTML=\'<div class=rimg-ph>🃏</div>\'"/>':'<div class="rimg-ph">🃏</div>';
   html+='<div><div class="rname">'+cardName+'</div><div class="rmeta">'+meta+'</div>';
@@ -321,7 +328,16 @@ function renderResult(d){
   }
   html+='</div></div>';
   if(hasData){
-    html+='<div class="rprices">'+'<div class="rpbox"><div class="rplabel">LOW</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'+'<div class="rpbox"><div class="rplabel">MARKET</div><div class="rpval main">'+fmtMoney(s.avg)+'</div></div>'+'<div class="rpbox"><div class="rplabel">HIGH</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'+'</div>';
+    html+='<div class="rprices">'
+      +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
+      +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval main">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+s.cnt+' active listings</div></div>'
+      +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
+      +'</div>';
+
+    html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
+      +'<span class="sold-check-main">↗ See what it actually SOLD for</span>'
+      +'<span class="sold-check-sub">These are asking prices. Sold comps are the real answer.</span>'
+      +'</a>';
 
     var rawG=d.raw, grG=d.graded;
     if(rawG && grG && (rawG.count>0 || grG.count>0)){
@@ -333,13 +349,13 @@ function renderResult(d){
 
     var rows=buildRoiRows(d,s.avg);
     var anyReal=rows.some(function(r){return r.isReal;});
-    html+='<div class="roi"><div class="roi-head">💎 '+(anyReal?'Graded values — live market':'If you graded it (est. value)')+'</div><div class="roi-grid">';
+    html+='<div class="roi"><div class="roi-head">💎 '+(anyReal?'Graded asking prices — live listings':'If you graded it (rough estimate)')+'</div><div class="roi-grid">';
     rows.forEach(function(r){
       html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div><div class="roi-val">'+fmtMoney(r.value)+'</div><div class="roi-mult'+(r.isReal?' real':'')+'">'+(r.isReal?(r.count+' live'):(GRADE_MULTS[r.grade]+'x est.'))+'</div></div>';
     });
-    html+='</div><div class="roi-note">'+(anyReal?'Green = real listings for this card right now. Others estimated from typical grade multiples.':'Estimated from market value × typical grade multiples.')+' Grading ~$'+GRADE_COST+'. Full ROI calculator → CardGauge.</div></div>';
+    html+='</div><div class="roi-note">'+(anyReal?'Green = real listings for this card right now. Grey = estimated from typical multiples.':'Estimated from asking price × typical grade multiples.')+' Grading ~$'+GRADE_COST+'. <b>Check sold comps before submitting.</b></div></div>';
   } else {
-    html+='<div class="rnodata"><b>No price data found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
+    html+='<div class="rnodata"><b>No listings found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
   }
   html+='</div>';el.innerHTML=html;
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
