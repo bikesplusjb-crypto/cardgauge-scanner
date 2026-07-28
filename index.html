@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="CardGauge"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-<meta name="description" content="Snap a photo or type a card name to get live eBay asking prices instantly. Free, no signup. Honest about where the numbers come from."/>
+<meta name="description" content="Snap a photo or type a card name to get live eBay asking prices instantly. Free, no signup. We show you the exact search we ran."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet"/>
@@ -126,6 +126,24 @@ input[type=file]{display:none;}
 .roi-mult{font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:2px;}
 .roi-mult.real{color:var(--green);font-weight:700;}
 .roi-note{font-size:11px;color:var(--text3);text-align:center;margin-top:12px;line-height:1.5;}
+
+/* ===== SEARCH-WE-RAN BOX ===== */
+.sq{border-top:1px solid var(--border);background:rgba(245,158,11,.04);padding:18px 18px 20px;}
+.sq-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.sq-label{font-family:var(--fm);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold);}
+.sq-edit{font-family:var(--fm);font-size:10px;font-weight:600;letter-spacing:1px;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);border-radius:100px;padding:6px 13px;cursor:pointer;transition:all .2s;}
+.sq-edit:hover{border-color:var(--gold);color:var(--gold);}
+.sq-text{font-family:var(--fm);font-size:12px;line-height:1.6;color:var(--text);background:rgba(0,0,0,.32);border:1px solid var(--border);border-radius:9px;padding:11px 12px;margin-top:11px;word-break:break-word;}
+.sq-input{width:100%;font-family:var(--fm);font-size:12px;line-height:1.6;color:var(--text);background:rgba(0,0,0,.42);border:1px solid var(--gold);border-radius:9px;padding:11px 12px;margin-top:11px;outline:none;}
+.sq-go{width:100%;margin-top:10px;padding:13px;border-radius:10px;border:none;background:var(--gold);color:#1a1206;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;}
+.sq-go:hover{background:var(--gold-warm);}
+.sq-go:disabled{opacity:.6;cursor:not-allowed;}
+.sq-link{display:inline-block;margin-top:11px;font-family:var(--fm);font-size:11.5px;font-weight:600;color:var(--blue);text-decoration:none;}
+.sq-link:hover{text-decoration:underline;}
+.sq-why{font-size:11px;color:var(--text3);margin-top:9px;line-height:1.55;}
+.sq-why b{color:var(--text2);}
+
+/* ===== BOTTOM CTA (toolkit, no coins) ===== */
 .cg-cta{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.03));border:1px solid rgba(245,158,11,.35);border-radius:var(--radius-lg);padding:24px;text-align:center;margin-top:18px;}
 .cg-cta-eyebrow{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
 .cg-cta h3{font-family:var(--fbig);font-size:24px;color:var(--text);letter-spacing:0.5px;margin-bottom:8px;line-height:1.05;}
@@ -138,6 +156,8 @@ input[type=file]{display:none;}
 .foot a{color:var(--gold);text-decoration:none;font-weight:700;}
 .foot-links{display:flex;gap:16px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
 .foot-links a{color:var(--text2);font-family:var(--fm);font-size:11px;font-weight:600;}
+.foot-disc{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.65;}
+.foot-disc b{color:var(--text2);}
 @media(max-width:768px){
   body{-webkit-overflow-scrolling:touch;}
   .hero-free{white-space:nowrap;}
@@ -194,15 +214,15 @@ input[type=file]{display:none;}
   <div class="result" id="result"></div>
 
   <div class="cg-cta">
-    <div class="cg-cta-eyebrow">🪙 Earn while you scan</div>
-    <h3>Earn CardCoins. Win free cards.</h3>
-    <p>Log in on the full CardGauge and every scan earns CardCoins toward the weekly free-card giveaway — plus grade checks, profit tracking &amp; your binder.</p>
+    <div class="cg-cta-eyebrow">Built for collectors</div>
+    <h3>Your whole card workstation.</h3>
+    <p>Save cards to a binder, track profit net of fees, run a grade pre-screen and check your collection at any show — all free on the full CardGauge.</p>
     <div class="cg-cta-tools">
-      <span class="cg-cta-chip">🪙 Earn CardCoins</span>
-      <span class="cg-cta-chip">🎁 Weekly free card</span>
-      <span class="cg-cta-chip">🔎 Grade · Track · Binder</span>
+      <span class="cg-cta-chip">📒 Binder</span>
+      <span class="cg-cta-chip">📈 Profit tracker</span>
+      <span class="cg-cta-chip">🔎 Grade pre-screen</span>
     </div>
-    <a href="https://www.cardgauge.com/card-scanner" target="_top" class="cg-cta-btn" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'cta_to_cardgauge_rewards',content_type:'scanner_standalone'})">Start earning on CardGauge →</a>
+    <a href="https://www.cardgauge.com" target="_top" class="cg-cta-btn" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'cta_to_cardgauge_toolkit',content_type:'scanner_standalone'})">See the full toolkit →</a>
   </div>
 </div>
 
@@ -213,12 +233,31 @@ input[type=file]{display:none;}
   </div>
   Prices shown are <b>active eBay asking prices</b>, not completed sales. Always verify with sold comps before buying, selling, or grading.<br/>
   Part of <a href="https://www.cardgauge.com" target="_top">CardGauge</a> · your sports card workstation.
+  <div class="foot-disc">
+    <b>CardGauge doesn't buy or sell cards.</b> No marketplace, no listing fees, no commission — so we have no reason to inflate a number.<br/>
+    We do earn a small commission if you buy something through our eBay links. It costs you nothing and we don't set the prices.
+  </div>
 </div>
 
 <script>
 const API = 'https://stock-card-api.onrender.com';
 const GRADE_MULTS = { '7':1.1, '8':1.45, '9':2.9, '10':6.5 };
 const GRADE_COST = 25;
+
+/* ===== EBAY PARTNER NETWORK ===== */
+const EPN_CAMPID = '5339149252';
+function ebayLink(query, soldOnly){
+  var base = 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(query || '');
+  if(soldOnly) base += '&LH_Sold=1&LH_Complete=1';
+  base += '&mkevt=1&mkcid=1&mkrid=711-53200-19255-0&siteid=0&toolid=10001&campid=' + EPN_CAMPID;
+  return base;
+}
+function tagEbay(url, soldOnly){
+  if(!url) return '';
+  if(url.indexOf('campid=') !== -1) return url;
+  var joiner = url.indexOf('?') === -1 ? '?' : '&';
+  return url + joiner + 'mkevt=1&mkcid=1&mkrid=711-53200-19255-0&siteid=0&toolid=10001&campid=' + EPN_CAMPID;
+}
 
 /* ===== SCAN COUNTER ===== */
 const SB_URL='https://nlaqvfplecacbbdbmhxd.supabase.co';
@@ -245,9 +284,16 @@ async function cgBumpCount(){
 }
 
 var frontFile = null, scanning = false;
+var lastResult = null;      // last rendered payload (for re-price merges)
+var currentQuery = '';      // the search string behind the current numbers
+
 function fmtMoney(n){var v=Number(n||0);return v>0?'$'+Math.round(v).toLocaleString():'—';}
 function safeNum(v){var n=Number(v||0);return isFinite(n)&&n>0?n:0;}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* drop eBay negative keywords (-lot, -reprint) from the display name */
+function prettyName(q){return String(q||'').replace(/(^|\s)-\S+/g,'').replace(/\s+/g,' ').trim()||String(q||'');}
 function setStatus(msg,type){var el=document.getElementById('status');if(!msg){el.className='status';el.innerHTML='';return;}el.className='status show '+(type||'');el.innerHTML=(type==='loading'?'<div class="spinner"></div>':'')+msg;}
+
 var fileInput=document.getElementById('fileInput');
 var uploadBox=document.getElementById('upload');
 fileInput.addEventListener('change',function(e){var f=e.target.files&&e.target.files[0];if(f)setFile(f);});
@@ -278,16 +324,67 @@ async function doScan(){
 async function doSearch(){
   var q=(document.getElementById('searchInput').value||'').trim();
   if(!q){setStatus('Enter a card name first','error');return;}
-  setStatus('Searching eBay for "'+q+'"…','loading');
+  setStatus('Searching eBay for "'+esc(q)+'"…','loading');
   if(window.ttq)ttq.track('Search',{content_name:q,content_type:'standalone_search'});
   try{
     var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Search failed');
-    d.cardName=d.cardName||q;renderResult(d);setStatus('','');
+    d.cardName=d.cardName||q;
+    d.searchQuery=d.searchQuery||q;
+    renderResult(d);setStatus('','');
     cgBumpCount();
   }catch(e){setStatus('❌ '+e.message,'error');}
+}
+
+/* ===== SEARCH-WE-RAN: edit + re-price ===== */
+function sqEdit(){
+  var box=document.getElementById('sqBody');
+  if(!box)return;
+  box.innerHTML =
+    '<input class="sq-input" id="sqInput" value="'+esc(currentQuery)+'" onkeydown="if(event.key===\'Enter\')sqReprice()"/>'
+    +'<button class="sq-go" id="sqGo" onclick="sqReprice()">Re-price with this search</button>'
+    +'<div class="sq-why">Tip: year + brand + player + card number + parallel gives the tightest match.</div>';
+  var inp=document.getElementById('sqInput');
+  if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
+  var btn=document.getElementById('sqEditBtn');
+  if(btn){btn.textContent='CANCEL';btn.setAttribute('onclick','sqCancel()');}
+}
+function sqCancel(){
+  if(lastResult) renderResult(lastResult);
+}
+async function sqReprice(){
+  var inp=document.getElementById('sqInput');
+  if(!inp)return;
+  var q=(inp.value||'').trim();
+  if(!q){setStatus('Search can\'t be empty','error');return;}
+  var go=document.getElementById('sqGo');
+  if(go){go.disabled=true;go.textContent='⏳ Re-pricing…';}
+  setStatus('Re-pricing with your search…','loading');
+  if(window.ttq)ttq.track('Search',{content_name:q,content_type:'search_correction'});
+  try{
+    var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
+    if(!r.ok)throw new Error('Server error '+r.status);
+    var d=await r.json();
+    if(!d.success)throw new Error(d.error||'Search failed');
+    // keep the scanned image + card meta, swap in the corrected market data
+    var merged=Object.assign({},d);
+    if(lastResult){
+      merged.image = d.image || lastResult.image;
+      merged.year  = d.year  || lastResult.year;
+      merged.brand = d.brand || lastResult.brand;
+      merged.set   = d.set   || lastResult.set;
+    }
+    merged.cardName = prettyName(q);
+    merged.searchQuery = d.searchQuery || q;
+    merged.corrected = true;
+    renderResult(merged);
+    setStatus('','');
+  }catch(e){
+    setStatus('❌ '+e.message,'error');
+    if(go){go.disabled=false;go.textContent='Re-price with this search';}
+  }
 }
 
 function computeStats(d){
@@ -317,16 +414,21 @@ function buildRoiRows(d, avgPrice){
 }
 
 function renderResult(d){
+  lastResult = d;
   var el=document.getElementById('result');var s=computeStats(d);
   var cardName=d.cardName||'Card';var meta=[d.year,d.brand,d.set].filter(Boolean).join(' · ')||'Trading card';var hasData=s.avg>0;
-  var soldUrl = d.soldCompsUrl || ('https://www.ebay.com/sch/i.html?_nkw='+encodeURIComponent(cardName)+'&LH_Sold=1&LH_Complete=1');
+  currentQuery = d.searchQuery || d.query || cardName;
+  var soldUrl = d.soldCompsUrl ? tagEbay(d.soldCompsUrl, true) : ebayLink(currentQuery, true);
+  var activeUrl = ebayLink(currentQuery, false);
+
   var html='<div class="rcard"><div class="rtop">';
   html+=d.image?'<img class="rimg" src="'+d.image+'" onerror="this.outerHTML=\'<div class=rimg-ph>🃏</div>\'"/>':'<div class="rimg-ph">🃏</div>';
-  html+='<div><div class="rname">'+cardName+'</div><div class="rmeta">'+meta+'</div>';
+  html+='<div><div class="rname">'+esc(cardName)+'</div><div class="rmeta">'+esc(meta)+'</div>';
   if(d.parallel&&String(d.parallel).trim()){
-    html+='<div class="rparallel">✨ '+d.parallel+(d.serialNumber?' '+d.serialNumber:'')+'</div>';
+    html+='<div class="rparallel">✨ '+esc(d.parallel)+(d.serialNumber?' '+esc(d.serialNumber):'')+'</div>';
   }
   html+='</div></div>';
+
   if(hasData){
     html+='<div class="rprices">'
       +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
@@ -357,7 +459,22 @@ function renderResult(d){
   } else {
     html+='<div class="rnodata"><b>No listings found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
   }
-  html+='</div>';el.innerHTML=html;
+
+  /* ===== SEARCH-WE-RAN BOX ===== */
+  html+='<div class="sq">'
+    +'<div class="sq-head">'
+      +'<div class="sq-label">'+(d.corrected?'Your corrected search':"Here's the search we ran")+'</div>'
+      +'<button class="sq-edit" id="sqEditBtn" onclick="sqEdit()">EDIT</button>'
+    +'</div>'
+    +'<div id="sqBody">'
+      +'<div class="sq-text">'+esc(currentQuery)+'</div>'
+      +'<a class="sq-link" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'open_search_on_ebay\',content_type:\'scanner_standalone\'})">↗ Open this exact search on eBay</a>'
+      +'<div class="sq-why">Every price above comes from this search. Wrong card? Tap <b>EDIT</b> and we\'ll re-price it. We\'d rather you check our work.</div>'
+    +'</div>'
+  +'</div>';
+
+  html+='</div>';
+  el.innerHTML=html;
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
 }
 
