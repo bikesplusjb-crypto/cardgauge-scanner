@@ -479,18 +479,72 @@ function computeStats(d){
   return {avg:Math.round(med),low:Math.round(prices[cut]),high:Math.round(prices[n-1-cut]),cnt:n};
 }
 
+/* Build the PSA 7/8/9/10 ladder.
+
+   Rules, in order of authority:
+     1. A real median from >=3 live listings is the truth. Never altered.
+     2. If the real medians don't rise with grade, the data is mixing
+        different cards. Show only the real ones, no estimates, and say so.
+     3. Otherwise fill the gaps by interpolating between real anchors, so
+        the ladder always rises. With no anchors at all, use the multipliers.  */
 function buildRoiRows(d, avgPrice){
+  var GRADES = ['7','8','9','10'];
   var bd = Array.isArray(d.gradeBreakdown) ? d.gradeBreakdown : [];
+
   var real = {};
   bd.forEach(function(g){
     var parts = String(g.grade).split(' ');
     var comp = parts[0], val = parts[1];
+    if(GRADES.indexOf(val) === -1) return;
     if(!real[val] || comp === 'PSA') real[val] = { median:g.median, count:g.count, company:comp };
   });
-  return ['7','8','9','10'].map(function(gr){
-    if(real[gr]) return { grade:gr, value:real[gr].median, isReal:true, count:real[gr].count, company:real[gr].company };
-    return { grade:gr, value:Math.round(avgPrice*GRADE_MULTS[gr]), isReal:false, count:0, company:null };
+
+  var anchors = [];
+  GRADES.forEach(function(g,i){
+    if(real[g] && real[g].median > 0) anchors.push({ i:i, v:real[g].median });
   });
+
+  // 2 — real data that falls as the grade rises means the query is mixing cards.
+  var inconsistent = false;
+  for(var a=1;a<anchors.length;a++){
+    if(anchors[a].v <= anchors[a-1].v){ inconsistent = true; break; }
+  }
+
+  var rows = GRADES.map(function(g,i){
+    var r = real[g];
+    if(r && r.median > 0){
+      return { grade:g, value:r.median, isReal:true, count:r.count, company:r.company };
+    }
+    return { grade:g, value:0, isReal:false, count:0, company:null, clamped:false };
+  });
+
+  if(inconsistent){ rows.inconsistent = true; return rows; }
+
+  // 3 — fill the gaps
+  rows.forEach(function(row,i){
+    if(row.isReal) return;
+
+    var below = null, above = null;
+    for(var x=anchors.length-1;x>=0;x--){ if(anchors[x].i < i){ below = anchors[x]; break; } }
+    for(var y=0;y<anchors.length;y++){ if(anchors[y].i > i){ above = anchors[y]; break; } }
+
+    if(below && above){
+      var frac = (i - below.i) / (above.i - below.i);
+      row.value = Math.round(below.v + (above.v - below.v) * frac);
+      row.clamped = true;
+    } else if(above){
+      row.value = Math.round(above.v * Math.pow(0.72, above.i - i));
+      row.clamped = true;
+    } else if(below){
+      row.value = Math.round(below.v * Math.pow(1.30, i - below.i));
+      row.clamped = true;
+    } else {
+      row.value = Math.round(avgPrice * GRADE_MULTS[row.grade]);
+    }
+    if(row.value < 1) row.value = 0;
+  });
+
+  return rows;
 }
 
 function renderResult(d){
@@ -546,9 +600,23 @@ function renderResult(d){
     var anyReal=rows.some(function(r){return r.isReal;});
     html+='<div class="roi"><div class="roi-head">💎 '+(anyReal?'Graded asking prices — live listings':'If you graded it (rough estimate)')+'</div><div class="roi-grid">';
     rows.forEach(function(r){
-      html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div><div class="roi-val">'+fmtMoney(r.value)+'</div><div class="roi-mult'+(r.isReal?' real':'')+'">'+(r.isReal?(r.count+' live'):(GRADE_MULTS[r.grade]+'x est.'))+'</div></div>';
+      var sub = r.isReal ? (r.count+' live') : (r.value>0 ? (r.clamped ? 'est.' : GRADE_MULTS[r.grade]+'x est.') : 'no data');
+      html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div>'
+        +'<div class="roi-val">'+(r.value>0?fmtMoney(r.value):'\u2014')+'</div>'
+        +'<div class="roi-mult'+(r.isReal?' real':'')+'">'+sub+'</div></div>';
     });
-    html+='</div><div class="roi-note">'+(anyReal?'Green = real listings for this card right now. Grey = estimated from typical multiples.':'Estimated from asking price × typical grade multiples.')+' Grading ~$'+GRADE_COST+'. <b>Check sold comps before submitting.</b></div></div>';
+    var roiNote;
+    if(rows.inconsistent){
+      roiNote = '<b style="color:var(--gold-warm)">These graded prices don\'t rise with the grade, '
+        +'which usually means the search is matching more than one card.</b> '
+        +'Only grades with real listings are shown. Try narrowing the search below.';
+    } else {
+      roiNote = (anyReal
+        ? 'Green = real listings for this card right now. Grey = estimated from the real ones.'
+        : 'Estimated from asking price × typical grade multiples.')
+        +' Grading ~$'+GRADE_COST+'. <b>Check sold comps before submitting.</b>';
+    }
+    html+='</div><div class="roi-note">'+roiNote+'</div></div>';
   } else {
     html+='<div class="rnodata"><b>No listings found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
   }
