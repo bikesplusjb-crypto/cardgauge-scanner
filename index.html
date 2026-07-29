@@ -128,6 +128,27 @@ input[type=file]{display:none;}
 .roi-note{font-size:11px;color:var(--text3);text-align:center;margin-top:12px;line-height:1.5;}
 
 /* ===== SEARCH-WE-RAN BOX ===== */
+/* ===== PRICE NOTE ===== */
+.pnote{padding:12px 16px;font-size:12px;line-height:1.5;font-weight:600;
+  display:flex;gap:8px;align-items:flex-start;
+  background:rgba(245,158,11,.09);border-top:1px solid rgba(245,158,11,.3);
+  border-bottom:1px solid rgba(245,158,11,.3);color:var(--gold-warm);}
+.pnote .ico{flex-shrink:0;}
+
+/* ===== SCAN FEEDBACK ===== */
+.fb{border-top:1px solid var(--border);padding:16px 18px;text-align:center;}
+.fb-q{font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:12px;}
+.fb-row{display:flex;gap:10px;justify-content:center;}
+.fb-btn{flex:0 0 auto;min-width:86px;padding:11px 18px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;transition:all .18s;}
+.fb-btn:hover{border-color:var(--gold);color:var(--gold);}
+.fb-btn.up:hover{border-color:var(--green);color:var(--green);}
+.fb-reasons{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;}
+.fb-reason{padding:9px 14px;border-radius:100px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);font-family:var(--fm);font-size:11px;letter-spacing:.06em;cursor:pointer;transition:all .18s;}
+.fb-reason:hover{border-color:var(--red);color:#ff8f86;}
+.fb-thanks{font-size:13px;color:var(--text2);line-height:1.6;}
+.fb-thanks b{color:var(--gold);}
+.fb-sub{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5;}
+
 .sq{border-top:1px solid var(--border);background:rgba(245,158,11,.04);padding:18px 18px 20px;}
 .sq-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .sq-label{font-family:var(--fm);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold);}
@@ -338,6 +359,65 @@ async function doSearch(){
   }catch(e){setStatus('❌ '+e.message,'error');}
 }
 
+/* ===== SCAN FEEDBACK =====
+   One tap on the result. A thumbs-down asks what went wrong, so the vote
+   arrives attached to the card name and the query that produced it. */
+var fbSent = false;
+
+async function sendFeedback(vote, reason){
+  try{
+    await fetch(SB_URL+'/rest/v1/rpc/submit_scan_feedback',{
+      method:'POST',
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({
+        p_vote: vote,
+        p_reason: reason || null,
+        p_card_name: (lastResult && lastResult.cardName) ? String(lastResult.cardName).slice(0,200) : '',
+        p_search_query: String(currentQuery||'').slice(0,300),
+        p_listing_count: (lastResult && Array.isArray(lastResult.listings)) ? lastResult.listings.length : 0
+      })
+    });
+  }catch(e){}
+}
+
+function cgFeedback(vote){
+  if(fbSent) return;
+  var box=document.getElementById('fbBox');
+  if(!box) return;
+  if(window.ttq) ttq.track('ClickButton',{content_name:'scan_feedback_'+vote,content_type:'scanner_standalone'});
+
+  if(vote==='up'){
+    fbSent=true;
+    sendFeedback('up',null);
+    box.innerHTML='<div class="fb-thanks">&#128077; Thanks &mdash; that helps.<br>'
+      +'<span style="font-size:11.5px">Useful? <b>Send it to someone who asks what their card is worth.</b></span></div>';
+    return;
+  }
+
+  box.innerHTML='<div class="fb-q">What went wrong?</div>'
+    +'<div class="fb-reasons">'
+      +'<button class="fb-reason" onclick="cgFeedbackReason(\'wrong_card\')">WRONG CARD</button>'
+      +'<button class="fb-reason" onclick="cgFeedbackReason(\'bad_price\')">PRICE LOOKS OFF</button>'
+      +'<button class="fb-reason" onclick="cgFeedbackReason(\'too_slow\')">TOO SLOW</button>'
+    +'</div>'
+    +'<div class="fb-sub">Wrong card? You can fix the search yourself just below.</div>';
+}
+
+function cgFeedbackReason(reason){
+  if(fbSent) return;
+  fbSent=true;
+  sendFeedback('down',reason);
+  if(window.ttq) ttq.track('ClickButton',{content_name:'scan_feedback_reason_'+reason,content_type:'scanner_standalone'});
+  var box=document.getElementById('fbBox');
+  if(!box) return;
+  var msg = reason==='wrong_card'
+      ? 'Try editing the search below &mdash; it re-prices instantly.'
+    : reason==='bad_price'
+      ? 'These are asking prices; the SOLD link above shows what buyers actually paid.'
+      : 'Thanks for flagging it.';
+  box.innerHTML='<div class="fb-thanks">Got it &mdash; logged.<br><span style="font-size:11.5px">'+msg+'</span></div>';
+}
+
 /* ===== SEARCH-WE-RAN: edit + re-price ===== */
 function sqEdit(){
   var box=document.getElementById('sqBody');
@@ -415,6 +495,7 @@ function buildRoiRows(d, avgPrice){
 
 function renderResult(d){
   lastResult = d;
+  fbSent = false;
   var el=document.getElementById('result');var s=computeStats(d);
   var cardName=d.cardName||'Card';var meta=[d.year,d.brand,d.set].filter(Boolean).join(' · ')||'Trading card';var hasData=s.avg>0;
   currentQuery = d.searchQuery || d.query || cardName;
@@ -436,6 +517,10 @@ function renderResult(d){
       +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
       +'</div>';
 
+    if(d.priceNote && d.matchQuality && d.matchQuality!=='exact'){
+      html+='<div class="pnote"><span class="ico">&#9888;&#65039;</span><span>'+esc(d.priceNote)+'</span></div>';
+    }
+
     html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
       +'<span class="sold-check-main">↗ See what it actually SOLD for</span>'
       +'<span class="sold-check-sub">These are asking prices. Sold comps are the real answer.</span>'
@@ -443,10 +528,18 @@ function renderResult(d){
 
     var rawG=d.raw, grG=d.graded;
     if(rawG && grG && (rawG.count>0 || grG.count>0)){
-      html+='<div class="rsplit">';
-      html+='<div class="rsplit-box"><div class="rsplit-lbl">Raw copies</div><div class="rsplit-val">'+(rawG.count?fmtMoney(rawG.median):'—')+'</div><div class="rsplit-sub">'+(rawG.count?(rawG.count+' listing'+(rawG.count>1?'s':'')):'none found')+'</div></div>';
-      html+='<div class="rsplit-box"><div class="rsplit-lbl">Graded slabs</div><div class="rsplit-val">'+(grG.count?fmtMoney(grG.median):'—')+'</div><div class="rsplit-sub">'+(grG.count?(grG.count+' listing'+(grG.count>1?'s':'')):'none found')+'</div></div>';
-      html+='</div>';
+      /* A single listing is not a price. Show the count, withhold the number. */
+      var splitBox=function(label,g){
+        var enough = g && g.count >= 3;
+        var val = (!g || !g.count) ? '\u2014' : (enough ? fmtMoney(g.median) : '\u2014');
+        var sub = (!g || !g.count) ? 'none found'
+                : enough ? (g.count+' listing'+(g.count>1?'s':''))
+                : 'only '+g.count+' listing'+(g.count>1?'s':'')+' \u2014 not enough';
+        return '<div class="rsplit-box"><div class="rsplit-lbl">'+label+'</div>'
+             +'<div class="rsplit-val">'+val+'</div>'
+             +'<div class="rsplit-sub">'+sub+'</div></div>';
+      };
+      html+='<div class="rsplit">'+splitBox('Raw copies',rawG)+splitBox('Graded slabs',grG)+'</div>';
     }
 
     var rows=buildRoiRows(d,s.avg);
@@ -459,6 +552,16 @@ function renderResult(d){
   } else {
     html+='<div class="rnodata"><b>No listings found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
   }
+
+  /* ===== SCAN FEEDBACK ===== */
+  html+='<div class="fb" id="fbBox">'
+    +'<div class="fb-q">Did we get this card right?</div>'
+    +'<div class="fb-row">'
+      +'<button class="fb-btn up" onclick="cgFeedback(\'up\')">&#128077; Yes</button>'
+      +'<button class="fb-btn" onclick="cgFeedback(\'down\')">&#128078; No</button>'
+    +'</div>'
+    +'<div class="fb-sub">One tap. It tells us which cards the scanner gets wrong.</div>'
+  +'</div>';
 
   /* ===== SEARCH-WE-RAN BOX ===== */
   html+='<div class="sq">'
