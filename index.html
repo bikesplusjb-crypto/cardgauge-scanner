@@ -63,9 +63,35 @@ input[type=file]{display:none;}
 .scanframe .tr{top:0;right:0;border-left:none;border-bottom:none;border-top-right-radius:8px;}
 .scanframe .bl{bottom:0;left:0;border-right:none;border-top:none;border-bottom-left-radius:8px;}
 .scanframe .br{bottom:0;right:0;border-left:none;border-top:none;border-bottom-right-radius:8px;}
-.scanframe .scanline{position:absolute;left:8px;right:8px;height:2px;top:8px;background:linear-gradient(90deg,transparent,var(--green),transparent);box-shadow:0 0 10px 2px rgba(34,197,94,.55);border-radius:2px;animation:scanSweep 2.4s ease-in-out infinite;}
+.scanframe .scanline{position:absolute;z-index:3;left:8px;right:8px;height:2px;top:8px;background:linear-gradient(90deg,transparent,var(--green),transparent);box-shadow:0 0 10px 2px rgba(34,197,94,.55);border-radius:2px;animation:scanSweep 2.4s ease-in-out infinite;}
 @keyframes scanSweep{0%{top:8px;opacity:0;}12%{opacity:1;}50%{top:calc(100% - 10px);opacity:1;}88%{opacity:1;}100%{top:8px;opacity:0;}}
-.scanframe .fcard{position:absolute;inset:20px;border-radius:6px;background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(34,197,94,.06));border:1px solid rgba(148,163,184,.12);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.6;}
+/* The placeholder card. Drawn rather than an emoji so it reads as an
+   actual trading card at a glance: refractor sheen, a player silhouette,
+   a nameplate and a serial number. */
+.scanframe .fcard{position:absolute;inset:9px;border-radius:7px;overflow:hidden;
+  background:linear-gradient(158deg,#14293e 0%,#0b1826 55%,#152e45 100%);
+  border:1px solid rgba(148,163,184,.22);}
+.scanframe .fcard::after{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(115deg,rgba(255,255,255,.07) 0 2px,transparent 2px 14px);}
+.scanframe .holo{position:absolute;inset:0;mix-blend-mode:screen;
+  background:linear-gradient(118deg,transparent 20%,rgba(34,197,94,.30) 38%,
+    rgba(120,200,255,.22) 48%,rgba(245,158,11,.20) 58%,transparent 76%);}
+.scanframe .bust{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);
+  width:52px;height:60px;}
+.scanframe .bust i{position:absolute;left:50%;top:0;transform:translateX(-50%);
+  width:21px;height:22px;border-radius:52% 52% 46% 46%;display:block;
+  background:linear-gradient(180deg,rgba(234,240,246,.42),rgba(234,240,246,.18));}
+.scanframe .bust b{position:absolute;left:0;right:0;bottom:0;height:36px;display:block;
+  background:linear-gradient(180deg,rgba(234,240,246,.30),rgba(234,240,246,.05));
+  clip-path:polygon(34% 0%,66% 0%,100% 44%,100% 100%,0% 100%,0% 44%);
+  border-radius:4px 4px 0 0;}
+.scanframe .plate{position:absolute;left:11px;right:11px;bottom:10px;}
+.scanframe .plate u{display:block;height:5px;width:72%;border-radius:2px;
+  background:var(--green);opacity:.85;text-decoration:none;}
+.scanframe .plate s{display:block;height:3px;width:44%;border-radius:2px;margin-top:4px;
+  background:rgba(234,240,246,.3);text-decoration:none;}
+.scanframe .serial{position:absolute;top:7px;right:8px;font-family:var(--fm);
+  font-size:8px;letter-spacing:.06em;color:var(--green);opacity:.85;}
 .upload:hover .corner{border-color:var(--green);box-shadow:0 0 8px rgba(34,197,94,.4);}
 .upload-title{font-family:var(--f);font-weight:800;font-size:17px;color:var(--text);margin-bottom:5px;}
 .upload-sub{font-size:12.5px;color:var(--text3);}
@@ -220,7 +246,12 @@ input[type=file]{display:none;}
     <label class="upload" id="upload" for="fileInput">
       <img class="preview" id="preview" alt=""/>
       <div class="scanframe" id="upIcon">
-        <div class="fcard">🃏</div>
+        <div class="fcard">
+          <div class="holo"></div>
+          <div class="serial">/99</div>
+          <div class="bust"><i></i><b></b></div>
+          <div class="plate"><u></u><s></s></div>
+        </div>
         <div class="corner tl"></div>
         <div class="corner tr"></div>
         <div class="corner bl"></div>
