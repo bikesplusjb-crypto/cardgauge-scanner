@@ -128,6 +128,18 @@ input[type=file]{display:none;}
 .roi-note{font-size:11px;color:var(--text3);text-align:center;margin-top:12px;line-height:1.5;}
 
 /* ===== SEARCH-WE-RAN BOX ===== */
+/* ===== ADD THE BACK — shown only when the front scan was uncertain ===== */
+.backask{border-top:1px solid var(--line);background:rgba(59,130,246,.07);padding:15px 16px;}
+.backask-q{font-size:13px;font-weight:800;color:var(--bone);margin-bottom:5px;}
+.backask-sub{font-size:11.5px;color:var(--dim);line-height:1.5;margin-bottom:11px;}
+.backask-btn{display:block;width:100%;padding:12px;border-radius:10px;border:none;
+  background:var(--blue);color:#fff;font-family:var(--f);font-size:13.5px;font-weight:800;
+  cursor:pointer;text-align:center;transition:all .18s;}
+.backask-btn:hover{filter:brightness(1.1);}
+.backask-btn:disabled{opacity:.6;cursor:not-allowed;}
+.backask-thumb{max-width:72px;max-height:100px;border-radius:6px;border:1px solid var(--border2);
+  display:block;margin:0 auto 10px;}
+
 /* ===== PRICE NOTE ===== */
 .pnote{padding:12px 16px;font-size:12px;line-height:1.5;font-weight:600;
   display:flex;gap:8px;align-items:flex-start;
@@ -219,6 +231,7 @@ input[type=file]{display:none;}
       <div class="upload-sub">Center the card in frame — front works best</div>
     </label>
     <input type="file" id="fileInput" accept="image/*"/>
+    <input type="file" id="backInput" accept="image/*" style="display:none"/>
     <button class="scan-btn" id="scanBtn">🔍 Scan This Card</button>
     <div class="accuracy-note">📸 Quick front-only scan. For vintage, Pokémon, or tricky cards, the full front + back scanner at <a href="https://www.cardgauge.com/card-scanner" target="_top" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'accuracy_note_to_scanner',content_type:'scanner_standalone'})">CardGauge</a> is more accurate.</div>
 
@@ -318,10 +331,12 @@ function setStatus(msg,type){var el=document.getElementById('status');if(!msg){e
 var fileInput=document.getElementById('fileInput');
 var uploadBox=document.getElementById('upload');
 fileInput.addEventListener('change',function(e){var f=e.target.files&&e.target.files[0];if(f)setFile(f);});
+var backInput=document.getElementById('backInput');
+if(backInput)backInput.addEventListener('change',function(e){var f=e.target.files&&e.target.files[0];if(f)rescanWithBack(f);});
 uploadBox.addEventListener('dragover',function(e){e.preventDefault();uploadBox.classList.add('drag');});
 uploadBox.addEventListener('dragleave',function(){uploadBox.classList.remove('drag');});
 uploadBox.addEventListener('drop',function(e){e.preventDefault();uploadBox.classList.remove('drag');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)setFile(f);});
-function setFile(f){frontFile=f;var prev=document.getElementById('preview');prev.src=URL.createObjectURL(f);prev.style.display='block';document.getElementById('upIcon').style.display='none';document.getElementById('upTitle').textContent='Image ready — tap Scan';document.getElementById('scanBtn').style.display='flex';}
+function setFile(f){frontFile=f;backFile=null;var prev=document.getElementById('preview');prev.src=URL.createObjectURL(f);prev.style.display='block';document.getElementById('upIcon').style.display='none';document.getElementById('upTitle').textContent='Image ready — tap Scan';document.getElementById('scanBtn').style.display='flex';}
 document.getElementById('scanBtn').addEventListener('click',doScan);
 
 async function doScan(){
@@ -357,6 +372,82 @@ async function doSearch(){
     renderResult(d);setStatus('','');
     cgBumpCount();
   }catch(e){setStatus('❌ '+e.message,'error');}
+}
+
+/* ===== ADD THE BACK OF THE CARD =====
+   The backend already accepts a `back` image; the standalone just never
+   offered one. Rather than put a second upload box on the landing screen
+   (which would cost scans on the 80% that work first time), it's offered
+   AFTER the result, and only when the front scan looks shaky: low
+   confidence, an unknown card number, a parallel it couldn't name, or
+   too few listings to trust. */
+var backFile = null, backPending = false;
+
+function needsBack(d){
+  if(!d || d.corrected) return false;
+  if(backFile) return false;
+  var conf = String(d.confidence||'').toLowerCase();
+  if(conf.indexOf('low') === 0) return true;
+  var unknown = function(v){ return !v || /^(unknown|n\/a|none|-)$/i.test(String(v)); };
+  if(unknown(d.cardNumber)) return true;
+  if(unknown(d.year) || unknown(d.set)) return true;
+  if(d.matchQuality === 'thin' || d.matchQuality === 'base_fallback' ||
+     d.matchQuality === 'loose' || d.matchQuality === 'none') return true;
+  if((d.listingCount||0) < 3) return true;
+  return false;
+}
+
+function backReason(d){
+  var conf = String(d.confidence||'').toLowerCase();
+  if(conf.indexOf('low') === 0) return 'The front photo was hard to read.';
+  var unknown = function(v){ return !v || /^(unknown|n\/a|none|-)$/i.test(String(v)); };
+  if(unknown(d.cardNumber)) return 'We could not read the card number off the front.';
+  if(unknown(d.year) || unknown(d.set)) return 'We could not pin down the year or set from the front.';
+  if(d.matchQuality === 'base_fallback') return 'We could not find listings for this exact version.';
+  if(d.matchQuality === 'thin' || (d.listingCount||0) < 3) return 'Only a few listings matched.';
+  return 'The front alone left some doubt.';
+}
+
+function buildBackAsk(d){
+  if(!needsBack(d)) return '';
+  return '<div class="backask" id="backAsk">'
+    +'<div class="backask-q">Add the back of the card?</div>'
+    +'<div class="backask-sub">'+esc(backReason(d))
+      +' The back has the card number, set and year printed on it, so it usually settles this.</div>'
+    +'<button class="backask-btn" id="backBtn" onclick="pickBack()">&#128247; Add the back &amp; rescan</button>'
+  +'</div>';
+}
+
+function pickBack(){
+  var inp = document.getElementById('backInput');
+  if(inp) inp.click();
+}
+
+async function rescanWithBack(f){
+  if(!frontFile || !f || backPending) return;
+  backPending = true;
+  backFile = f;
+  var btn = document.getElementById('backBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '\u23f3 Rescanning with both sides\u2026'; }
+  setStatus('Rescanning with the front and back\u2026','loading');
+  if(window.ttq) ttq.track('Search',{content_type:'card_scan',content_name:'rescan_with_back'});
+  try{
+    var fd = new FormData();
+    fd.append('front', frontFile);
+    fd.append('back', f);
+    var r = await fetch(API+'/api/scan-card',{method:'POST',body:fd});
+    if(!r.ok) throw new Error('Server error '+r.status);
+    var d = await r.json();
+    if(!d.success) throw new Error(d.error||'Rescan failed');
+    d.usedBack = true;
+    renderResult(d);
+    setStatus('','');
+  }catch(e){
+    setStatus('\u274c '+e.message,'error');
+    backFile = null;
+    if(btn){ btn.disabled=false; btn.textContent='\ud83d\udcf7 Add the back & rescan'; }
+  }
+  backPending = false;
 }
 
 /* ===== SCAN FEEDBACK =====
@@ -620,6 +711,8 @@ function renderResult(d){
   } else {
     html+='<div class="rnodata"><b>No listings found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
   }
+
+  html+=buildBackAsk(d);
 
   /* ===== SCAN FEEDBACK ===== */
   html+='<div class="fb" id="fbBox">'
