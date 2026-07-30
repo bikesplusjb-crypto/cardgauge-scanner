@@ -161,6 +161,34 @@ input[type=file]{display:none;}
 .rpval.main{color:var(--green);} .rpval.low{color:var(--text2);} .rpval.high{color:var(--gold-warm);}
 .rpsub{font-family:var(--fm);font-size:8.5px;color:var(--text3);margin-top:4px;letter-spacing:.5px;}
 /* SOLD COMPS CALLOUT — the honesty line */
+/* ===== SOLD PRICES — the real answer, now the headline ===== */
+.sold-hero{background:linear-gradient(160deg,rgba(34,197,94,.12),rgba(11,22,34,.5));
+  border:1px solid rgba(34,197,94,.34);border-radius:14px;padding:18px 16px;margin-top:12px;}
+.sold-hero-lbl{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--green);margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+.sold-hero-val{font-family:var(--fbig);font-size:clamp(38px,10vw,52px);line-height:.95;color:var(--bone);}
+.sold-hero-sub{font-family:var(--fm);font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5;}
+.sold-hero-sub b{color:var(--text2);}
+.sold-range{display:inline-flex;gap:5px;margin-top:9px;font-family:var(--fm);font-size:11px;
+  color:var(--text3);}
+.sold-range b{color:var(--text2);}
+.sold-basis{display:inline-block;margin-left:10px;vertical-align:middle;padding:2px 8px;border-radius:100px;font-size:9px;
+  font-family:var(--fm);letter-spacing:.05em;background:rgba(34,197,94,.14);color:var(--green);}
+
+/* ask-vs-sold bar */
+.avs{margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;
+  padding:13px 15px;}
+.avs-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:9px;}
+.avs-side{text-align:center;flex:1;}
+.avs-k{font-family:var(--fm);font-size:9px;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--text3);margin-bottom:4px;}
+.avs-v{font-family:var(--fbig);font-size:22px;letter-spacing:.5px;}
+.avs-v.ask{color:var(--gold-warm);} .avs-v.sold{color:var(--green);}
+.avs-track{height:8px;border-radius:100px;background:var(--surface3);overflow:hidden;position:relative;}
+.avs-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--green),var(--gold-warm));}
+.avs-note{font-size:11.5px;line-height:1.5;font-weight:600;margin-top:10px;text-align:center;}
+.avs-note.over{color:var(--gold-warm);} .avs-note.under{color:var(--green);} .avs-note.fair{color:var(--text2);}
+
 .sold-check{display:block;text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(59,130,246,.04));border-top:1px solid rgba(59,130,246,.28);border-bottom:1px solid rgba(59,130,246,.28);padding:14px 16px;text-align:center;transition:all .2s;}
 .sold-check:hover{background:rgba(59,130,246,.18);}
 .sold-check-main{display:block;font-family:var(--f);font-size:14px;font-weight:800;color:var(--blue);letter-spacing:.2px;}
@@ -698,7 +726,11 @@ function computeStats(d){
         the ladder always rises. With no anchors at all, use the multipliers.  */
 function buildRoiRows(d, avgPrice){
   var GRADES = ['7','8','9','10'];
-  var bd = Array.isArray(d.gradeBreakdown) ? d.gradeBreakdown : [];
+  // Sold prices per grade are truer than asking prices. Use them when
+  // The Card API returned them; otherwise fall back to eBay ask medians.
+  var soldBd = (d.sold && Array.isArray(d.sold.soldGradeBreakdown)) ? d.sold.soldGradeBreakdown : [];
+  var bd = soldBd.length ? soldBd : (Array.isArray(d.gradeBreakdown) ? d.gradeBreakdown : []);
+  var ladderBasis = soldBd.length ? 'sold' : 'ask';
 
   var real = {};
   bd.forEach(function(g){
@@ -727,7 +759,7 @@ function buildRoiRows(d, avgPrice){
     return { grade:g, value:0, isReal:false, count:0, company:null, clamped:false };
   });
 
-  if(inconsistent){ rows.inconsistent = true; return rows; }
+  if(inconsistent){ rows.inconsistent = true; rows.basis = ladderBasis; return rows; }
 
   // 3 — fill the gaps
   rows.forEach(function(row,i){
@@ -753,7 +785,59 @@ function buildRoiRows(d, avgPrice){
     if(row.value < 1) row.value = 0;
   });
 
+  rows.basis = ladderBasis;
   return rows;
+}
+
+/* ===== SOLD PRICE BLOCK =====
+   When The Card API returns real sold data, that becomes the headline and
+   the asking prices move to a secondary row. Sold is what buyers actually
+   paid; asks are what sellers hope for. */
+function buildSoldHero(d){
+  var sold = d.sold;
+  if(!sold || !sold.soldCount || sold.rateLimited) return '';
+  var basis = sold.soldBasis === 'raw' ? 'raw copies'
+            : sold.soldBasis === 'all' ? 'all sales' : 'recent sales';
+  var lookback = sold.lookbackDays || 14;
+  var whenNote = sold.lastSaleDate ? ('last sale '+sold.lastSaleDate) : '';
+  var basisTag = sold.soldBasis === 'raw'
+    ? '<span class="sold-basis">RAW</span>'
+    : (sold.soldGraded && sold.soldGraded.count ? '<span class="sold-basis">MIXED</span>' : '');
+  return '<div class="sold-hero">'
+    +'<div class="sold-hero-lbl">&#9679; What it actually sold for</div>'
+    +'<div class="sold-hero-val">'+fmtMoney(sold.soldMedian)+basisTag+'</div>'
+    +'<div class="sold-range">range <b>'+fmtMoney(sold.soldLow)+'</b> &ndash; <b>'+fmtMoney(sold.soldHigh)+'</b></div>'
+    +'<div class="sold-hero-sub">Median of <b>'+sold.soldCount+'</b> real sales'
+      +(sold.bestOfferCount ? ', incl. <b>'+sold.bestOfferCount+'</b> accepted best offers' : '')
+      +' &middot; past '+lookback+' days'
+      +(whenNote ? ' &middot; '+whenNote : '')+'.</div>'
+  +'</div>';
+}
+
+function buildAskVsSold(d){
+  var a = d.askVsSold;
+  if(!a) return '';
+  // fill weights the bar toward whichever is higher, purely visual
+  var hi = Math.max(a.ask, a.sold) || 1;
+  var soldPct = Math.round((a.sold / hi) * 100);
+  var cls = a.pct >= 10 ? 'over' : a.pct <= -10 ? 'under' : 'fair';
+  return '<div class="avs">'
+    +'<div class="avs-row">'
+      +'<div class="avs-side"><div class="avs-k">Buyers paid</div><div class="avs-v sold">'+fmtMoney(a.sold)+'</div></div>'
+      +'<div class="avs-side"><div class="avs-k">Sellers ask</div><div class="avs-v ask">'+fmtMoney(a.ask)+'</div></div>'
+    +'</div>'
+    +'<div class="avs-track"><div class="avs-fill" style="width:'+Math.max(8,soldPct)+'%"></div></div>'
+    +'<div class="avs-note '+cls+'">'+esc(a.note)+'</div>'
+  +'</div>';
+}
+
+/* Sold prices per grade beat asking prices for the ROI ladder. When sold
+   grade data exists, prefer it; the display code already handles the shape. */
+function soldGradeData(d){
+  if(d.sold && Array.isArray(d.sold.soldGradeBreakdown) && d.sold.soldGradeBreakdown.length){
+    return d.sold.soldGradeBreakdown;
+  }
+  return null;
 }
 
 function renderResult(d){
@@ -773,21 +857,47 @@ function renderResult(d){
   }
   html+='</div></div>';
 
+  var haveSold = !!(d.sold && d.sold.soldCount && !d.sold.rateLimited);
+
   if(hasData){
-    html+='<div class="rprices">'
-      +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
-      +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval main">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+s.cnt+' active listings</div></div>'
-      +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
-      +'</div>';
+    // Sold prices lead when we have them.
+    if(haveSold){
+      html+=buildSoldHero(d);
+      html+=buildAskVsSold(d);
+    }
+
+    // Asking prices: headline if there's no sold data, secondary if there is.
+    if(haveSold){
+      html+='<div class="rprices" style="opacity:.82">'
+        +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
+        +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval" style="color:var(--gold-warm)">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+s.cnt+' listed now</div></div>'
+        +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
+        +'</div>';
+    } else {
+      html+='<div class="rprices">'
+        +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
+        +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval main">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+s.cnt+' active listings</div></div>'
+        +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
+        +'</div>';
+    }
 
     if(d.priceNote && d.matchQuality && d.matchQuality!=='exact'){
       html+='<div class="pnote"><span class="ico">&#9888;&#65039;</span><span>'+esc(d.priceNote)+'</span></div>';
     }
 
-    html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
-      +'<span class="sold-check-main">↗ See what it actually SOLD for</span>'
-      +'<span class="sold-check-sub">These are asking prices. Sold comps are the real answer.</span>'
-      +'</a>';
+    // The sold-comps link only makes sense when we're showing asks as the
+    // headline. With real sold data on screen, it's redundant.
+    if(!haveSold){
+      html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
+        +'<span class="sold-check-main">↗ See what it actually SOLD for</span>'
+        +'<span class="sold-check-sub">These are asking prices. Sold comps are the real answer.</span>'
+        +'</a>';
+    } else {
+      html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" style="margin-top:12px;border-radius:11px" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_verify\',content_type:\'scanner_standalone\'})">'
+        +'<span class="sold-check-main">↗ See the actual sold listings on eBay</span>'
+        +'<span class="sold-check-sub">Every sale behind that number, with photos.</span>'
+        +'</a>';
+    }
 
     var rawG=d.raw, grG=d.graded;
     if(rawG && grG && (rawG.count>0 || grG.count>0)){
@@ -807,9 +917,10 @@ function renderResult(d){
 
     var rows=buildRoiRows(d,s.avg);
     var anyReal=rows.some(function(r){return r.isReal;});
-    html+='<div class="roi"><div class="roi-head">💎 '+(anyReal?'Graded asking prices — live listings':'If you graded it (rough estimate)')+'</div><div class="roi-grid">';
+    var ladderSold = rows.basis === 'sold';
+    html+='<div class="roi"><div class="roi-head">💎 '+(ladderSold?'What each grade actually SOLD for':(anyReal?'Graded asking prices — live listings':'If you graded it (rough estimate)'))+'</div><div class="roi-grid">';
     rows.forEach(function(r){
-      var sub = r.isReal ? (r.count+' live') : (r.value>0 ? (r.clamped ? 'est.' : GRADE_MULTS[r.grade]+'x est.') : 'no data');
+      var sub = r.isReal ? (r.count+(ladderSold?' sold':' live')) : (r.value>0 ? (r.clamped ? 'est.' : GRADE_MULTS[r.grade]+'x est.') : 'no data');
       html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div>'
         +'<div class="roi-val">'+(r.value>0?fmtMoney(r.value):'\u2014')+'</div>'
         +'<div class="roi-mult'+(r.isReal?' real':'')+'">'+sub+'</div></div>';
