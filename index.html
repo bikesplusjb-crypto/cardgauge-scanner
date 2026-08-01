@@ -56,15 +56,55 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .cg-count b{font-family:var(--fbig);font-size:14px;letter-spacing:.5px;color:var(--gold-warm);font-weight:400;}
 .wrap{max-width:640px;margin:0 auto;padding:20px 20px 60px;}
 .scan-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px 22px;margin-bottom:18px;position:relative;z-index:1;}
-/* Fully transparent at rest. The faint green fill was drawing a rounded rectangle against the panel behind it, and the corners of that shape were the stray brackets. The scan reticle marks the target; the box only announces itself on hover or while dragging a file. */
-.upload{position:relative;z-index:1;border:1px solid transparent;border-radius:var(--radius);padding:30px 20px;text-align:center;cursor:pointer;transition:all .2s;background:transparent;overflow:hidden;}
-/* Hover only on devices that actually hover. On a phone, :hover sticks after a tap, so the green border stayed lit once you'd opened the camera. Drag state still applies everywhere. */
+/* ===== TWO-SLOT CAPTURE =====
+   Front and back sit side by side as equals. The back used to be an
+   afterthought tucked under the front, which framed it as extra work
+   rather than as the thing that makes the answer right. It isn't extra
+   work — the back carries the card number, set and year as printed text,
+   so a two-sided scan reads data where a one-sided scan has to guess from
+   a picture. Front-only still works in one tap; it's just no longer the
+   thing the layout is steering you toward. */
+.dual{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.slot{position:relative;display:flex;flex-direction:column;align-items:center;
+  padding:13px 10px 12px;border-radius:14px;cursor:pointer;transition:all .18s;
+  border:1px dashed var(--border2);background:var(--surface2);}
+.slot.back{border-color:rgba(59,130,246,.38);background:rgba(59,130,246,.05);}
+.slot.filled{border-style:solid;border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.07);}
+.slot.drag{border-color:var(--green);background:rgba(34,197,94,.12);}
 @media (hover:hover) and (pointer:fine){
-  .upload:hover{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.07);}
-  .upload:hover .corner{border-color:var(--green);box-shadow:0 0 8px rgba(34,197,94,.4);}
+  .slot:hover{border-color:rgba(34,197,94,.5);}
+  .slot:hover .corner{box-shadow:0 0 8px rgba(34,197,94,.4);}
 }
-.upload.drag{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.07);}
-.upload img.preview{max-width:130px;max-height:180px;border-radius:8px;margin:0 auto 6px;display:none;object-fit:contain;}
+.slot-tag{font-family:var(--fm);font-size:9.5px;letter-spacing:.15em;color:var(--text3);
+  margin-bottom:9px;text-transform:uppercase;}
+.slot.filled .slot-tag{color:var(--green);}
+.slot-body{position:relative;width:100%;max-width:106px;aspect-ratio:5/7;margin-bottom:9px;}
+.slot-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  border-radius:7px;display:none;border:1px solid rgba(34,197,94,.55);}
+.slot.filled .slot-img{display:block;}
+.slot.filled .miniframe{display:none;}
+.slot-label{font-size:11.5px;font-weight:700;color:var(--text2);text-align:center;line-height:1.3;}
+.slot.filled .slot-label{color:var(--green);}
+.slot-hint{font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:3px;letter-spacing:.04em;}
+.slot.filled .slot-hint{display:none;}
+.slot-x{position:absolute;top:7px;right:7px;width:24px;height:24px;border-radius:50%;
+  border:1px solid var(--border2);background:var(--surface);color:var(--text3);
+  font-size:14px;line-height:1;cursor:pointer;display:none;padding:0;}
+.slot.filled .slot-x{display:block;}
+.slot-x:hover{border-color:var(--red);color:var(--red);}
+
+.miniframe{position:absolute;inset:0;border-radius:8px;
+  background:linear-gradient(180deg,rgba(34,197,94,.05),rgba(34,197,94,.01));}
+.miniframe .corner{position:absolute;width:19px;height:19px;border:2px solid var(--green);}
+.miniframe .scanline{left:6px;right:6px;top:6px;}
+.miniframe .flip{position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;font-size:26px;color:var(--blue);opacity:.5;}
+
+.dual-note{font-size:11.5px;line-height:1.55;color:var(--text3);text-align:center;
+  margin-top:12px;padding:0 4px;}
+.dual-note.good{color:var(--green);font-weight:700;}
+.dual-note b{color:var(--text2);}
+
 input[type=file]{display:none;}
 .scanframe{position:relative;width:118px;height:164px;margin:0 auto 16px;border-radius:10px;background:linear-gradient(180deg,rgba(34,197,94,.05),rgba(34,197,94,.01));}
 .scanframe .corner{position:absolute;width:28px;height:28px;border:3px solid var(--green);}
@@ -101,37 +141,6 @@ input[type=file]{display:none;}
   background:rgba(234,240,246,.2);text-decoration:none;}
 .scanframe .serial{position:absolute;top:7px;right:8px;font-family:var(--fm);
   font-size:8px;letter-spacing:.06em;color:var(--green);opacity:.5;}
-.upload-title{font-family:var(--f);font-weight:800;font-size:17px;color:var(--text);margin-bottom:5px;}
-.upload-sub{font-size:12.5px;color:var(--text3);}
-/* ===== BACK OF CARD SLOT =====
-   Sits directly under the front frame, not at the bottom of the results.
-   Front + back is markedly more accurate — the back carries the card
-   number, set and year as printed text — so the option belongs where the
-   decision is made. Still optional: scanning front-only is one tap.
-   This block is now the ONLY place that copy appears; the paragraph that
-   used to repeat it below the scan button has been removed. */
-.backslot{display:flex;align-items:center;gap:11px;width:100%;margin-top:11px;
-  padding:11px 13px;border-radius:11px;cursor:pointer;
-  background:rgba(59,130,246,.07);border:1px dashed rgba(59,130,246,.34);
-  transition:all .18s;}
-.backslot.filled{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.4);
-  border-style:solid;}
-.backslot-ico{width:32px;height:44px;border-radius:5px;flex-shrink:0;
-  border:1px dashed rgba(59,130,246,.45);display:flex;align-items:center;
-  justify-content:center;font-size:14px;color:var(--blue);}
-.backslot.filled .backslot-ico{border:1px solid rgba(34,197,94,.5);border-style:solid;}
-.backslot-thumb{width:32px;height:44px;border-radius:5px;object-fit:cover;flex-shrink:0;
-  border:1px solid rgba(34,197,94,.5);display:none;}
-.backslot.filled .backslot-thumb{display:block;}
-.backslot.filled .backslot-ico{display:none;}
-.backslot-txt{flex:1;min-width:0;text-align:left;}
-.backslot-t{font-size:12.5px;font-weight:800;color:var(--bone);line-height:1.25;}
-.backslot-s{font-size:11px;color:var(--dim);margin-top:3px;line-height:1.4;}
-.backslot.filled .backslot-t{color:var(--green);}
-.backslot-x{font-family:var(--fm);font-size:10px;letter-spacing:.1em;color:var(--dim);
-  border:1px solid var(--border2);border-radius:100px;padding:5px 10px;flex-shrink:0;display:none;}
-.backslot.filled .backslot-x{display:block;}
-
 .scan-btn{width:100%;margin-top:14px;padding:15px;border-radius:12px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;display:none;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
 .scan-btn:hover{background:#16a34a;}
 .scan-btn:disabled{opacity:.6;cursor:not-allowed;}
@@ -382,35 +391,50 @@ input[type=file]{display:none;}
 
 <div class="wrap">
   <div class="scan-card">
-    <label class="upload" id="upload" for="fileInput">
-      <img class="preview" id="preview" alt=""/>
-      <div class="scanframe" id="upIcon">
-        <div class="fcard">
-          <div class="holo"></div>
-          <div class="serial">/99</div>
-          <div class="bust"><i></i><b></b></div>
-          <div class="plate"><u></u><s></s></div>
+    <div class="dual">
+      <label class="slot" id="slotFront" for="fileInput">
+        <div class="slot-tag">Front</div>
+        <div class="slot-body">
+          <img class="slot-img" id="frontThumb" alt=""/>
+          <div class="miniframe">
+            <div class="fcard">
+              <div class="holo"></div>
+              <div class="serial">/99</div>
+              <div class="bust"><i></i><b></b></div>
+              <div class="plate"><u></u><s></s></div>
+            </div>
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <div class="scanline"></div>
+          </div>
         </div>
-        <div class="corner tl"></div>
-        <div class="corner tr"></div>
-        <div class="corner bl"></div>
-        <div class="corner br"></div>
-        <div class="scanline"></div>
-      </div>
-      <div class="upload-title" id="upTitle">Snap or upload a card</div>
-      <div class="upload-sub">Center the card in frame — fill it edge to edge</div>
-    </label>
+        <div class="slot-label" id="frontLabel">Tap to add</div>
+        <div class="slot-hint">required</div>
+        <button class="slot-x" onclick="clearFront(event)" aria-label="Remove front">&times;</button>
+      </label>
+
+      <label class="slot back" id="slotBack" for="backInput">
+        <div class="slot-tag">Back</div>
+        <div class="slot-body">
+          <img class="slot-img" id="backThumb" alt=""/>
+          <div class="miniframe">
+            <div class="flip">&#8635;</div>
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+          </div>
+        </div>
+        <div class="slot-label" id="backLabel">Tap to add</div>
+        <div class="slot-hint">much more accurate</div>
+        <button class="slot-x" onclick="clearBack(event)" aria-label="Remove back">&times;</button>
+      </label>
+    </div>
     <input type="file" id="fileInput" accept="image/*"/>
-    <input type="file" id="backInput" accept="image/*" style="display:none"/>
-    <label class="backslot" id="backSlot" for="backInput">
-      <div class="backslot-ico">&#8635;</div>
-      <img class="backslot-thumb" id="backThumb" alt=""/>
-      <div class="backslot-txt">
-        <div class="backslot-t" id="backSlotT">Add the back too &mdash; optional</div>
-        <div class="backslot-s" id="backSlotS">The back has the card number, set and year. Worth it on vintage, Pok&eacute;mon and parallels.</div>
-      </div>
-      <span class="backslot-x" onclick="clearBack(event)">REMOVE</span>
-    </label>
+    <input type="file" id="backInput" accept="image/*"/>
+    <div class="dual-note" id="dualNote">The back has the card number, set and year printed on it. Two sides reads that text instead of guessing from the picture.</div>
     <button class="scan-btn" id="scanBtn">🔍 Scan This Card</button>
 
     <div class="or-line">or type a card name</div>
@@ -529,59 +553,113 @@ function soldCountLabel(n){
 }
 
 var fileInput=document.getElementById('fileInput');
-var uploadBox=document.getElementById('upload');
-fileInput.addEventListener('change',function(e){var f=e.target.files&&e.target.files[0];if(f)setFile(f);});
 var backInput=document.getElementById('backInput');
-if(backInput)backInput.addEventListener('change',function(e){
+
+fileInput.addEventListener('change',function(e){
+  var f=e.target.files&&e.target.files[0]; if(f) setFrontFile(f);
+});
+backInput.addEventListener('change',function(e){
   var f=e.target.files&&e.target.files[0];
-  if(!f)return;
-  // Before a scan: just load it in. After a result: rescan straight away.
+  if(!f) return;
+  // Before a scan: load it into the slot. After a result: rescan immediately.
   if(document.getElementById('backAsk')) rescanWithBack(f);
   else setBackFile(f);
 });
-uploadBox.addEventListener('dragover',function(e){e.preventDefault();uploadBox.classList.add('drag');});
-uploadBox.addEventListener('dragleave',function(){uploadBox.classList.remove('drag');});
-uploadBox.addEventListener('drop',function(e){e.preventDefault();uploadBox.classList.remove('drag');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)setFile(f);});
-function setFile(f){
-  frontFile=f;
-  clearBack();                              // a new front means a new card
-  var prev=document.getElementById('preview');
-  prev.src=URL.createObjectURL(f); prev.style.display='block';
-  document.getElementById('upIcon').style.display='none';
-  document.getElementById('upTitle').textContent='Front ready — add the back, or scan';
-  document.getElementById('scanBtn').style.display='flex';
-  updateScanBtn();
-}
 
-/* The button says what it is about to send, so nobody scans front-only
-   by accident after adding a back image. */
-function updateScanBtn(){
+/* Drag and drop onto either slot independently. */
+function wireDrop(slotId, handler){
+  var el=document.getElementById(slotId);
+  if(!el) return;
+  el.addEventListener('dragover',function(e){e.preventDefault();el.classList.add('drag');});
+  el.addEventListener('dragleave',function(){el.classList.remove('drag');});
+  el.addEventListener('drop',function(e){
+    e.preventDefault(); el.classList.remove('drag');
+    var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(f) handler(f);
+  });
+}
+wireDrop('slotFront', function(f){ setFrontFile(f); });
+wireDrop('slotBack',  function(f){ setBackFile(f);  });
+
+function setFrontFile(f){
+  frontFile=f;
+  clearBack();                                   // a new front means a new card
+  var slot=document.getElementById('slotFront');
+  var th=document.getElementById('frontThumb');
+  if(th) th.src=URL.createObjectURL(f);
+  if(slot) slot.classList.add('filled');
+  var lbl=document.getElementById('frontLabel');
+  if(lbl) lbl.innerHTML='&#10003; Front added';
+  document.getElementById('scanBtn').style.display='flex';
+  updateCapture();
+}
+function clearFront(e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  frontFile=null;
+  if(fileInput) fileInput.value='';
+  var slot=document.getElementById('slotFront');
+  if(slot) slot.classList.remove('filled');
+  var lbl=document.getElementById('frontLabel');
+  if(lbl) lbl.textContent='Tap to add';
   var btn=document.getElementById('scanBtn');
-  if(!btn) return;
-  if(scanning){ btn.textContent='\u23f3 Scanning\u2026'; return; }
-  btn.textContent = backFile ? '\ud83d\udd0d Scan both sides' : '\ud83d\udd0d Scan this card';
+  if(btn) btn.style.display='none';
+  updateCapture();
 }
 function setBackFile(f){
   backFile=f;
-  var slot=document.getElementById('backSlot');
+  var slot=document.getElementById('slotBack');
   var th=document.getElementById('backThumb');
-  if(th){ th.src=URL.createObjectURL(f); }
+  if(th) th.src=URL.createObjectURL(f);
   if(slot) slot.classList.add('filled');
-  var t=document.getElementById('backSlotT'), sub=document.getElementById('backSlotS');
-  if(t) t.innerHTML='&#10003; Back added';
-  if(sub) sub.textContent='Both sides will be scanned — this is the accurate one.';
-  updateScanBtn();
+  var lbl=document.getElementById('backLabel');
+  if(lbl) lbl.innerHTML='&#10003; Back added';
+  updateCapture();
 }
 function clearBack(e){
   if(e){ e.preventDefault(); e.stopPropagation(); }
   backFile=null;
-  var inp=document.getElementById('backInput'); if(inp) inp.value='';
-  var slot=document.getElementById('backSlot'); if(slot) slot.classList.remove('filled');
-  var t=document.getElementById('backSlotT'), sub=document.getElementById('backSlotS');
-  if(t) t.innerHTML='Add the back too &mdash; optional';
-  if(sub) sub.innerHTML='The back has the card number, set and year. Worth it on vintage, Pok&eacute;mon and parallels.';
-  updateScanBtn();
+  if(backInput) backInput.value='';
+  var slot=document.getElementById('slotBack');
+  if(slot) slot.classList.remove('filled');
+  var lbl=document.getElementById('backLabel');
+  if(lbl) lbl.textContent='Tap to add';
+  updateCapture();
 }
+
+/* The button says exactly what it is about to send, and the note under the
+   slots changes with it — so a front-only scan is always a choice, never
+   something that happened by default. */
+function updateCapture(){
+  var btn=document.getElementById('scanBtn');
+  if(btn){
+    if(scanning){
+      btn.textContent='\u23f3 Scanning\u2026';
+    } else if(frontFile && backFile){
+      btn.textContent='\ud83d\udd0d Scan both sides';
+    } else if(frontFile){
+      btn.textContent='\ud83d\udd0d Scan front only';
+    }
+  }
+  var note=document.getElementById('dualNote');
+  if(!note) return;
+  if(frontFile && backFile){
+    note.className='dual-note good';
+    note.innerHTML='&#10003; Both sides &mdash; this is the accurate scan.';
+  } else if(frontFile){
+    note.className='dual-note';
+    note.innerHTML='Front only works. <b>Adding the back is noticeably more accurate</b> '
+      +'&mdash; the card number, set and year are printed there. It matters most on '
+      +'vintage, Pok&eacute;mon and parallels.';
+  } else {
+    note.className='dual-note';
+    note.innerHTML='The back has the card number, set and year printed on it. '
+      +'Two sides reads that text instead of guessing from the picture.';
+  }
+}
+
+/* Kept as an alias: older call sites and the rescan path still say updateScanBtn. */
+function updateScanBtn(){ updateCapture(); }
+
 document.getElementById('scanBtn').addEventListener('click',doScan);
 
 async function doScan(){
