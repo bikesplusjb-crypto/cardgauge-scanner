@@ -560,10 +560,13 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 function prettyName(q){return String(q||'').replace(/(^|\s)-\S+/g,'').replace(/\s+/g,' ').trim()||String(q||'');}
 function setStatus(msg,type){var el=document.getElementById('status');if(!msg){el.className='status';el.innerHTML='';return;}el.className='status show '+(type||'');el.innerHTML=(type==='loading'?'<div class="spinner"></div>':'')+msg;}
 
-/* "100" from a capped API is a ceiling, not a count. */
-function soldCountLabel(n){
+/* "100" from a capped API is a ceiling, not a count. The backend now
+   reports the limit it actually used (it halves it for refinements), so
+   prefer that over the local default. */
+function soldCountLabel(n, cap){
   var v = Number(n||0);
-  return (v >= SOLD_COUNT_CAP) ? (SOLD_COUNT_CAP + '+') : String(v);
+  var c = Number(cap || SOLD_COUNT_CAP);
+  return (v >= c) ? (c + '+') : String(v);
 }
 
 var fileInput=document.getElementById('fileInput');
@@ -879,7 +882,13 @@ async function repriceQuery(q, opts){
   setStatus(opts.statusText || 'Re-pricing…','loading');
   if(window.ttq) ttq.track('Search',{content_name:q,content_type:opts.trackAs||'search_correction'});
   try{
-    var r = await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
+    /* compact=1 halves the sold-record pull on the backend. A refinement
+       is a follow-up on a card we already paid full price for, and a
+       median off 50 sales is not meaningfully worse than off 100 — but
+       three chip taps at full cost is 4x the budget for one card. */
+    var url = API+'/api/card-market?query='+encodeURIComponent(q)
+            + (opts.refined ? '&compact=1' : '');
+    var r = await fetch(url);
     if(!r.ok) throw new Error('Server error '+r.status);
     var d = await r.json();
     if(!d.success) throw new Error(d.error||'Search failed');
@@ -1192,7 +1201,7 @@ function buildSoldHero(d){
     +'<div class="sold-hero-lbl">&#9679; What it actually sold for</div>'
     +'<div class="sold-hero-val">'+fmtMoney(med)+basisTag+'</div>'
     +(spreadFlagged ? spreadHtml + rangeHtml : rangeHtml)
-    +'<div class="sold-hero-sub">Median of <b>'+soldCountLabel(sold.soldCount)+'</b> real sales'
+    +'<div class="sold-hero-sub">Median of <b>'+soldCountLabel(sold.soldCount, sold.limitUsed)+'</b> real sales'
       +(sold.bestOfferCount ? ', incl. <b>'+sold.bestOfferCount+'</b> accepted best offers' : '')
       +' &middot; past '+lookback+' days'
       +(whenNote ? ' &middot; '+whenNote : '')+'.</div>'
