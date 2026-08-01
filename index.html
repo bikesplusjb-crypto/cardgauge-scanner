@@ -809,7 +809,13 @@ async function sendFeedback(vote, reason){
         p_reason: reason || null,
         p_card_name: (lastResult && lastResult.cardName) ? String(lastResult.cardName).slice(0,200) : '',
         p_search_query: String(currentQuery||'').slice(0,300),
-        p_listing_count: (lastResult && Array.isArray(lastResult.listings)) ? lastResult.listings.length : 0
+        p_listing_count: (lastResult && Array.isArray(lastResult.listings)) ? lastResult.listings.length : 0,
+        /* Whether this result came from a two-sided scan. The backend sets
+           usedBack on /api/scan-card, and rescanWithBack sets it locally.
+           A typed search has no images at all, so it's false — which is
+           correct: it wasn't a front-only scan either, and the vote still
+           tells us something about query quality. */
+        p_used_back: !!(lastResult && lastResult.usedBack)
       })
     });
   }catch(e){}
