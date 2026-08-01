@@ -188,6 +188,33 @@ input[type=file]{display:none;}
   padding:5px 11px;cursor:pointer;transition:all .18s;}
 .sold-range-toggle:hover{border-color:var(--gold);color:var(--gold);}
 
+/* ===== REFINEMENT CHIPS =====
+   Shown only when the spread warning fires. Every chip is built from a
+   count that came back in this payload, so we never offer a filter that
+   leads to an empty result. One active at a time — "PSA 10 + raw only"
+   is a contradiction, not a refinement. */
+.refine{margin-top:12px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:11px;padding:13px 14px;}
+.refine-lbl{font-family:var(--fm);font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;
+  color:var(--text3);margin-bottom:10px;}
+.refine-chips{display:flex;flex-wrap:wrap;gap:7px;}
+.refine-chip{font-family:var(--fm);font-size:11px;font-weight:600;padding:8px 13px;
+  border-radius:100px;border:1px solid var(--border2);background:var(--surface);
+  color:var(--text2);cursor:pointer;transition:all .16s;line-height:1.2;}
+.refine-chip:hover{border-color:var(--green);color:var(--green);}
+.refine-chip:disabled{opacity:.55;cursor:not-allowed;}
+.refine-chip b{color:var(--text);font-weight:800;}
+.refine-chip .n{color:var(--text3);font-weight:400;}
+.refine-chip.on{border-color:var(--green);background:rgba(34,197,94,.12);color:var(--green);}
+.refine-chip.on b,.refine-chip.on .n{color:var(--green);}
+.refine-chip.undo{border-color:var(--border2);color:var(--text3);}
+.refine-chip.undo:hover{border-color:var(--gold);color:var(--gold);}
+.refine-state{font-size:11.5px;line-height:1.5;color:var(--text2);margin-bottom:10px;}
+.refine-state b{color:var(--green);}
+.refine-thin{font-size:11.5px;line-height:1.5;font-weight:700;color:var(--gold-warm);
+  background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.3);
+  border-radius:9px;padding:9px 11px;margin-bottom:10px;}
+
 /* ask-vs-sold bar */
 .avs{margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;
   padding:13px 15px;}
@@ -399,7 +426,10 @@ const SOLD_COUNT_CAP = 100;
 
 /* A sold range this many times the median (in either direction) means the
    search is almost certainly matching more than one version of the card. */
-const WIDE_SPREAD_X = 4;
+const WIDE_SPREAD_X = 3;
+
+/* Under this many sales/listings a refined search is noise, not precision. */
+const THIN_RESULT_N = 3;
 
 /* ===== EBAY PARTNER NETWORK ===== */
 const EPN_CAMPID = '5339149252';
@@ -444,6 +474,9 @@ var frontFile = null, scanning = false;
 var lastResult = null;      // last rendered payload (for re-price merges)
 var currentQuery = '';      // the search string behind the current numbers
 var spreadFlagged = false;  // did this result trip the wide-spread warning
+var refineBase = '';        // the query before any refinement chip was applied
+var refineActive = null;    // {id,label,suffix} — at most one at a time
+var refinePrev = null;      // the unrefined result, kept so Undo is instant
 
 function fmtMoney(n){var v=Number(n||0);return v>0?'$'+Math.round(v).toLocaleString():'—';}
 function safeNum(v){var n=Number(v||0);return isFinite(n)&&n>0?n:0;}
@@ -704,36 +737,170 @@ function sqEdit(){
 function sqCancel(){
   if(lastResult) renderResult(lastResult);
 }
-async function sqReprice(){
-  var inp=document.getElementById('sqInput');
-  if(!inp)return;
-  var q=(inp.value||'').trim();
-  if(!q){setStatus('Search can\'t be empty','error');return;}
-  var go=document.getElementById('sqGo');
-  if(go){go.disabled=true;go.textContent='⏳ Re-pricing…';}
-  setStatus('Re-pricing with your search…','loading');
-  if(window.ttq)ttq.track('Search',{content_name:q,content_type:'search_correction'});
+/* One code path for every re-price: the manual EDIT box and the refinement
+   chips both land here. Keeps the scanned image and card meta, swaps in the
+   new market data. */
+var repricing = false;
+async function repriceQuery(q, opts){
+  opts = opts || {};
+  if(repricing) return false;
+  q = String(q||'').trim();
+  if(!q){ setStatus('Search can\'t be empty','error'); return false; }
+  repricing = true;
+  setStatus(opts.statusText || 'Re-pricing…','loading');
+  if(window.ttq) ttq.track('Search',{content_name:q,content_type:opts.trackAs||'search_correction'});
   try{
-    var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
-    if(!r.ok)throw new Error('Server error '+r.status);
-    var d=await r.json();
-    if(!d.success)throw new Error(d.error||'Search failed');
-    // keep the scanned image + card meta, swap in the corrected market data
-    var merged=Object.assign({},d);
+    var r = await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
+    if(!r.ok) throw new Error('Server error '+r.status);
+    var d = await r.json();
+    if(!d.success) throw new Error(d.error||'Search failed');
+    var merged = Object.assign({}, d);
     if(lastResult){
       merged.image = d.image || lastResult.image;
       merged.year  = d.year  || lastResult.year;
       merged.brand = d.brand || lastResult.brand;
       merged.set   = d.set   || lastResult.set;
     }
-    merged.cardName = prettyName(q);
+    // A refinement is still the same card, so keep the name we already had.
+    merged.cardName = opts.keepName && lastResult && lastResult.cardName
+      ? lastResult.cardName : prettyName(q);
     merged.searchQuery = d.searchQuery || q;
-    merged.corrected = true;
+    merged.corrected = !!opts.corrected;
+    merged.refined   = !!opts.refined;
     renderResult(merged);
     setStatus('','');
+    repricing = false;
+    return true;
   }catch(e){
     setStatus('❌ '+e.message,'error');
-    if(go){go.disabled=false;go.textContent='Re-price with this search';}
+    repricing = false;
+    return false;
+  }
+}
+
+async function sqReprice(){
+  var inp=document.getElementById('sqInput');
+  if(!inp)return;
+  var q=(inp.value||'').trim();
+  var go=document.getElementById('sqGo');
+  if(go){go.disabled=true;go.textContent='⏳ Re-pricing…';}
+  // A hand-typed search becomes the new baseline; old chips no longer apply.
+  refineActive = null;
+  refinePrev = null;
+  var ok = await repriceQuery(q,{
+    corrected:true,
+    statusText:'Re-pricing with your search…',
+    trackAs:'search_correction'
+  });
+  if(!ok && go){ go.disabled=false; go.textContent='Re-price with this search'; }
+}
+
+/* ===== REFINEMENT CHIPS =====
+   Card number is deliberately NOT one of these. Within a single modern set
+   every parallel shares one number — 2018 Topps Chrome Ohtani is #150
+   whether it's a base card or a superfractor — so adding it narrows
+   nothing. What actually splits a wide spread is grade and parallel, and
+   plenty of sellers leave the number out of the title entirely, so
+   requiring it would throw away real comps. These chips filter on the
+   things that do separate the sales, and each one is built from a count
+   that came back in this payload. */
+function buildRefine(d, rows){
+  if(!spreadFlagged && !refineActive) return '';
+
+  var chips = [];
+  var seen = {};
+
+  // Grades that have real data behind them.
+  (rows||[]).forEach(function(r){
+    if(!r.isReal || !r.count) return;
+    var id = 'psa'+r.grade;
+    if(seen[id]) return; seen[id]=1;
+    chips.push({
+      id:id,
+      label:'PSA '+r.grade,
+      suffix:'psa '+r.grade,
+      n:r.count + (rows.basis==='sold' ? ' sold' : ' live')
+    });
+  });
+
+  // Raw, when there are enough raw listings to stand on.
+  if(d.raw && d.raw.count >= THIN_RESULT_N && !seen.raw){
+    seen.raw = 1;
+    chips.push({
+      id:'raw',
+      label:'Raw only',
+      suffix:'-psa -bgs -sgc -cgc -graded -slab',
+      n:d.raw.count + ' listings'
+    });
+  }
+
+  // The parallel the scanner actually identified on this card.
+  if(d.parallel && String(d.parallel).trim()){
+    var p = String(d.parallel).trim();
+    var pid = 'par_'+p.toLowerCase().replace(/[^a-z0-9]+/g,'');
+    if(!seen[pid]){
+      seen[pid]=1;
+      chips.push({ id:pid, label:p, suffix:p.toLowerCase(), n:'' });
+    }
+  }
+
+  if(!chips.length && !refineActive) return '';
+
+  var html = '<div class="refine">';
+
+  // Thin-result warning takes the top slot — it's the thing to act on.
+  if(refineActive){
+    var soldN = (d.sold && d.sold.soldCount) ? d.sold.soldCount : 0;
+    var listN = Array.isArray(d.listings) ? d.listings.length : 0;
+    if(soldN < THIN_RESULT_N && listN < THIN_RESULT_N){
+      html += '<div class="refine-thin">&#9888;&#65039; That narrowed it to '
+        + (soldN || listN) + ' — too few to price from. '
+        + 'Undo it; a wide range beats a made-up number.</div>';
+    }
+    html += '<div class="refine-state">Filtered to <b>'+esc(refineActive.label)+'</b>. '
+      + 'Prices above are for that version only.</div>';
+  } else {
+    html += '<div class="refine-lbl">Narrow it down</div>';
+  }
+
+  html += '<div class="refine-chips">';
+  chips.forEach(function(c){
+    var on = refineActive && refineActive.id === c.id;
+    html += '<button class="refine-chip'+(on?' on':'')+'" '
+      + 'onclick="applyRefine(\''+esc(c.id)+'\',\''+esc(c.label).replace(/'/g,"\\'")+'\',\''
+      + esc(c.suffix).replace(/'/g,"\\'")+'\')">'
+      + '<b>'+esc(c.label)+'</b>'
+      + (c.n ? ' <span class="n">'+esc(c.n)+'</span>' : '')
+      + '</button>';
+  });
+  if(refineActive){
+    html += '<button class="refine-chip undo" onclick="undoRefine()">&#8592; Undo</button>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function applyRefine(id, label, suffix){
+  if(repricing) return;
+  if(refineActive && refineActive.id === id){ undoRefine(); return; }
+  if(!refineActive) refinePrev = lastResult;   // first refinement — remember the wide view
+  refineActive = { id:id, label:label, suffix:suffix };
+  var q = (refineBase || currentQuery) + ' ' + suffix;
+  if(window.ttq) ttq.track('ClickButton',{content_name:'refine_'+id,content_type:'scanner_standalone'});
+  repriceQuery(q,{ refined:true, keepName:true, statusText:'Filtering to '+label+'…', trackAs:'search_refine' });
+}
+
+function undoRefine(){
+  if(repricing) return;
+  refineActive = null;
+  if(window.ttq) ttq.track('ClickButton',{content_name:'refine_undo',content_type:'scanner_standalone'});
+  if(refinePrev){
+    var prev = refinePrev;
+    refinePrev = null;
+    renderResult(prev);
+    setStatus('','');
+  } else if(refineBase){
+    repriceQuery(refineBase,{ keepName:true, statusText:'Restoring the full search…', trackAs:'search_refine_undo' });
   }
 }
 
@@ -868,8 +1035,8 @@ function buildSoldHero(d){
   var spreadHtml = spreadFlagged
     ? '<div class="sold-spread">'
         +'<div class="sold-spread-t">&#9888;&#65039; Sale prices are all over the place &mdash; '
-        +'this search is probably catching more than one version of the card. '
-        +'Tap EDIT below to narrow it.</div>'
+        +'this search is catching several versions of the card. '
+        +'Pick one below to see what that version really goes for.</div>'
         +'<button class="sold-range-toggle" onclick="toggleRange(event)">SHOW FULL RANGE</button>'
       +'</div>'
     : '';
@@ -909,6 +1076,18 @@ function renderResult(d){
   var el=document.getElementById('result');var s=computeStats(d);
   var cardName=d.cardName||'Card';var meta=[d.year,d.brand,d.set].filter(Boolean).join(' · ')||'Trading card';var hasData=s.avg>0;
   currentQuery = d.searchQuery || d.query || cardName;
+
+  /* A result that isn't the product of a chip becomes the new baseline that
+     chips get appended to, and clears any stale refinement state. */
+  if(!d.refined){
+    refineBase = currentQuery;
+    refineActive = null;
+  }
+
+  /* Computed up here rather than down in the ROI section, because the
+     refinement chips are built from the same real-grade data. */
+  var rows = buildRoiRows(d, s.avg);
+
   var soldUrl = d.soldCompsUrl ? tagEbay(d.soldCompsUrl, true) : ebayLink(currentQuery, true);
   var activeUrl = ebayLink(currentQuery, false);
 
@@ -926,6 +1105,7 @@ function renderResult(d){
     // Sold prices lead when we have them.
     if(haveSold){
       html+=buildSoldHero(d);          // sets spreadFlagged
+      html+=buildRefine(d, rows);      // must follow buildSoldHero
       html+=buildAskVsSold(d);
     }
 
@@ -944,7 +1124,10 @@ function renderResult(d){
         +'</div>';
     }
 
-    if(d.priceNote && d.matchQuality && d.matchQuality!=='exact'){
+    /* The backend sends its own "these listings vary a lot" note. When our
+       spread warning has already fired we'd be telling the user the same
+       thing twice in two different voices, so only one speaks at a time. */
+    if(d.priceNote && d.matchQuality && d.matchQuality!=='exact' && !spreadFlagged){
       html+='<div class="pnote"><span class="ico">&#9888;&#65039;</span><span>'+esc(d.priceNote)+'</span></div>';
     }
 
@@ -986,7 +1169,6 @@ function renderResult(d){
     /* The grade ladder header may only claim "SOLD" when every tile on it
        is a real sale. One "est." tile under a header that says ACTUALLY
        SOLD FOR is the same bait-and-switch we built this scanner against. */
-    var rows=buildRoiRows(d,s.avg);
     var anyReal=rows.some(function(r){return r.isReal;});
     var allReal=rows.length>0 && rows.every(function(r){return r.isReal;});
     var ladderSold = rows.basis === 'sold';
@@ -1053,7 +1235,7 @@ function renderResult(d){
       +'<a class="sq-link" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'open_search_on_ebay\',content_type:\'scanner_standalone\'})">↗ Open this exact search on eBay</a>'
       +'<div class="sq-why">'
         +(spreadFlagged
-          ? 'Add the card number, the set, or the parallel to this search and the price will tighten up. <b>Tap EDIT</b> to fix it.'
+          ? 'The buttons above are the quick fix. For anything they don\'t cover — a specific parallel, a serial number, a set name — <b>tap EDIT</b> and type it in.'
           : 'Every price above comes from this search. Wrong card? Tap <b>EDIT</b> and we\'ll re-price it. We\'d rather you check our work.')
       +'</div>'
     +'</div>'
