@@ -488,7 +488,7 @@ const GRADE_COST = 25;
 
 /* Destination for the grade pre-screen CTA. VERIFY THIS PATH before deploy —
    if it 404s, the CTA is worse than not having one. */
-const GRADE_TOOL_URL = 'https://www.cardgauge.com/grade-gauge';
+const GRADE_TOOL_URL = 'https://www.cardgauge.com/grade-prescreen';
 
 /* The PSA 10 has to be worth at least this many times the raw sale before we
    suggest grading. Below it, the honest answer is "don't bother." */
@@ -1100,7 +1100,18 @@ function buildRoiRows(d, avgPrice){
 
   if(inconsistent){ rows.inconsistent = true; rows.basis = ladderBasis; return rows; }
 
-  // 3 — fill the gaps
+  /* Fill the gaps.
+
+     These used to extrapolate with hardcoded 0.72 (down) and 1.30 (up)
+     multipliers that came from nowhere and disagreed with GRADE_MULTS
+     twelve lines above. On a $498 PSA 9 that put the PSA 8 at $359 when
+     the table says $249 — a 40% overstatement, in the direction that
+     costs somebody $25 and a card. Everything now scales along the one
+     curve in GRADE_MULTS, so there's a single source of truth. */
+  var ratio = function(iTarget, iAnchor){
+    return GRADE_MULTS[GRADES[iTarget]] / GRADE_MULTS[GRADES[iAnchor]];
+  };
+
   rows.forEach(function(row,i){
     if(row.isReal) return;
 
@@ -1109,15 +1120,22 @@ function buildRoiRows(d, avgPrice){
     for(var y=0;y<anchors.length;y++){ if(anchors[y].i > i){ above = anchors[y]; break; } }
 
     if(below && above){
-      var frac = (i - below.i) / (above.i - below.i);
+      /* Interpolate along the multiplier curve rather than along the grade
+         index, so the step from 9 to 10 stays the big one it really is.
+         Monotonic by construction: the curve rises and above.v > below.v. */
+      var mLo = GRADE_MULTS[GRADES[below.i]], mHi = GRADE_MULTS[GRADES[above.i]];
+      var frac = (GRADE_MULTS[row.grade] - mLo) / (mHi - mLo);
       row.value = Math.round(below.v + (above.v - below.v) * frac);
       row.clamped = true;
+      row.from = GRADES[Math.abs(i-below.i) <= Math.abs(above.i-i) ? below.i : above.i];
     } else if(above){
-      row.value = Math.round(above.v * Math.pow(0.72, above.i - i));
+      row.value = Math.round(above.v * ratio(i, above.i));
       row.clamped = true;
+      row.from = GRADES[above.i];
     } else if(below){
-      row.value = Math.round(below.v * Math.pow(1.30, i - below.i));
+      row.value = Math.round(below.v * ratio(i, below.i));
       row.clamped = true;
+      row.from = GRADES[below.i];
     } else {
       row.value = Math.round(avgPrice * GRADE_MULTS[row.grade]);
     }
@@ -1391,7 +1409,8 @@ function renderResult(d){
 
     html+='<div class="roi"><div class="roi-head">💎 '+roiHead+'</div><div class="roi-grid">';
     rows.forEach(function(r){
-      var sub = r.isReal ? (r.count+(ladderSold?' sold':' live')) : (r.value>0 ? (r.clamped ? 'est.' : GRADE_MULTS[r.grade]+'x est.') : 'no data');
+      var sub = r.isReal ? (r.count+(ladderSold?' sold':' live'))
+              : (r.value>0 ? (r.from ? 'est. from PSA '+r.from : GRADE_MULTS[r.grade]+'x est.') : 'no data');
       html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div>'
         +'<div class="roi-val">'+(r.value>0?fmtMoney(r.value):'\u2014')+'</div>'
         +'<div class="roi-mult'+(r.isReal?' real':'')+'">'+sub+'</div></div>';
