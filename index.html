@@ -304,6 +304,31 @@ input[type=file]{display:none;}
 .sq-why{font-size:11px;color:var(--text3);margin-top:9px;line-height:1.55;}
 .sq-why b{color:var(--text2);}
 
+/* ===== ADD TO HOME SCREEN =====
+   Only ever shown after a result, because a stranger has no reason to
+   install anything before they've seen it work once. */
+.install{display:none;margin-top:18px;padding:18px 20px;border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.03));
+  border:1px solid rgba(34,197,94,.35);}
+.install.show{display:block;}
+.install-t{font-family:var(--fbig);font-size:21px;letter-spacing:.5px;color:var(--text);
+  line-height:1.1;margin-bottom:7px;}
+.install-s{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:15px;}
+.install-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+.install-btn{flex:1;min-width:150px;padding:13px 18px;border-radius:11px;border:none;
+  background:var(--green);color:#052e16;font-family:var(--f);font-size:14.5px;font-weight:800;
+  cursor:pointer;transition:all .18s;}
+.install-btn:hover{background:#16a34a;}
+.install-x{padding:13px 16px;border-radius:11px;border:1px solid var(--border2);
+  background:transparent;color:var(--text3);font-family:var(--fm);font-size:11px;
+  letter-spacing:.08em;cursor:pointer;transition:all .18s;}
+.install-x:hover{border-color:var(--text3);color:var(--text2);}
+.install-steps{font-size:12.5px;color:var(--text2);line-height:1.7;}
+.install-steps b{color:var(--text);}
+.install-steps .k{display:inline-block;font-family:var(--fm);font-size:11px;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
+  padding:2px 7px;color:var(--text);}
+
 /* ===== BOTTOM CTA (toolkit, no coins) ===== */
 .cg-cta{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.03));border:1px solid rgba(245,158,11,.35);border-radius:var(--radius-lg);padding:24px;text-align:center;margin-top:18px;}
 .cg-cta-eyebrow{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
@@ -388,14 +413,16 @@ input[type=file]{display:none;}
 
   <div class="result" id="result"></div>
 
+  <div class="install" id="installCard"></div>
+
   <div class="cg-cta">
     <div class="cg-cta-eyebrow">Built for collectors</div>
     <h3>Your whole card workstation.</h3>
-    <p>Scanning and sold prices are always free. On the full CardGauge you can also run a grade pre-screen, save cards to a binder, and track profit net of fees.</p>
+    <p>Scanning, sold prices and the grade pre-screen are free — always. Binder and profit tracking are Pro, $5/month.</p>
     <div class="cg-cta-tools">
-      <span class="cg-cta-chip">📒 Binder</span>
-      <span class="cg-cta-chip">📈 Profit tracker</span>
-      <span class="cg-cta-chip">🔎 Grade pre-screen</span>
+      <span class="cg-cta-chip">🔎 Grade pre-screen · free</span>
+      <span class="cg-cta-chip">📒 Binder · Pro</span>
+      <span class="cg-cta-chip">📈 Profit tracker · Pro</span>
     </div>
     <a href="https://www.cardgauge.com" target="_top" class="cg-cta-btn" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'cta_to_cardgauge_toolkit',content_type:'scanner_standalone'})">See the full toolkit →</a>
   </div>
@@ -1244,6 +1271,94 @@ function renderResult(d){
   html+='</div>';
   el.innerHTML=html;
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
+  // Ask only after they've seen it work.
+  if(hasData) maybeShowInstall();
+}
+
+/* ===== ADD TO HOME SCREEN =====
+   The manifest and service worker have been sitting there installable with
+   nothing ever telling anyone. Shown once, after a result — the moment the
+   thing has just proved itself — and never again once dismissed or
+   installed. Chrome/Android gets the real one-tap install; iOS Safari has
+   no install API at all, so it gets the two-step instruction instead. */
+var deferredInstall = null;
+var installShown = false;
+var INSTALL_KEY = 'cg_install_dismissed';
+
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  deferredInstall = e;
+});
+window.addEventListener('appinstalled', function(){
+  deferredInstall = null;
+  rememberInstallDismissed();
+  var c=document.getElementById('installCard');
+  if(c) c.classList.remove('show');
+});
+
+function isStandalone(){
+  try{
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true;
+  }catch(e){ return false; }
+}
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent||'') && !window.MSStream;
+}
+function installDismissed(){
+  try{ return localStorage.getItem(INSTALL_KEY) === '1'; }catch(e){ return false; }
+}
+function rememberInstallDismissed(){
+  try{ localStorage.setItem(INSTALL_KEY,'1'); }catch(e){}
+}
+
+function maybeShowInstall(){
+  if(installShown || isStandalone() || installDismissed()) return;
+  var card = document.getElementById('installCard');
+  if(!card) return;
+
+  var body;
+  if(deferredInstall){
+    body = '<div class="install-row">'
+      +'<button class="install-btn" onclick="doInstall()">Add CardGauge to my phone</button>'
+      +'<button class="install-x" onclick="dismissInstall()">NOT NOW</button>'
+    +'</div>';
+  } else if(isIOS()){
+    body = '<div class="install-steps">'
+      +'1. Tap <span class="k">Share</span> at the bottom of Safari<br>'
+      +'2. Choose <b>Add to Home Screen</b>'
+      +'</div>'
+      +'<div class="install-row" style="margin-top:14px">'
+      +'<button class="install-x" onclick="dismissInstall()">GOT IT</button>'
+      +'</div>';
+  } else {
+    return;   // desktop, or a browser that can't install — don't nag
+  }
+
+  card.innerHTML = '<div class="install-t">Price a card without opening a browser.</div>'
+    +'<div class="install-s">Put the scanner on your home screen. Opens like an app, '
+    +'works at the card show, still free.</div>'
+    + body;
+  card.classList.add('show');
+  installShown = true;
+  if(window.ttq) ttq.track('ViewContent',{content_name:'install_prompt',content_type:'scanner_standalone'});
+}
+
+async function doInstall(){
+  if(!deferredInstall) return;
+  if(window.ttq) ttq.track('ClickButton',{content_name:'install_accept',content_type:'scanner_standalone'});
+  deferredInstall.prompt();
+  try{ await deferredInstall.userChoice; }catch(e){}
+  deferredInstall = null;
+  var c=document.getElementById('installCard');
+  if(c) c.classList.remove('show');
+}
+
+function dismissInstall(){
+  rememberInstallDismissed();
+  if(window.ttq) ttq.track('ClickButton',{content_name:'install_dismiss',content_type:'scanner_standalone'});
+  var c=document.getElementById('installCard');
+  if(c) c.classList.remove('show');
 }
 
 cgLoadCount();
