@@ -1306,80 +1306,28 @@ function buildSoldHero(d){
 function buildAskVsSold(d){
   var a = d.askVsSold;
   if(!a) return '';
-  // fill weights the bar toward whichever is higher, purely visual
+
+  /* When the backend flags a mismatch, the two sides are describing
+     different versions of the card and the percentage is meaningless.
+     Show the warning instead of a bar — a bar implies a comparison that
+     isn't there. */
+  if(a.mismatch){
+    return '<div class="avs"><div class="avs-note over" style="margin-top:0">'
+      +'&#9888;&#65039; '+esc(a.note)+'</div></div>';
+  }
+
+  var suffix = a.basis === 'raw' ? ' (raw)' : a.basis === 'graded' ? ' (graded)' : '';
   var hi = Math.max(a.ask, a.sold) || 1;
   var soldPct = Math.round((a.sold / hi) * 100);
   var cls = a.pct >= 10 ? 'over' : a.pct <= -10 ? 'under' : 'fair';
   return '<div class="avs">'
     +'<div class="avs-row">'
-      +'<div class="avs-side"><div class="avs-k">Buyers paid</div><div class="avs-v sold">'+fmtMoney(a.sold)+'</div></div>'
-      +'<div class="avs-side"><div class="avs-k">Sellers ask</div><div class="avs-v ask">'+fmtMoney(a.ask)+'</div></div>'
+      +'<div class="avs-side"><div class="avs-k">Buyers paid'+suffix+'</div><div class="avs-v sold">'+fmtMoney(a.sold)+'</div></div>'
+      +'<div class="avs-side"><div class="avs-k">Sellers ask'+suffix+'</div><div class="avs-v ask">'+fmtMoney(a.ask)+'</div></div>'
     +'</div>'
     +'<div class="avs-track"><div class="avs-fill" style="width:'+Math.max(8,soldPct)+'%"></div></div>'
     +'<div class="avs-note '+cls+'">'+esc(a.note)+'</div>'
   +'</div>';
-}
-
-/* ===== BOTTOM CTA =====
-   Two versions of one panel.
-
-   The default is a menu of what CardGauge does. It's fine, and it's what a
-   stranger who hasn't scanned anything sees.
-
-   But after a result where the PSA 10 is worth multiples of the raw card,
-   the person is already asking one specific question — "is mine a 10?" — and
-   a menu is the wrong answer to it. So the panel becomes that question,
-   with the real numbers from their own scan in it, pointing at the free
-   tool that answers it.
-
-   It only swaps when the PSA 10 figure is REAL. Pitching someone into
-   grading off an interpolated estimate would be exactly the thing this
-   scanner exists not to do. */
-function defaultCtaHtml(){
-  return '<div class="cg-cta-eyebrow">Built for collectors</div>'
-    +'<h3>Your whole card workstation.</h3>'
-    +'<p>Scanning, sold prices and the grade pre-screen are free — always. '
-    +'Binder and profit tracking are Pro, $5/month.</p>'
-    +'<div class="cg-cta-tools">'
-      +'<span class="cg-cta-chip">🔎 Grade pre-screen · free</span>'
-      +'<span class="cg-cta-chip">📒 Binder · Pro</span>'
-      +'<span class="cg-cta-chip">📈 Profit tracker · Pro</span>'
-    +'</div>'
-    +'<a href="https://www.cardgauge.com" target="_top" class="cg-cta-btn" '
-    +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'cta_to_cardgauge_toolkit\',content_type:\'scanner_standalone\'})">'
-    +'See the full toolkit →</a>';
-}
-
-function renderCta(d, rows, s){
-  var panel = document.getElementById('ctaPanel');
-  if(!panel) return;
-
-  var top = null;
-  (rows||[]).forEach(function(r){
-    if(r.grade === '10' && r.isReal && r.value > 0) top = r;
-  });
-
-  // What the card is worth as it sits right now.
-  var baseline = (d && d.sold && safeNum(d.sold.soldMedian)) || safeNum(s && s.avg);
-
-  var worthIt = top && baseline > 0 && (top.value / baseline) >= GRADE_WORTH_IT_X;
-
-  if(!worthIt){
-    panel.innerHTML = defaultCtaHtml();
-    return;
-  }
-
-  var upside = Math.round(top.value - baseline - GRADE_COST);
-
-  panel.innerHTML = '<div class="cg-cta-eyebrow">Worth a look</div>'
-    +'<h3>PSA 10s are selling for '+fmtMoney(top.value)+'.<br>Is yours one?</h3>'
-    +'<p>Yours is worth about '+fmtMoney(baseline)+' raw. A 10 would be '
-    +fmtMoney(upside)+' more after the ~$'+GRADE_COST+' grading fee — but only if it grades. '
-    +'Run a free pre-screen on the photo you just took before you spend anything.</p>'
-    +'<a href="'+GRADE_TOOL_URL+'" target="_top" class="cg-cta-btn" '
-    +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'cta_grade_prescreen\',content_type:\'scanner_standalone\'})">'
-    +'Check my card\'s grade →</a>'
-    +'<div class="cg-cta-foot">Free, no signup — same as the scanner.</div>';
 }
 
 function renderResult(d){
