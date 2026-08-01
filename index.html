@@ -483,7 +483,48 @@ input[type=file]{display:none;}
 
 <script>
 const API = 'https://stock-card-api.onrender.com';
-const GRADE_MULTS = { '7':1.1, '8':1.45, '9':2.9, '10':6.5 };
+const GRADE_MULTS = { '7':1.1, '7.5':1.25, '8':1.45, '8.5':2.0, '9':2.9, '9.5':4.2, '10':6.5 };
+
+/* Which rungs the ladder shows depends on who graded the card.
+
+   PSA has no half grades above 1, so its ladder is 7/8/9/10. CGC and BGS
+   do, and in Pokemon a CGC 9.5 is the tier that actually trades — it was
+   being silently discarded, because the old code only accepted whole
+   numbers 7 through 10.
+
+   The company also has to be read from the data rather than assumed. The
+   old ladder was hardcoded "PSA" on every tile, so a card whose only real
+   sales were CGC displayed CGC money under a PSA label. That is the same
+   class of error as showing an asking price under a SOLD header. */
+const GRADE_SCALES = {
+  PSA: ['7', '8', '9', '10'],
+  CGC: ['8', '9', '9.5', '10'],
+  BGS: ['8', '9', '9.5', '10'],
+  SGC: ['7', '8', '9', '10'],
+  TAG: ['8', '9', '9.5', '10']
+};
+
+function parseGradeKey(key){
+  var parts = String(key).trim().split(/\s+/);
+  return { company: (parts[0] || '').toUpperCase(), value: parts[1] || '' };
+}
+
+/* The company with the most graded sales behind it wins the ladder.
+   Mixing a PSA 9 and a CGC 9 into one rung would be averaging two
+   different markets. */
+function dominantCompany(bd){
+  var tally = {};
+  (bd || []).forEach(function(g){
+    var p = parseGradeKey(g.grade);
+    if(!p.company) return;
+    tally[p.company] = (tally[p.company] || 0) + (g.count || 0);
+  });
+  var best = null, bestN = 0;
+  Object.keys(tally).forEach(function(c){
+    if(tally[c] > bestN && GRADE_SCALES[c]){ best = c; bestN = tally[c]; }
+  });
+  return best || 'PSA';
+}
 const GRADE_COST = 25;
 
 /* Destination for the grade pre-screen CTA. VERIFY THIS PATH before deploy —
@@ -558,7 +599,34 @@ function safeNum(v){var n=Number(v||0);return isFinite(n)&&n>0?n:0;}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 /* drop eBay negative keywords (-lot, -reprint) from the display name */
 function prettyName(q){return String(q||'').replace(/(^|\s)-\S+/g,'').replace(/\s+/g,' ').trim()||String(q||'');}
-function setStatus(msg,type){var el=document.getElementById('status');if(!msg){el.className='status';el.innerHTML='';return;}el.className='status show '+(type||'');el.innerHTML=(type==='loading'?'<div class="spinner"></div>':'')+msg;}
+/* A scan runs two stages back to back on the server: identify the card
+   from the photo, then price it. One frozen message for the whole wait
+   both undersold what was happening and made the wait feel longer, so the
+   text advances on a timer that mirrors the real sequence. */
+var statusTimer = null;
+function clearStatusStages(){
+  if(statusTimer){ clearTimeout(statusTimer); statusTimer = null; }
+}
+function setStatusStages(stages){
+  clearStatusStages();
+  if(!stages.length) return;
+  setStatus(stages[0].msg,'loading');
+  var i = 1;
+  (function next(){
+    if(i >= stages.length) return;
+    statusTimer = setTimeout(function(){
+      var el = document.getElementById('status');
+      // only advance if we're still mid-load
+      if(el && el.className.indexOf('loading') > -1){
+        setStatus(stages[i].msg,'loading');
+        i++; next();
+      }
+    }, stages[i].after);
+  })();
+}
+
+function setStatus(msg,type){
+  if(!msg || type !== 'loading') clearStatusStages();var el=document.getElementById('status');if(!msg){el.className='status';el.innerHTML='';return;}el.className='status show '+(type||'');el.innerHTML=(type==='loading'?'<div class="spinner"></div>':'')+msg;}
 
 /* "100" from a capped API is a ceiling, not a count. The backend now
    reports the limit it actually used (it halves it for refinements), so
@@ -682,7 +750,11 @@ document.getElementById('scanBtn').addEventListener('click',doScan);
 async function doScan(){
   if(!frontFile||scanning)return;
   scanning=true;var btn=document.getElementById('scanBtn');btn.disabled=true;updateScanBtn();
-  setStatus('AI identifying card + pulling live eBay listings…','loading');
+  setStatusStages([
+    { msg:'Reading the card\u2026', after:0 },
+    { msg:'Finding real sold prices\u2026', after:2600 },
+    { msg:'Checking what sellers are asking\u2026', after:6000 }
+  ]);
   if(window.ttq)ttq.track('Search',{content_type:'card_scan',content_name:'standalone_scan'});
   try{
     var fd=new FormData();fd.append('front',frontFile);
@@ -702,7 +774,10 @@ async function doScan(){
 async function doSearch(){
   var q=(document.getElementById('searchInput').value||'').trim();
   if(!q){setStatus('Enter a card name first','error');return;}
-  setStatus('Searching eBay for "'+esc(q)+'"…','loading');
+  setStatusStages([
+    { msg:'Finding real sold prices\u2026', after:0 },
+    { msg:'Checking what sellers are asking\u2026', after:3200 }
+  ]);
   if(window.ttq)ttq.track('Search',{content_name:q,content_type:'standalone_search'});
   try{
     var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
@@ -775,7 +850,10 @@ async function rescanWithBack(f){
   backFile = f;
   var btn = document.getElementById('backBtn');
   if(btn){ btn.disabled = true; btn.textContent = '\u23f3 Rescanning with both sides\u2026'; }
-  setStatus('Rescanning with the front and back\u2026','loading');
+  setStatusStages([
+    { msg:'Reading both sides\u2026', after:0 },
+    { msg:'Finding real sold prices\u2026', after:2600 }
+  ]);
   if(window.ttq) ttq.track('Search',{content_type:'card_scan',content_name:'rescan_with_back'});
   try{
     var fd = new FormData();
@@ -935,7 +1013,7 @@ async function sqReprice(){
   refinePrev = null;
   var ok = await repriceQuery(q,{
     corrected:true,
-    statusText:'Re-pricing with your search…',
+    statusText:'Re-pricing \u2014 finding sold comps\u2026',
     trackAs:'search_correction'
   });
   if(!ok && go){ go.disabled=false; go.textContent='Re-price with this search'; }
@@ -959,12 +1037,13 @@ function buildRefine(d, rows){
   // Grades that have real data behind them.
   (rows||[]).forEach(function(r){
     if(!r.isReal || !r.count) return;
-    var id = 'psa'+r.grade;
+    var comp = (rows.company || 'PSA');
+    var id = comp.toLowerCase()+r.grade;
     if(seen[id]) return; seen[id]=1;
     chips.push({
       id:id,
-      label:'PSA '+r.grade,
-      suffix:'psa '+r.grade,
+      label:comp+' '+r.grade,
+      suffix:comp.toLowerCase()+' '+r.grade,
       n:r.count + (rows.basis==='sold' ? ' sold' : ' live')
     });
   });
@@ -975,7 +1054,7 @@ function buildRefine(d, rows){
     chips.push({
       id:'raw',
       label:'Raw only',
-      suffix:'-psa -bgs -sgc -cgc -graded -slab',
+      suffix:'-psa -bgs -sgc -cgc -tag -ace -graded -slab',
       n:d.raw.count + ' listings'
     });
   }
@@ -1081,19 +1160,25 @@ function computeStats(d){
      3. Otherwise fill the gaps by interpolating between real anchors, so
         the ladder always rises. With no anchors at all, use the multipliers.  */
 function buildRoiRows(d, avgPrice){
-  var GRADES = ['7','8','9','10'];
   // Sold prices per grade are truer than asking prices. Use them when
   // The Card API returned them; otherwise fall back to eBay ask medians.
   var soldBd = (d.sold && Array.isArray(d.sold.soldGradeBreakdown)) ? d.sold.soldGradeBreakdown : [];
   var bd = soldBd.length ? soldBd : (Array.isArray(d.gradeBreakdown) ? d.gradeBreakdown : []);
   var ladderBasis = soldBd.length ? 'sold' : 'ask';
 
+  var company = dominantCompany(bd);
+  var GRADES = GRADE_SCALES[company] || GRADE_SCALES.PSA;
+
+  /* Only this company's grades feed the ladder. Blending a PSA 9 with a
+     CGC 9 would be averaging two different markets into one rung. */
   var real = {};
   bd.forEach(function(g){
-    var parts = String(g.grade).split(' ');
-    var comp = parts[0], val = parts[1];
-    if(GRADES.indexOf(val) === -1) return;
-    if(!real[val] || comp === 'PSA') real[val] = { median:g.median, count:g.count, company:comp };
+    var p = parseGradeKey(g.grade);
+    if(p.company !== company) return;
+    if(GRADES.indexOf(p.value) === -1) return;
+    if(!real[p.value] || (g.count || 0) > (real[p.value].count || 0)){
+      real[p.value] = { median:g.median, count:g.count, company:p.company };
+    }
   });
 
   var anchors = [];
@@ -1115,6 +1200,8 @@ function buildRoiRows(d, avgPrice){
     return { grade:g, value:0, isReal:false, count:0, company:null, clamped:false };
   });
 
+  rows.company = company;
+  rows.grades  = GRADES;
   if(inconsistent){ rows.inconsistent = true; rows.basis = ladderBasis; return rows; }
 
   /* Fill the gaps.
@@ -1427,8 +1514,8 @@ function renderResult(d){
     html+='<div class="roi"><div class="roi-head">💎 '+roiHead+'</div><div class="roi-grid">';
     rows.forEach(function(r){
       var sub = r.isReal ? (r.count+(ladderSold?' sold':' live'))
-              : (r.value>0 ? (r.from ? 'est. from PSA '+r.from : GRADE_MULTS[r.grade]+'x est.') : 'no data');
-      html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div>'
+              : (r.value>0 ? (r.from ? 'est. from '+(rows.company||'PSA')+' '+r.from : GRADE_MULTS[r.grade]+'x est.') : 'no data');
+      html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">'+esc(rows.company||'PSA')+' '+r.grade+'</div>'
         +'<div class="roi-val">'+(r.value>0?fmtMoney(r.value):'\u2014')+'</div>'
         +'<div class="roi-mult'+(r.isReal?' real':'')+'">'+sub+'</div></div>';
     });
