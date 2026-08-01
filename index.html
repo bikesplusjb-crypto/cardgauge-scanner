@@ -28,6 +28,9 @@
   --green:#22c55e; --red:#ef4444; --blue:#3b82f6; --gold:#f59e0b; --gold-warm:#fbbf24;
   --f:'Inter',sans-serif; --fm:'JetBrains Mono',monospace; --fbig:'Anton',sans-serif;
   --radius:12px; --radius-lg:18px;
+  /* Aliases. These three were referenced throughout the stylesheet but never
+     defined, so every rule using them silently fell back to inherited colour. */
+  --bone:#f1f5f9; --dim:#94a3b8; --line:#1e2d45;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:var(--bg) !important;}
@@ -104,7 +107,9 @@ input[type=file]{display:none;}
    Sits directly under the front frame, not at the bottom of the results.
    Front + back is markedly more accurate — the back carries the card
    number, set and year as printed text — so the option belongs where the
-   decision is made. Still optional: scanning front-only is one tap. */
+   decision is made. Still optional: scanning front-only is one tap.
+   This block is now the ONLY place that copy appears; the paragraph that
+   used to repeat it below the scan button has been removed. */
 .backslot{display:flex;align-items:center;gap:11px;width:100%;margin-top:11px;
   padding:11px 13px;border-radius:11px;cursor:pointer;
   background:rgba(59,130,246,.07);border:1px dashed rgba(59,130,246,.34);
@@ -130,8 +135,6 @@ input[type=file]{display:none;}
 .scan-btn{width:100%;margin-top:14px;padding:15px;border-radius:12px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;display:none;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
 .scan-btn:hover{background:#16a34a;}
 .scan-btn:disabled{opacity:.6;cursor:not-allowed;}
-.accuracy-note{font-size:11.5px;color:var(--text3);text-align:center;margin-top:11px;line-height:1.5;}
-.accuracy-note a{color:var(--gold);text-decoration:none;font-weight:700;}
 .or-line{text-align:center;font-family:var(--fm);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin:18px 0;position:relative;}
 .or-line::before,.or-line::after{content:'';position:absolute;top:50%;width:36%;height:1px;background:var(--border);}
 .or-line::before{left:0;}.or-line::after{right:0;}
@@ -160,8 +163,7 @@ input[type=file]{display:none;}
 .rpval{font-family:var(--fbig);font-size:22px;letter-spacing:0.5px;}
 .rpval.main{color:var(--green);} .rpval.low{color:var(--text2);} .rpval.high{color:var(--gold-warm);}
 .rpsub{font-family:var(--fm);font-size:8.5px;color:var(--text3);margin-top:4px;letter-spacing:.5px;}
-/* SOLD COMPS CALLOUT — the honesty line */
-/* ===== SOLD PRICES — the real answer, now the headline ===== */
+/* ===== SOLD PRICES — the real answer, the headline ===== */
 .sold-hero{background:linear-gradient(160deg,rgba(34,197,94,.12),rgba(11,22,34,.5));
   border:1px solid rgba(34,197,94,.34);border-radius:14px;padding:18px 16px;margin-top:12px;}
 .sold-hero-lbl{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;
@@ -172,8 +174,19 @@ input[type=file]{display:none;}
 .sold-range{display:inline-flex;gap:5px;margin-top:9px;font-family:var(--fm);font-size:11px;
   color:var(--text3);}
 .sold-range b{color:var(--text2);}
+.sold-range.hidden{display:none;}
 .sold-basis{display:inline-block;margin-left:10px;vertical-align:middle;padding:2px 8px;border-radius:100px;font-size:9px;
   font-family:var(--fm);letter-spacing:.05em;background:rgba(34,197,94,.14);color:var(--green);}
+/* A range many multiples wide isn't a range, it's a warning that the query
+   is pulling in more than one card. Say that instead of printing the number
+   and letting it undercut the median sitting right above it. */
+.sold-spread{margin-top:11px;padding:11px 12px;border-radius:10px;
+  background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.32);}
+.sold-spread-t{font-size:11.5px;font-weight:700;color:var(--gold-warm);line-height:1.5;}
+.sold-range-toggle{margin-top:9px;font-family:var(--fm);font-size:10px;letter-spacing:.09em;
+  color:var(--text3);background:transparent;border:1px solid var(--border2);border-radius:100px;
+  padding:5px 11px;cursor:pointer;transition:all .18s;}
+.sold-range-toggle:hover{border-color:var(--gold);color:var(--gold);}
 
 /* ask-vs-sold bar */
 .avs{margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;
@@ -213,8 +226,7 @@ input[type=file]{display:none;}
 .roi-mult.real{color:var(--green);font-weight:700;}
 .roi-note{font-size:11px;color:var(--text3);text-align:center;margin-top:12px;line-height:1.5;}
 
-/* ===== SEARCH-WE-RAN BOX ===== */
-/* ===== ADD THE BACK — shown only when the front scan was uncertain ===== */
+/* ===== ADD THE BACK — shown only when a PHOTO scan came back uncertain ===== */
 .backask{border-top:1px solid var(--line);background:rgba(59,130,246,.07);padding:15px 16px;}
 .backask-q{font-size:13px;font-weight:800;color:var(--bone);margin-bottom:5px;}
 .backask-sub{font-size:11.5px;color:var(--dim);line-height:1.5;margin-bottom:11px;}
@@ -247,11 +259,14 @@ input[type=file]{display:none;}
 .fb-thanks b{color:var(--gold);}
 .fb-sub{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5;}
 
+/* ===== SEARCH-WE-RAN BOX ===== */
 .sq{border-top:1px solid var(--border);background:rgba(245,158,11,.04);padding:18px 18px 20px;}
 .sq-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .sq-label{font-family:var(--fm);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--gold);}
 .sq-edit{font-family:var(--fm);font-size:10px;font-weight:600;letter-spacing:1px;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);border-radius:100px;padding:6px 13px;cursor:pointer;transition:all .2s;}
 .sq-edit:hover{border-color:var(--gold);color:var(--gold);}
+.sq.flagged{background:rgba(245,158,11,.09);}
+.sq.flagged .sq-edit{border-color:var(--gold);color:var(--gold);}
 .sq-text{font-family:var(--fm);font-size:12px;line-height:1.6;color:var(--text);background:rgba(0,0,0,.32);border:1px solid var(--border);border-radius:9px;padding:11px 12px;margin-top:11px;word-break:break-word;}
 .sq-input{width:100%;font-family:var(--fm);font-size:12px;line-height:1.6;color:var(--text);background:rgba(0,0,0,.42);border:1px solid var(--gold);border-radius:9px;padding:11px 12px;margin-top:11px;outline:none;}
 .sq-go{width:100%;margin-top:10px;padding:13px;border-radius:10px;border:none;background:var(--gold);color:#1a1206;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;}
@@ -328,19 +343,18 @@ input[type=file]{display:none;}
       <img class="backslot-thumb" id="backThumb" alt=""/>
       <div class="backslot-txt">
         <div class="backslot-t" id="backSlotT">Add the back too &mdash; optional</div>
-        <div class="backslot-s" id="backSlotS">Much more accurate. The back has the card number, set and year printed on it.</div>
+        <div class="backslot-s" id="backSlotS">The back has the card number, set and year. Worth it on vintage, Pok&eacute;mon and parallels.</div>
       </div>
       <span class="backslot-x" onclick="clearBack(event)">REMOVE</span>
     </label>
     <button class="scan-btn" id="scanBtn">🔍 Scan This Card</button>
-    <div class="accuracy-note">📸 Front only works fine. Adding the back is noticeably more accurate — the card number, set and year are printed there. Worth it on vintage, Pokémon and parallels.</div>
 
     <div class="or-line">or type a card name</div>
     <div class="search-row">
       <input id="searchInput" placeholder="e.g. 2018 Topps Update Shohei Ohtani RC" onkeydown="if(event.key==='Enter')doSearch()"/>
       <button onclick="doSearch()">Search</button>
     </div>
-    <div class="search-hint">✏️ Spelling matters — include year, brand &amp; player for the best match</div>
+    <div class="search-hint">✏️ Year + brand + player gets the best match</div>
 
     <div class="status" id="status"></div>
   </div>
@@ -377,6 +391,15 @@ input[type=file]{display:none;}
 const API = 'https://stock-card-api.onrender.com';
 const GRADE_MULTS = { '7':1.1, '8':1.45, '9':2.9, '10':6.5 };
 const GRADE_COST = 25;
+
+/* The sold-comps API returns at most this many records per query. When the
+   count comes back exactly at the cap it is a ceiling, not a total, so it
+   prints as "100+". If the plan's cap changes, change this one number. */
+const SOLD_COUNT_CAP = 100;
+
+/* A sold range this many times the median (in either direction) means the
+   search is almost certainly matching more than one version of the card. */
+const WIDE_SPREAD_X = 4;
 
 /* ===== EBAY PARTNER NETWORK ===== */
 const EPN_CAMPID = '5339149252';
@@ -420,6 +443,7 @@ async function cgBumpCount(){
 var frontFile = null, scanning = false;
 var lastResult = null;      // last rendered payload (for re-price merges)
 var currentQuery = '';      // the search string behind the current numbers
+var spreadFlagged = false;  // did this result trip the wide-spread warning
 
 function fmtMoney(n){var v=Number(n||0);return v>0?'$'+Math.round(v).toLocaleString():'—';}
 function safeNum(v){var n=Number(v||0);return isFinite(n)&&n>0?n:0;}
@@ -427,6 +451,12 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 /* drop eBay negative keywords (-lot, -reprint) from the display name */
 function prettyName(q){return String(q||'').replace(/(^|\s)-\S+/g,'').replace(/\s+/g,' ').trim()||String(q||'');}
 function setStatus(msg,type){var el=document.getElementById('status');if(!msg){el.className='status';el.innerHTML='';return;}el.className='status show '+(type||'');el.innerHTML=(type==='loading'?'<div class="spinner"></div>':'')+msg;}
+
+/* "100" from a capped API is a ceiling, not a count. */
+function soldCountLabel(n){
+  var v = Number(n||0);
+  return (v >= SOLD_COUNT_CAP) ? (SOLD_COUNT_CAP + '+') : String(v);
+}
 
 var fileInput=document.getElementById('fileInput');
 var uploadBox=document.getElementById('upload');
@@ -479,7 +509,7 @@ function clearBack(e){
   var slot=document.getElementById('backSlot'); if(slot) slot.classList.remove('filled');
   var t=document.getElementById('backSlotT'), sub=document.getElementById('backSlotS');
   if(t) t.innerHTML='Add the back too &mdash; optional';
-  if(sub) sub.textContent='Much more accurate. The back has the card number, set and year printed on it.';
+  if(sub) sub.innerHTML='The back has the card number, set and year. Worth it on vintage, Pok&eacute;mon and parallels.';
   updateScanBtn();
 }
 document.getElementById('scanBtn').addEventListener('click',doScan);
@@ -521,15 +551,18 @@ async function doSearch(){
 }
 
 /* ===== ADD THE BACK OF THE CARD =====
-   The backend already accepts a `back` image; the standalone just never
-   offered one. Rather than put a second upload box on the landing screen
-   (which would cost scans on the 80% that work first time), it's offered
-   AFTER the result, and only when the front scan looks shaky: low
-   confidence, an unknown card number, a parallel it couldn't name, or
-   too few listings to trust. */
+   Offered AFTER the result, and only when a PHOTO scan looks shaky: low
+   confidence, an unknown card number, a parallel it couldn't name, or too
+   few listings to trust.
+
+   The frontFile guard matters. A typed search has no front image at all,
+   so d.cardNumber is always empty and the old code offered to "read the
+   back" for a card the user never photographed — and the rescan it
+   promised was impossible, since rescanWithBack needs a front. */
 var backFile = null, backPending = false;
 
 function needsBack(d){
+  if(!frontFile) return false;              // typed search — there is no front
   if(!d || d.corrected) return false;
   if(backFile) return false;
   var conf = String(d.confidence||'').toLowerCase();
@@ -650,7 +683,7 @@ function cgFeedbackReason(reason){
   var msg = reason==='wrong_card'
       ? 'Try editing the search below &mdash; it re-prices instantly.'
     : reason==='bad_price'
-      ? 'These are asking prices; the SOLD link above shows what buyers actually paid.'
+      ? 'Tap the sold-listings link above to see every sale behind that number.'
       : 'Thanks for flagging it.';
   box.innerHTML='<div class="fb-thanks">Got it &mdash; logged.<br><span style="font-size:11.5px">'+msg+'</span></div>';
 }
@@ -702,6 +735,16 @@ async function sqReprice(){
     setStatus('❌ '+e.message,'error');
     if(go){go.disabled=false;go.textContent='Re-price with this search';}
   }
+}
+
+/* Toggle the full sold range into view when it's been withheld for width. */
+function toggleRange(e){
+  if(e) e.preventDefault();
+  var r=document.getElementById('soldRange');
+  if(!r) return;
+  var nowHidden = r.classList.toggle('hidden');
+  var btn = e && e.currentTarget;
+  if(btn) btn.textContent = nowHidden ? 'SHOW FULL RANGE' : 'HIDE FULL RANGE';
 }
 
 function computeStats(d){
@@ -792,22 +835,50 @@ function buildRoiRows(d, avgPrice){
 /* ===== SOLD PRICE BLOCK =====
    When The Card API returns real sold data, that becomes the headline and
    the asking prices move to a secondary row. Sold is what buyers actually
-   paid; asks are what sellers hope for. */
+   paid; asks are what sellers hope for.
+
+   The raw range is withheld when it's absurdly wide. An $18–$715 spread on
+   a $125 median doesn't inform anyone — it just makes the median look like
+   a guess, when the real story is that the search is catching several
+   different cards. Say that, and point at the fix. */
 function buildSoldHero(d){
   var sold = d.sold;
   if(!sold || !sold.soldCount || sold.rateLimited) return '';
-  var basis = sold.soldBasis === 'raw' ? 'raw copies'
-            : sold.soldBasis === 'all' ? 'all sales' : 'recent sales';
+
+  var med = safeNum(sold.soldMedian);
+  var lo  = safeNum(sold.soldLow);
+  var hi  = safeNum(sold.soldHigh);
+
+  spreadFlagged = med > 0 && (
+    (hi > 0 && hi / med >= WIDE_SPREAD_X) ||
+    (lo > 0 && med / lo >= WIDE_SPREAD_X)
+  );
+
   var lookback = sold.lookbackDays || 14;
   var whenNote = sold.lastSaleDate ? ('last sale '+sold.lastSaleDate) : '';
   var basisTag = sold.soldBasis === 'raw'
     ? '<span class="sold-basis">RAW</span>'
     : (sold.soldGraded && sold.soldGraded.count ? '<span class="sold-basis">MIXED</span>' : '');
+
+  var rangeHtml = (lo > 0 || hi > 0)
+    ? '<div class="sold-range'+(spreadFlagged?' hidden':'')+'" id="soldRange">range <b>'
+        +fmtMoney(lo)+'</b> &ndash; <b>'+fmtMoney(hi)+'</b></div>'
+    : '';
+
+  var spreadHtml = spreadFlagged
+    ? '<div class="sold-spread">'
+        +'<div class="sold-spread-t">&#9888;&#65039; Sale prices are all over the place &mdash; '
+        +'this search is probably catching more than one version of the card. '
+        +'Tap EDIT below to narrow it.</div>'
+        +'<button class="sold-range-toggle" onclick="toggleRange(event)">SHOW FULL RANGE</button>'
+      +'</div>'
+    : '';
+
   return '<div class="sold-hero">'
     +'<div class="sold-hero-lbl">&#9679; What it actually sold for</div>'
-    +'<div class="sold-hero-val">'+fmtMoney(sold.soldMedian)+basisTag+'</div>'
-    +'<div class="sold-range">range <b>'+fmtMoney(sold.soldLow)+'</b> &ndash; <b>'+fmtMoney(sold.soldHigh)+'</b></div>'
-    +'<div class="sold-hero-sub">Median of <b>'+sold.soldCount+'</b> real sales'
+    +'<div class="sold-hero-val">'+fmtMoney(med)+basisTag+'</div>'
+    +(spreadFlagged ? spreadHtml + rangeHtml : rangeHtml)
+    +'<div class="sold-hero-sub">Median of <b>'+soldCountLabel(sold.soldCount)+'</b> real sales'
       +(sold.bestOfferCount ? ', incl. <b>'+sold.bestOfferCount+'</b> accepted best offers' : '')
       +' &middot; past '+lookback+' days'
       +(whenNote ? ' &middot; '+whenNote : '')+'.</div>'
@@ -831,18 +902,10 @@ function buildAskVsSold(d){
   +'</div>';
 }
 
-/* Sold prices per grade beat asking prices for the ROI ladder. When sold
-   grade data exists, prefer it; the display code already handles the shape. */
-function soldGradeData(d){
-  if(d.sold && Array.isArray(d.sold.soldGradeBreakdown) && d.sold.soldGradeBreakdown.length){
-    return d.sold.soldGradeBreakdown;
-  }
-  return null;
-}
-
 function renderResult(d){
   lastResult = d;
   fbSent = false;
+  spreadFlagged = false;
   var el=document.getElementById('result');var s=computeStats(d);
   var cardName=d.cardName||'Card';var meta=[d.year,d.brand,d.set].filter(Boolean).join(' · ')||'Trading card';var hasData=s.avg>0;
   currentQuery = d.searchQuery || d.query || cardName;
@@ -862,7 +925,7 @@ function renderResult(d){
   if(hasData){
     // Sold prices lead when we have them.
     if(haveSold){
-      html+=buildSoldHero(d);
+      html+=buildSoldHero(d);          // sets spreadFlagged
       html+=buildAskVsSold(d);
     }
 
@@ -885,8 +948,9 @@ function renderResult(d){
       html+='<div class="pnote"><span class="ico">&#9888;&#65039;</span><span>'+esc(d.priceNote)+'</span></div>';
     }
 
-    // The sold-comps link only makes sense when we're showing asks as the
-    // headline. With real sold data on screen, it's redundant.
+    // The sold-comps link only makes sense as a callout when we're showing
+    // asks as the headline. With real sold data on screen it becomes a
+    // "check my work" link instead.
     if(!haveSold){
       html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
         +'<span class="sold-check-main">↗ See what it actually SOLD for</span>'
@@ -899,6 +963,10 @@ function renderResult(d){
         +'</a>';
     }
 
+    /* These two come from live listings, so they are asking prices — even
+       when a sold median is on screen above them. Labelling them RAW ASK /
+       GRADED ASK keeps "$130 raw ask" from being mistaken for a second,
+       contradictory version of the "$125 raw sold" figure up top. */
     var rawG=d.raw, grG=d.graded;
     if(rawG && grG && (rawG.count>0 || grG.count>0)){
       /* A single listing is not a price. Show the count, withhold the number. */
@@ -912,13 +980,29 @@ function renderResult(d){
              +'<div class="rsplit-val">'+val+'</div>'
              +'<div class="rsplit-sub">'+sub+'</div></div>';
       };
-      html+='<div class="rsplit">'+splitBox('Raw copies',rawG)+splitBox('Graded slabs',grG)+'</div>';
+      html+='<div class="rsplit">'+splitBox('Raw ask',rawG)+splitBox('Graded ask',grG)+'</div>';
     }
 
+    /* The grade ladder header may only claim "SOLD" when every tile on it
+       is a real sale. One "est." tile under a header that says ACTUALLY
+       SOLD FOR is the same bait-and-switch we built this scanner against. */
     var rows=buildRoiRows(d,s.avg);
     var anyReal=rows.some(function(r){return r.isReal;});
+    var allReal=rows.length>0 && rows.every(function(r){return r.isReal;});
     var ladderSold = rows.basis === 'sold';
-    html+='<div class="roi"><div class="roi-head">💎 '+(ladderSold?'What each grade actually SOLD for':(anyReal?'Graded asking prices — live listings':'If you graded it (rough estimate)'))+'</div><div class="roi-grid">';
+
+    var roiHead;
+    if(rows.inconsistent){
+      roiHead = 'Graded prices — real data only';
+    } else if(ladderSold && allReal){
+      roiHead = 'What each grade actually SOLD for';
+    } else if(anyReal){
+      roiHead = 'What each grade is worth';
+    } else {
+      roiHead = 'If you graded it (rough estimate)';
+    }
+
+    html+='<div class="roi"><div class="roi-head">💎 '+roiHead+'</div><div class="roi-grid">';
     rows.forEach(function(r){
       var sub = r.isReal ? (r.count+(ladderSold?' sold':' live')) : (r.value>0 ? (r.clamped ? 'est.' : GRADE_MULTS[r.grade]+'x est.') : 'no data');
       html+='<div class="roi-cell'+(r.isReal?' real':'')+'"><div class="roi-grade">PSA '+r.grade+'</div>'
@@ -929,11 +1013,14 @@ function renderResult(d){
     if(rows.inconsistent){
       roiNote = '<b style="color:var(--gold-warm)">These graded prices don\'t rise with the grade, '
         +'which usually means the search is matching more than one card.</b> '
-        +'Only grades with real listings are shown. Try narrowing the search below.';
+        +'Only grades with real data are shown. Try narrowing the search below.';
+    } else if(anyReal){
+      roiNote = (ladderSold
+        ? 'Green = real sold prices for this card. Grey = estimated from those sales.'
+        : 'Green = real listings for this card right now. Grey = estimated from the real ones.')
+        +' Grading ~$'+GRADE_COST+'. <b>Check sold comps before submitting.</b>';
     } else {
-      roiNote = (anyReal
-        ? 'Green = real listings for this card right now. Grey = estimated from the real ones.'
-        : 'Estimated from asking price × typical grade multiples.')
+      roiNote = 'Estimated from asking price × typical grade multiples.'
         +' Grading ~$'+GRADE_COST+'. <b>Check sold comps before submitting.</b>';
     }
     html+='</div><div class="roi-note">'+roiNote+'</div></div>';
@@ -953,8 +1040,10 @@ function renderResult(d){
     +'<div class="fb-sub">One tap. It tells us which cards the scanner gets wrong.</div>'
   +'</div>';
 
-  /* ===== SEARCH-WE-RAN BOX ===== */
-  html+='<div class="sq">'
+  /* ===== SEARCH-WE-RAN BOX =====
+     Highlighted when the spread warning fired, since EDIT is the fix we
+     just told them to use. */
+  html+='<div class="sq'+(spreadFlagged?' flagged':'')+'">'
     +'<div class="sq-head">'
       +'<div class="sq-label">'+(d.corrected?'Your corrected search':"Here's the search we ran")+'</div>'
       +'<button class="sq-edit" id="sqEditBtn" onclick="sqEdit()">EDIT</button>'
@@ -962,7 +1051,11 @@ function renderResult(d){
     +'<div id="sqBody">'
       +'<div class="sq-text">'+esc(currentQuery)+'</div>'
       +'<a class="sq-link" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'open_search_on_ebay\',content_type:\'scanner_standalone\'})">↗ Open this exact search on eBay</a>'
-      +'<div class="sq-why">Every price above comes from this search. Wrong card? Tap <b>EDIT</b> and we\'ll re-price it. We\'d rather you check our work.</div>'
+      +'<div class="sq-why">'
+        +(spreadFlagged
+          ? 'Add the card number, the set, or the parallel to this search and the price will tighten up. <b>Tap EDIT</b> to fix it.'
+          : 'Every price above comes from this search. Wrong card? Tap <b>EDIT</b> and we\'ll re-price it. We\'d rather you check our work.')
+      +'</div>'
     +'</div>'
   +'</div>';
 
