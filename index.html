@@ -693,6 +693,7 @@ async function doScan(){
     if(!d.success)throw new Error(d.error||'Scan failed');
     renderResult(d);setStatus('','');
     cgBumpCount();
+    logEvent('scan', d.cardName, !!backFile);
     if(window.ttq)ttq.track('ViewContent',{content_name:d.cardName,content_type:'scan_result'});
   }catch(e){setStatus('❌ '+e.message,'error');}
   scanning=false;btn.disabled=false;updateScanBtn();
@@ -712,6 +713,7 @@ async function doSearch(){
     d.searchQuery=d.searchQuery||q;
     renderResult(d);setStatus('','');
     cgBumpCount();
+    logEvent('search', d.cardName, false);
   }catch(e){setStatus('❌ '+e.message,'error');}
 }
 
@@ -1574,7 +1576,89 @@ function dismissInstall(){
   if(c) c.classList.remove('show');
 }
 
+/* ===== ATTRIBUTION =====
+   Pageviews don't answer the question that matters. Forty visitors from
+   one channel who scan nothing are worth less than ten from another who
+   scan three cards each, and no pageview tool can tell those apart. So
+   the source is captured once on arrival and attached to every event.
+
+   Sticky for the session: someone lands from a TikTok link, taps around,
+   comes back via a bare URL — that's still the TikTok visit. Falls back
+   to the referring host when there are no UTMs, so organic Google and
+   Facebook links get counted without needing to be tagged.
+
+   Nothing personal is stored: the session id is a random string that
+   dies with the tab, and only the referrer's HOST is kept, never the
+   full URL. */
+var ATTR_KEY = 'cg_attr';
+
+function readAttr(){
+  var p;
+  try { p = new URLSearchParams(window.location.search); } catch(e){ p = null; }
+
+  var fresh = {
+    utm_source:   p ? p.get('utm_source')   : null,
+    utm_medium:   p ? p.get('utm_medium')   : null,
+    utm_campaign: p ? p.get('utm_campaign') : null
+  };
+
+  // No UTMs? Fall back to who linked here.
+  if(!fresh.utm_source){
+    var ref = '';
+    try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch(e){}
+    if(ref && ref.indexOf('cardgauge.com') === -1){
+      fresh.utm_source = ref.replace(/^www\./, '');
+      fresh.utm_medium = 'referral';
+    }
+  }
+
+  // Stored attribution wins only if this visit brought nothing new.
+  try{
+    var saved = sessionStorage.getItem(ATTR_KEY);
+    if(!fresh.utm_source && saved) return JSON.parse(saved);
+    if(fresh.utm_source) sessionStorage.setItem(ATTR_KEY, JSON.stringify(fresh));
+  }catch(e){}
+
+  return fresh;
+}
+
+function attrSession(){
+  try{
+    var s = sessionStorage.getItem('cg_sid');
+    if(!s){
+      s = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem('cg_sid', s);
+    }
+    return s;
+  }catch(e){ return ''; }
+}
+
+var CG_ATTR = null;
+
+function logEvent(event, cardName, usedBack){
+  try{
+    if(!CG_ATTR) CG_ATTR = readAttr();
+    var refHost = '';
+    try { refHost = document.referrer ? new URL(document.referrer).hostname : ''; } catch(e){}
+    fetch(SB_URL+'/rest/v1/rpc/log_scan_event',{
+      method:'POST',
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({
+        p_event:         event,
+        p_utm_source:    CG_ATTR.utm_source   || null,
+        p_utm_medium:    CG_ATTR.utm_medium   || null,
+        p_utm_campaign:  CG_ATTR.utm_campaign || null,
+        p_referrer_host: refHost || null,
+        p_card_name:     cardName ? String(cardName).slice(0,200) : null,
+        p_used_back:     !!usedBack,
+        p_session_id:    attrSession()
+      })
+    }).catch(function(){});
+  }catch(e){}
+}
+
 cgLoadCount();
+logEvent('visit');
 renderCta(null, null, null);   // default panel until there's a result to react to
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
 </script>
