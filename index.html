@@ -233,6 +233,16 @@ input[type=file]{display:none;}
 .sold-check:hover{background:rgba(59,130,246,.18);}
 .sold-check-main{display:block;font-family:var(--f);font-size:14px;font-weight:800;color:var(--blue);letter-spacing:.2px;}
 .sold-check-sub{display:block;font-family:var(--fm);font-size:10px;color:var(--text3);margin-top:5px;line-height:1.5;}
+/* The check-our-work link. Visible, permanent, deliberately quieter than
+   the shop link above it — trust, not traffic. */
+.verify-link{display:block;text-decoration:none;text-align:center;
+  font-family:var(--fm);font-size:11px;font-weight:600;color:var(--text2);
+  background:rgba(59,130,246,.04);border-bottom:1px solid rgba(59,130,246,.28);
+  padding:11px 16px;transition:all .18s;}
+.verify-link:hover{color:var(--blue);background:rgba(59,130,246,.1);}
+/* Disclosure belongs beside the link it describes, not only in the footer. */
+.aff-note{text-align:center;font-family:var(--fm);font-size:9.5px;line-height:1.5;
+  color:var(--text3);padding:8px 16px 9px;background:rgba(0,0,0,.16);}
 .rnodata{padding:18px 16px;text-align:center;font-size:13px;color:var(--gold);background:rgba(245,158,11,.06);line-height:1.65;}
 .rnodata b{color:var(--gold-warm);font-size:14px;}
 .rnodata-eg{display:inline-block;margin-top:8px;font-family:var(--fm);font-size:11.5px;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;}
@@ -338,6 +348,8 @@ input[type=file]{display:none;}
 .cg-cta-chip{font-family:var(--fm);font-size:11px;font-weight:600;padding:7px 13px;border-radius:100px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);}
 .cg-cta-btn{display:inline-block;background:var(--gold);color:var(--bg);font-family:var(--f);font-weight:800;font-size:15px;padding:14px 30px;border-radius:12px;text-decoration:none;transition:all .2s;}
 .cg-cta-btn:hover{background:var(--gold-warm);transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,158,11,.35);}
+.cg-cta-foot{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:12px;letter-spacing:.04em;}
+.cg-cta h3 br{line-height:1.2;}
 .foot{text-align:center;padding:30px 20px;color:var(--text3);font-size:12px;line-height:1.7;}
 .foot a{color:var(--gold);text-decoration:none;font-weight:700;}
 .foot-links{display:flex;gap:16px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
@@ -415,17 +427,7 @@ input[type=file]{display:none;}
 
   <div class="install" id="installCard"></div>
 
-  <div class="cg-cta">
-    <div class="cg-cta-eyebrow">Built for collectors</div>
-    <h3>Your whole card workstation.</h3>
-    <p>Scanning, sold prices and the grade pre-screen are free — always. Binder and profit tracking are Pro, $5/month.</p>
-    <div class="cg-cta-tools">
-      <span class="cg-cta-chip">🔎 Grade pre-screen · free</span>
-      <span class="cg-cta-chip">📒 Binder · Pro</span>
-      <span class="cg-cta-chip">📈 Profit tracker · Pro</span>
-    </div>
-    <a href="https://www.cardgauge.com" target="_top" class="cg-cta-btn" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'cta_to_cardgauge_toolkit',content_type:'scanner_standalone'})">See the full toolkit →</a>
-  </div>
+  <div class="cg-cta" id="ctaPanel"></div>
 </div>
 
 <div class="foot">
@@ -445,6 +447,14 @@ input[type=file]{display:none;}
 const API = 'https://stock-card-api.onrender.com';
 const GRADE_MULTS = { '7':1.1, '8':1.45, '9':2.9, '10':6.5 };
 const GRADE_COST = 25;
+
+/* Destination for the grade pre-screen CTA. VERIFY THIS PATH before deploy —
+   if it 404s, the CTA is worse than not having one. */
+const GRADE_TOOL_URL = 'https://www.cardgauge.com/grade-gauge';
+
+/* The PSA 10 has to be worth at least this many times the raw sale before we
+   suggest grading. Below it, the honest answer is "don't bother." */
+const GRADE_WORTH_IT_X = 2;
 
 /* The sold-comps API returns at most this many records per query. When the
    count comes back exactly at the cap it is a ceiling, not a total, so it
@@ -1096,6 +1106,68 @@ function buildAskVsSold(d){
   +'</div>';
 }
 
+/* ===== BOTTOM CTA =====
+   Two versions of one panel.
+
+   The default is a menu of what CardGauge does. It's fine, and it's what a
+   stranger who hasn't scanned anything sees.
+
+   But after a result where the PSA 10 is worth multiples of the raw card,
+   the person is already asking one specific question — "is mine a 10?" — and
+   a menu is the wrong answer to it. So the panel becomes that question,
+   with the real numbers from their own scan in it, pointing at the free
+   tool that answers it.
+
+   It only swaps when the PSA 10 figure is REAL. Pitching someone into
+   grading off an interpolated estimate would be exactly the thing this
+   scanner exists not to do. */
+function defaultCtaHtml(){
+  return '<div class="cg-cta-eyebrow">Built for collectors</div>'
+    +'<h3>Your whole card workstation.</h3>'
+    +'<p>Scanning, sold prices and the grade pre-screen are free — always. '
+    +'Binder and profit tracking are Pro, $5/month.</p>'
+    +'<div class="cg-cta-tools">'
+      +'<span class="cg-cta-chip">🔎 Grade pre-screen · free</span>'
+      +'<span class="cg-cta-chip">📒 Binder · Pro</span>'
+      +'<span class="cg-cta-chip">📈 Profit tracker · Pro</span>'
+    +'</div>'
+    +'<a href="https://www.cardgauge.com" target="_top" class="cg-cta-btn" '
+    +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'cta_to_cardgauge_toolkit\',content_type:\'scanner_standalone\'})">'
+    +'See the full toolkit →</a>';
+}
+
+function renderCta(d, rows, s){
+  var panel = document.getElementById('ctaPanel');
+  if(!panel) return;
+
+  var top = null;
+  (rows||[]).forEach(function(r){
+    if(r.grade === '10' && r.isReal && r.value > 0) top = r;
+  });
+
+  // What the card is worth as it sits right now.
+  var baseline = (d && d.sold && safeNum(d.sold.soldMedian)) || safeNum(s && s.avg);
+
+  var worthIt = top && baseline > 0 && (top.value / baseline) >= GRADE_WORTH_IT_X;
+
+  if(!worthIt){
+    panel.innerHTML = defaultCtaHtml();
+    return;
+  }
+
+  var upside = Math.round(top.value - baseline - GRADE_COST);
+
+  panel.innerHTML = '<div class="cg-cta-eyebrow">Worth a look</div>'
+    +'<h3>PSA 10s are selling for '+fmtMoney(top.value)+'.<br>Is yours one?</h3>'
+    +'<p>Yours is worth about '+fmtMoney(baseline)+' raw. A 10 would be '
+    +fmtMoney(upside)+' more after the ~$'+GRADE_COST+' grading fee — but only if it grades. '
+    +'Run a free pre-screen on the photo you just took before you spend anything.</p>'
+    +'<a href="'+GRADE_TOOL_URL+'" target="_top" class="cg-cta-btn" '
+    +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'cta_grade_prescreen\',content_type:\'scanner_standalone\'})">'
+    +'Check my card\'s grade →</a>'
+    +'<div class="cg-cta-foot">Free, no signup — same as the scanner.</div>';
+}
+
 function renderResult(d){
   lastResult = d;
   fbSent = false;
@@ -1158,19 +1230,33 @@ function renderResult(d){
       html+='<div class="pnote"><span class="ico">&#9888;&#65039;</span><span>'+esc(d.priceNote)+'</span></div>';
     }
 
-    // The sold-comps link only makes sense as a callout when we're showing
-    // asks as the headline. With real sold data on screen it becomes a
-    // "check my work" link instead.
+    /* Link priority.
+
+       Without sold data, the sold-comps link IS the value — it's the only
+       way the user finds out what the card really goes for, so it stays the
+       big blue bar.
+
+       With sold data on screen, that job is done. The prominent link should
+       be the one a collector can act on: live listings, with the sold median
+       stated as the number to offer. The sold link stays visible directly
+       underneath as the check-our-work path — demoted, not hidden. It also
+       happens to be the only link here that can pay for the API. */
     if(!haveSold){
       html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
         +'<span class="sold-check-main">↗ See what it actually SOLD for</span>'
         +'<span class="sold-check-sub">These are asking prices. Sold comps are the real answer.</span>'
         +'</a>';
     } else {
-      html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" style="margin-top:12px;border-radius:11px" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_verify\',content_type:\'scanner_standalone\'})">'
-        +'<span class="sold-check-main">↗ See the actual sold listings on eBay</span>'
-        +'<span class="sold-check-sub">Every sale behind that number, with photos.</span>'
-        +'</a>';
+      var anchor = (d.sold && safeNum(d.sold.soldMedian))
+        ? 'Buyers are paying around '+fmtMoney(d.sold.soldMedian)+'. That\'s your number.'
+        : 'Live listings for this card.';
+      html+='<a class="sold-check" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" style="margin-top:12px;border-radius:11px 11px 0 0;border-bottom:none" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'shop_active_listings\',content_type:\'scanner_standalone\'})">'
+        +'<span class="sold-check-main">↗ Shop this card on eBay</span>'
+        +'<span class="sold-check-sub">'+esc(anchor)+'</span>'
+        +'</a>'
+        +'<a class="verify-link" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_verify\',content_type:\'scanner_standalone\'})">'
+        +'↗ Or see the sold listings behind that number</a>'
+        +'<div class="aff-note">eBay links are affiliate links — costs you nothing, and we don\'t set the prices.</div>';
     }
 
     /* These two come from live listings, so they are asking prices — even
@@ -1270,6 +1356,7 @@ function renderResult(d){
 
   html+='</div>';
   el.innerHTML=html;
+  renderCta(d, rows, s);
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
   // Ask only after they've seen it work.
   if(hasData) maybeShowInstall();
@@ -1362,6 +1449,7 @@ function dismissInstall(){
 }
 
 cgLoadCount();
+renderCta(null, null, null);   // default panel until there's a result to react to
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
 </script>
 
