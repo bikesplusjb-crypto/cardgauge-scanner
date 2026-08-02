@@ -1700,8 +1700,50 @@ if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content
 
 <script>
 if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){
-    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  /* An installed PWA is almost never fully closed on a phone, so without
+     this someone could keep looking at the version they installed weeks
+     ago while every fix shipped past them. Three parts:
+
+       - check for a new worker on every load, and again hourly for a
+         session that stays open all day
+       - reload once when a new worker takes control, guarded so a worker
+         that hands off repeatedly can't put the page in a reload loop
+       - never reload mid-scan; a refresh that eats somebody's result is
+         worse than showing them slightly stale code for one more minute */
+  var cgReloading = false;
+  var cgSwReady = null;
+
+  navigator.serviceWorker.addEventListener('message', function(e){
+    if(e.data && e.data.type === 'SW_UPDATED') cgMaybeReload();
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    cgMaybeReload();
+  });
+
+  function cgBusy(){
+    // mid-scan, mid-search, or mid-reprice — leave them alone
+    if (typeof scanning !== 'undefined' && scanning) return true;
+    if (typeof repricing !== 'undefined' && repricing) return true;
+    if (typeof backPending !== 'undefined' && backPending) return true;
+    return false;
+  }
+
+  function cgMaybeReload(){
+    if (cgReloading) return;
+    if (cgBusy()) { setTimeout(cgMaybeReload, 4000); return; }
+    // Only ever reload once per page life.
+    try { if (sessionStorage.getItem('cg_reloaded') === '1') return; } catch(e){}
+    try { sessionStorage.setItem('cg_reloaded','1'); } catch(e){}
+    cgReloading = true;
+    window.location.reload();
+  }
+
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/sw.js').then(function(reg){
+      cgSwReady = reg;
+      reg.update();                                   // check on every load
+      setInterval(function(){ reg.update(); }, 3600000); // and hourly
+    }).catch(function(){});
   });
 }
 </script>
