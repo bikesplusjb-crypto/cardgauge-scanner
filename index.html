@@ -596,6 +596,8 @@ var refinePrev = null;      // the unrefined result, kept so Undo is instant
 
 function fmtMoney(n){var v=Number(n||0);return v>0?'$'+Math.round(v).toLocaleString():'—';}
 function safeNum(v){var n=Number(v||0);return isFinite(n)&&n>0?n:0;}
+var JUNK_META=/^(unknown|n\/a|na|none|null|base|base set|common|-|\?)$/i;
+function notJunk(v){var s=String(v==null?'':v).trim();return !!s && !JUNK_META.test(s);}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 /* drop eBay negative keywords (-lot, -reprint) from the display name */
 function prettyName(q){return String(q||'').replace(/(^|\s)-\S+/g,'').replace(/\s+/g,' ').trim()||String(q||'');}
@@ -1395,7 +1397,20 @@ function renderCta(d, rows, s){
   var top = (rows && rows.length) ? rows[rows.length - 1] : null;
   var company = (rows && rows.company) || 'PSA';
 
-  var usable = rows && !rows.inconsistent && top && top.value > 0 && raw > 0;
+  /* A grading recommendation has to rest on at least one real sale or
+     listing. On a 2-listing card every rung of the ladder is a multiplier
+     applied to a guess, and "PSA 10: $137, 6.5x est." off a $21 ask is not
+     evidence — it's the same made-up confidence this scanner exists to
+     argue against. No real data anywhere in the ladder, or a sample too
+     thin to mean anything, and the panel stays out of the grading question
+     entirely. */
+  var ladderHasReal = !!(rows && rows.some && rows.some(function(r){ return r.isReal; }));
+  var thinSample    = (safeNum(s.cnt) < THIN_RESULT_N)
+                   || d.matchQuality === 'thin'
+                   || d.matchQuality === 'base_fallback';
+
+  var usable = rows && !rows.inconsistent && top && top.value > 0 && raw > 0
+            && ladderHasReal && !thinSample;
 
   if(usable){
     var topLabel = company + ' ' + top.grade;
@@ -1444,7 +1459,12 @@ function renderResult(d){
   fbSent = false;
   spreadFlagged = false;
   var el=document.getElementById('result');var s=computeStats(d);
-  var cardName=d.cardName||'Card';var meta=[d.year,d.brand,d.set].filter(Boolean).join(' · ')||'Trading card';var hasData=s.avg>0;
+  var cardName=d.cardName||'Card';
+  /* The AI returns "Unknown" for a set it can't read. That's a fine thing
+     for the backend to receive and a terrible thing to print next to a
+     price — it reads as "we don't know what this card is." Say nothing
+     instead. */
+  var meta=[d.year,d.brand,d.set].filter(notJunk).join(' · ')||'Trading card';var hasData=s.avg>0;
   currentQuery = d.searchQuery || d.query || cardName;
 
   /* A result that isn't the product of a chip becomes the new baseline that
