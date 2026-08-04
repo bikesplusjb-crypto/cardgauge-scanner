@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="robots" content="noindex,nofollow,noarchive"/>
+<title>CardGauge — Instruments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0a0e1a; --surface:#111827; --surface2:#1a2235;
+  --border:#1e2d45; --border2:#2a3a55;
+  --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+  --green:#22c55e; --red:#ef4444; --blue:#3b82f6;
+  --gold:#f59e0b; --gold-warm:#fbbf24;
+  --f:'Inter',sans-serif; --fm:'JetBrains Mono',monospace; --fbig:'Anton',sans-serif;
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;min-width:0;}
+html,body{overflow-x:hidden;}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--f);
+  padding:20px 16px 60px;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:940px;margin:0 auto;}
+
+/* ── masthead ─────────────────────────────────────────────── */
+.mast{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:22px;flex-wrap:wrap;}
+.mast h1{font-family:var(--fbig);font-size:26px;letter-spacing:.5px;font-weight:400;}
+.mast h1 span{color:var(--gold);}
+.stamp{font-family:var(--fm);font-size:10.5px;color:var(--text3);letter-spacing:.06em;}
+
+/* ── the 24h reading ──────────────────────────────────────── */
+.hero{border:1px solid var(--border2);border-radius:var(--radius);
+  background:linear-gradient(160deg,rgba(245,158,11,.09),rgba(245,158,11,.01));
+  padding:22px;margin-bottom:16px;}
+.hero-lbl{font-family:var(--fm);font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:6px;}
+.hero-n{font-family:var(--fbig);font-size:clamp(52px,15vw,82px);line-height:.92;font-weight:400;}
+.hero-unit{font-family:var(--f);font-size:14px;color:var(--text2);margin-top:8px;}
+.hero-cmp{font-family:var(--fm);font-size:11.5px;color:var(--text3);margin-top:10px;}
+.hero-cmp b{color:var(--text2);font-weight:600;}
+
+/* ── bars ─────────────────────────────────────────────────── */
+.card{border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface);padding:18px;margin-bottom:16px;}
+.card h2{font-family:var(--fm);font-size:10.5px;letter-spacing:1.6px;
+  text-transform:uppercase;color:var(--text2);margin-bottom:14px;font-weight:600;}
+.bars{display:flex;align-items:flex-end;gap:3px;height:110px;}
+.bar{flex:1;min-width:0;background:var(--border2);border-radius:2px 2px 0 0;
+  position:relative;transition:background .15s;min-height:2px;}
+.bar.today{background:var(--gold);}
+.bar:hover{background:var(--gold-warm);}
+.bar:hover .tip{opacity:1;}
+.tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
+  padding:5px 8px;font-family:var(--fm);font-size:10.5px;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .12s;z-index:5;}
+.axis{display:flex;justify-content:space-between;font-family:var(--fm);
+  font-size:10px;color:var(--text3);margin-top:8px;}
+
+/* ── stat grid ────────────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;
+  background:var(--border);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;margin-bottom:16px;}
+.cell{background:var(--surface);padding:15px;}
+.cell-lbl{font-family:var(--fm);font-size:9.5px;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--text3);margin-bottom:7px;}
+.cell-n{font-family:var(--fbig);font-size:28px;line-height:1;font-weight:400;}
+.cell-sub{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:6px;}
+
+/* ── tables ───────────────────────────────────────────────── */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:700px){.two{grid-template-columns:1fr;}}
+table{width:100%;border-collapse:collapse;table-layout:fixed;}
+td{padding:7px 0;font-size:13px;border-bottom:1px solid var(--border);
+  overflow-wrap:anywhere;vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
+  color:var(--gold-warm);width:58px;font-weight:600;}
+.empty{font-family:var(--fm);font-size:11.5px;color:var(--text3);padding:6px 0;}
+
+/* ── coverage meter ───────────────────────────────────────── */
+.meter{height:9px;border-radius:100px;background:var(--surface2);
+  overflow:hidden;display:flex;margin:4px 0 12px;}
+.meter i{display:block;height:100%;}
+.meter .has{background:var(--green);}
+.meter .none{background:var(--border2);}
+.legend{display:flex;gap:16px;font-family:var(--fm);font-size:11px;color:var(--text2);flex-wrap:wrap;}
+.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;}
+.verdict{font-size:13px;color:var(--text2);line-height:1.55;margin-top:12px;
+  padding-top:12px;border-top:1px solid var(--border);}
+.verdict b{color:var(--text);}
+
+/* ── gate + states ────────────────────────────────────────── */
+.gate{max-width:400px;margin:60px auto;text-align:center;}
+.gate p{color:var(--text2);font-size:13.5px;margin:10px 0 18px;line-height:1.5;}
+input{width:100%;background:var(--surface2);border:1px solid var(--border2);
+  border-radius:10px;padding:13px;color:var(--text);font-family:var(--fm);
+  font-size:14px;margin-bottom:10px;}
+input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+button{width:100%;background:var(--gold);color:var(--bg);border:none;
+  border-radius:10px;padding:13px;font-family:var(--f);font-weight:800;
+  font-size:15px;cursor:pointer;}
+button:hover{background:var(--gold-warm);}
+.err{border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.08);
+  border-radius:10px;padding:14px;font-size:13.5px;color:#fca5a5;line-height:1.5;}
+.loading{font-family:var(--fm);font-size:12px;color:var(--text3);padding:40px 0;text-align:center;}
+.foot{font-family:var(--fm);font-size:10.5px;color:var(--text3);
+  text-align:center;margin-top:26px;line-height:1.7;}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="loading">reading instruments…</div>
+</div>
+
+<script>
+const SB_URL = 'https://nlaqvfplecacbbdbmhxd.supabase.co';
+const SB_KEY = 'sb_publishable_9e5zQmOwtT6aJM1t-xSEyQ_jA2tDY5N';
+
+const app = document.getElementById('app');
+const esc = s => String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const num = n => Number(n||0).toLocaleString();
+
+/* Token comes from the URL so the page can be bookmarked. It is kept
+   out of any request that could be logged elsewhere — it only ever
+   goes in the POST body to Supabase. */
+function tokenFromUrl(){
+  try { return new URLSearchParams(location.search).get('k') || ''; } catch(e){ return ''; }
+}
+
+function showGate(msg){
+  app.innerHTML =
+    '<div class="gate">'
+    + '<div class="mast" style="justify-content:center;border:none;margin-bottom:0;">'
+    +   '<h1>CARD<span>GAUGE</span></h1></div>'
+    + '<p>' + (msg || 'Private instruments. Enter your access token.') + '</p>'
+    + '<input id="tk" type="password" placeholder="access token" autocomplete="off"/>'
+    + '<button id="go">Open</button>'
+    + '</div>';
+  const go = () => {
+    const v = document.getElementById('tk').value.trim();
+    if(v) location.search = '?k=' + encodeURIComponent(v);
+  };
+  document.getElementById('go').onclick = go;
+  document.getElementById('tk').addEventListener('keydown', e => { if(e.key==='Enter') go(); });
+  document.getElementById('tk').focus();
+}
+
+async function load(){
+  const token = tokenFromUrl();
+  if(!token){ showGate(); return; }
+
+  let data;
+  try{
+    const r = await fetch(SB_URL + '/rest/v1/rpc/cg_stats', {
+      method:'POST',
+      headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_token: token })
+    });
+    if(r.status === 404){
+      app.innerHTML = '<div class="err">The <b>cg_stats</b> function does not exist yet. '
+        + 'Run <b>stats_setup.sql</b> in the Supabase SQL editor first.</div>';
+      return;
+    }
+    if(!r.ok){ showGate('That token was rejected. Try again.'); return; }
+    data = await r.json();
+  }catch(e){
+    app.innerHTML = '<div class="err">Could not reach Supabase. '
+      + 'Check the connection and reload.</div>';
+    return;
+  }
+  render(data);
+}
+
+function render(d){
+  const t     = d.totals   || {};
+  const daily = d.daily    || [];
+  const cov   = d.sold_coverage || {};
+
+  /* Oldest → newest for the bar strip; the query returns newest first. */
+  const days  = daily.slice().reverse();
+  const peak  = Math.max(1, ...days.map(x => Number(x.scans)||0));
+  const today = days.length ? days[days.length-1].day : '';
+
+  const bars = days.map(x => {
+    const n = Number(x.scans)||0;
+    const h = Math.round((n/peak)*100);
+    return '<div class="bar' + (x.day===today?' today':'') + '" style="height:' + Math.max(h,2) + '%">'
+      + '<span class="tip">' + esc(x.day) + ' · ' + num(n) + ' scans</span></div>';
+  }).join('');
+
+  const rows = (arr, keyName) => arr.length
+    ? '<table>' + arr.map(x =>
+        '<tr><td>' + esc(x[keyName]) + '</td><td class="n">' + num(x.n) + '</td></tr>'
+      ).join('') + '</table>'
+    : '<div class="empty">nothing in the last 30 days</div>';
+
+  /* Sold coverage. This is the number that answers whether a bigger
+     API plan is worth paying for — an empty result means the user saw
+     asking prices only. */
+  const q   = Number(cov.queries)||0;
+  const has = Number(cov.with_data)||0;
+  const pct = q ? Math.round((has/q)*100) : 0;
+  let verdict;
+  if(!q){
+    verdict = 'No lookups cached yet. This fills in as the scanner gets used.';
+  } else if(pct >= 70){
+    verdict = '<b>' + pct + '% of lookups come back with real sold prices.</b> '
+      + 'A longer lookback window would not change much — the 14-day Starter plan is doing the job.';
+  } else if(pct >= 40){
+    verdict = '<b>' + pct + '% of lookups find sold prices.</b> '
+      + 'Worth watching. If this slides toward a third, the 30-day window on the next tier starts to pay for itself.';
+  } else {
+    verdict = '<b>Only ' + pct + '% of lookups find sold prices.</b> '
+      + 'Most people are seeing asking prices alone. That is the case for a longer lookback window — '
+      + 'trial the next tier for a month and compare this number.';
+  }
+
+  app.innerHTML =
+    '<div class="mast">'
+    +  '<h1>CARD<span>GAUGE</span> INSTRUMENTS</h1>'
+    +  '<div class="stamp">' + esc(String(d.generated_at||'').slice(0,16).replace('T',' ')) + ' UTC</div>'
+    + '</div>'
+
+    + '<div class="hero">'
+    +  '<div class="hero-lbl">SCANS · LAST 24 HOURS</div>'
+    +  '<div class="hero-n">' + num(t.scans_24h) + '</div>'
+    +  '<div class="hero-unit">from ' + num(t.people_24h) + ' ' + (Number(t.people_24h)===1?'session':'sessions') + '</div>'
+    +  '<div class="hero-cmp">48 hours <b>' + num(t.scans_48h) + '</b>'
+    +    ' &nbsp;·&nbsp; 7 days <b>' + num(t.scans_7d) + '</b>'
+    +    ' &nbsp;·&nbsp; 30 days <b>' + num(t.scans_30d) + '</b>'
+    +    ' &nbsp;·&nbsp; all time <b>' + num(t.scans_all) + '</b></div>'
+    + '</div>'
+
+    + '<div class="card">'
+    +  '<h2>Scans per day · 30 days</h2>'
+    +  '<div class="bars">' + (bars || '') + '</div>'
+    +  '<div class="axis"><span>' + esc(days.length?days[0].day:'') + '</span>'
+    +    '<span>peak ' + num(peak) + '</span>'
+    +    '<span>' + esc(today) + '</span></div>'
+    + '</div>'
+
+    + '<div class="grid">'
+    +  cell('People · 7d',  num(t.people_7d),  num(t.visits_7d) + ' visits')
+    +  cell('Scanned · 7d', num(t.scanners_7d), 'sessions that scanned')
+    +  cell('Both sides · 7d', num(t.backs_7d), 'used the back image')
+    +  cell('Public counter', num(d.counter), 'shown on the scanner')
+    + '</div>'
+
+    + '<div class="two">'
+    +  '<div class="card"><h2>Where they came from · 30d</h2>'
+    +    rows(d.sources||[], 'source') + '</div>'
+    +  '<div class="card"><h2>Most looked up · 30d</h2>'
+    +    rows(d.cards||[], 'card') + '</div>'
+    + '</div>'
+
+    + '<div class="card">'
+    +  '<h2>Sold-price coverage · 30d</h2>'
+    +  '<div class="meter">'
+    +    '<i class="has" style="width:' + pct + '%"></i>'
+    +    '<i class="none" style="width:' + (100-pct) + '%"></i>'
+    +  '</div>'
+    +  '<div class="legend">'
+    +    '<span><i class="dot" style="background:var(--green)"></i>' + num(has) + ' found sold data</span>'
+    +    '<span><i class="dot" style="background:var(--border2)"></i>' + num(cov.empty) + ' asks only</span>'
+    +  '</div>'
+    +  '<div class="verdict">' + verdict + '</div>'
+    + '</div>'
+
+    + '<div class="foot">Private. Not linked from anywhere and excluded from search engines.<br/>'
+    +  'Anyone with this URL can read these numbers.</div>';
+}
+
+function cell(label, n, sub){
+  return '<div class="cell"><div class="cell-lbl">' + esc(label) + '</div>'
+    + '<div class="cell-n">' + n + '</div>'
+    + '<div class="cell-sub">' + esc(sub) + '</div></div>';
+}
+
+load();
+</script>
+</body>
+</html>
