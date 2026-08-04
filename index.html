@@ -1330,6 +1330,115 @@ function buildAskVsSold(d){
   +'</div>';
 }
 
+/* ===== BOTTOM CTA =====
+   Reacts to whatever is on screen. Three states:
+
+     - nothing scanned yet: say what this is and what else CardGauge has
+     - the card looks worth grading: send them to the pre-screen
+     - it doesn't: say so plainly, then point at the binder
+
+   A grading claim is only made off numbers we're willing to defend. The
+   panel stays neutral when the grade ladder is inconsistent (that means
+   the search is matching more than one card), and when the top grade is
+   an estimate rather than a real sale, it says so on the panel. Telling
+   someone to spend $25 on the strength of a multiplier we made up is the
+   exact thing this scanner exists to argue against. */
+
+/* Swap this for the real binder page once its path is settled. */
+const BINDER_URL = 'https://www.cardgauge.com';
+
+function ctaHtml(o){
+  var chips = (o.chips||[]).map(function(c){
+    return '<div class="cg-cta-chip">'+esc(c)+'</div>';
+  }).join('');
+  return '<div class="cg-cta-eyebrow">'+esc(o.eyebrow)+'</div>'
+    +'<h3>'+o.title+'</h3>'
+    +'<p>'+o.body+'</p>'
+    +(chips?'<div class="cg-cta-tools">'+chips+'</div>':'')
+    +'<a class="cg-cta-btn" href="'+o.href+'" target="_top" '
+      +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\''+o.tag+'\',content_type:\'scanner_standalone\'})">'
+      +esc(o.btn)+'</a>'
+    +(o.foot?'<div class="cg-cta-foot">'+o.foot+'</div>':'');
+}
+
+function ctaDefault(){
+  return {
+    eyebrow:'THE REST OF THE TOOLKIT',
+    title:'The scanner is one tool.<br/>CardGauge is the rest.',
+    body:'Sold comps instead of asking prices, a profit tracker that remembers what you paid, '
+        +'a binder you can share, and a show log for what you bought where.',
+    chips:['Sold comps','Profit tracker','My Binder','Show log','WorthGauge'],
+    btn:'Open CardGauge',
+    href:'https://www.cardgauge.com',
+    tag:'cta_default_to_cardgauge',
+    foot:'Free to start.'
+  };
+}
+
+function renderCta(d, rows, s){
+  var el = document.getElementById('ctaPanel');
+  if(!el) return;
+
+  /* No result on screen, or a result with no prices behind it. */
+  if(!d || !s || !(s.avg > 0)){
+    el.innerHTML = ctaHtml(ctaDefault());
+    return;
+  }
+
+  /* What the card is worth ungraded, best source first: a real sold median,
+     then a raw ask median with enough listings behind it to mean something,
+     then the overall typical ask. */
+  var raw = safeNum(d.sold && d.sold.soldMedian)
+         || safeNum(d.raw && d.raw.count >= THIN_RESULT_N ? d.raw.median : 0)
+         || safeNum(s.avg);
+
+  var top = (rows && rows.length) ? rows[rows.length - 1] : null;
+  var company = (rows && rows.company) || 'PSA';
+
+  var usable = rows && !rows.inconsistent && top && top.value > 0 && raw > 0;
+
+  if(usable){
+    var topLabel = company + ' ' + top.grade;
+    var gain = top.value - raw - GRADE_COST;
+    var worthIt = (top.value >= raw * GRADE_WORTH_IT_X) && gain > 0;
+    var estNote = top.isReal
+      ? 'That ' + esc(topLabel) + ' figure is a real sale.'
+      : 'That ' + esc(topLabel) + ' figure is estimated, not a real sale \u2014 treat it as a ceiling.';
+
+    if(worthIt){
+      el.innerHTML = ctaHtml({
+        eyebrow:'WORTH A SECOND LOOK',
+        title:'A ' + esc(topLabel) + ' of this one is around ' + fmtMoney(top.value) + '.',
+        body:'Ungraded it\u2019s about ' + fmtMoney(raw) + '. Grading runs roughly $' + GRADE_COST
+            + ' plus shipping and a long wait, so the card has to actually make the grade for that to pay. '
+            + estNote,
+        chips:['Centering','Corners','Edges','Surface'],
+        btn:'Pre-screen this card',
+        href:GRADE_TOOL_URL,
+        tag:'cta_grade_prescreen',
+        foot:'Rough gap after fees: ' + fmtMoney(gain) + '. Check sold comps before you submit.'
+      });
+      return;
+    }
+
+    el.innerHTML = ctaHtml({
+      eyebrow:'HONEST ANSWER',
+      title:'Not one to grade.',
+      body:'A ' + esc(topLabel) + ' is around ' + fmtMoney(top.value) + ' and ungraded it\u2019s about '
+          + fmtMoney(raw) + '. After the ~$' + GRADE_COST
+          + ' fee there isn\u2019t enough left to be worth the wait. Log it, watch it, and revisit if the market moves.',
+      chips:['My Binder','Profit tracker','Price history'],
+      btn:'Track it in My Binder',
+      href:BINDER_URL,
+      tag:'cta_track_in_binder',
+      foot:'We don\u2019t buy or sell cards, so there\u2019s nothing in it for us either way.'
+    });
+    return;
+  }
+
+  el.innerHTML = ctaHtml(ctaDefault());
+}
+
 function renderResult(d){
   lastResult = d;
   fbSent = false;
