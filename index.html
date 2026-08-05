@@ -432,6 +432,9 @@ input[type=file]{display:none;}
 .tb-auth:hover{border-color:var(--green);color:var(--green);}
 .tb-who{font-family:var(--fm);font-size:10px;color:var(--text2);white-space:nowrap;}
 .tb-who b{color:var(--green);}
+.tb-pro{font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:1px;padding:3px 8px;
+  border-radius:100px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);
+  color:var(--gold-warm);white-space:nowrap;}
 .auth-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:none;
   align-items:flex-start;justify-content:center;padding:60px 20px 20px;overflow-y:auto;}
 .auth-modal.show{display:flex;}
@@ -1740,7 +1743,10 @@ function renderResult(d){
       +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
       +'</div>'
       +'<div class="save-note">Pricing cards is free and always will be \u2014 no account, no limit. '
-      +'The binder is the only part that needs a login, and the first '+FREE_CARD_LIMIT+' cards there are free too.</div>';
+      +(isPro
+         ? 'Your binder is unlimited.'
+         : 'The binder is the only part that needs a login, and the first '+FREE_CARD_LIMIT+' cards there are free too.')
+      +'</div>';
   }
 
   html+=buildBackAsk(d);
@@ -1971,7 +1977,7 @@ const FREE_CARD_LIMIT = 25;
 const BINDER_PAGE = 'https://www.cardgauge.com/my-binder';
 
 var SB = null;
-var currentUser = null, authMode = 'signup', pendingSave = false;
+var currentUser = null, authMode = 'signup', pendingSave = false, isPro = false;
 
 /* Supabase is deferred, so it may not exist when this first runs. */
 function sbReady(){
@@ -1990,7 +1996,24 @@ async function checkAuthState(){
     var r = await SB.auth.getSession();
     currentUser = r.data.session ? r.data.session.user : null;
   }catch(e){ currentUser = null; }
+  if(currentUser) await checkPro();
   renderAuth();
+}
+
+/* Fails OPEN. If the check itself breaks, a subscriber still gets to save
+   their card — over-granting for one session is far cheaper than telling
+   somebody who pays that their binder is full. */
+async function checkPro(){
+  if(!sbReady() || !currentUser){ isPro = false; return false; }
+  try{
+    var r = await SB.rpc('is_pro');
+    if(r.error) throw r.error;
+    isPro = r.data === true;
+  }catch(e){
+    console.warn('[pro] check failed, allowing:', e.message);
+    isPro = true;
+  }
+  return isPro;
 }
 
 function renderAuth(){
@@ -1998,6 +2021,7 @@ function renderAuth(){
   if(!w) return;
   if(currentUser){
     w.innerHTML = '<span class="tb-who">Hi, <b>'+esc(currentUser.email.split('@')[0])+'</b></span>'
+      + (isPro ? '<span class="tb-pro">PRO</span>' : '')
       + '<button class="tb-auth" onclick="logOut()">Log Out</button>';
   } else {
     w.innerHTML = '<span class="tb-free">Scanning is free</span>'
@@ -2053,6 +2077,7 @@ async function submitAuth(){
       err.textContent='Check your email to confirm your account, then log in.';
       err.classList.add('show'); btn.disabled=false; btn.textContent=orig; return;
     }
+    await checkPro();
     var wanted = pendingSave;
     closeAuth(); renderAuth();
     toast(authMode==='signup'?'\u2705 Account created':'\u2705 Logged in');
@@ -2063,7 +2088,7 @@ async function submitAuth(){
 
 async function logOut(){
   if(sbReady()) await SB.auth.signOut();
-  currentUser=null; renderAuth(); toast('Logged out');
+  currentUser=null; isPro=false; renderAuth(); toast('Logged out');
 }
 
 function toast(msg){
@@ -2097,8 +2122,8 @@ async function saveToBinder(){
   var btn = document.getElementById('saveBtn');
   if(btn){ btn.disabled=true; btn.textContent='Saving\u2026'; }
   try{
-    var n = await watchedCount();
-    if(n >= FREE_CARD_LIMIT){
+    var n = isPro ? 0 : await watchedCount();
+    if(!isPro && n >= FREE_CARD_LIMIT){
       toast('Free binder is full \u2014 opening your binder');
       window.open(BINDER_PAGE,'_blank','noopener');
       if(btn){ btn.disabled=false; btn.textContent='\ud83d\udcc2 Add to Binder'; }
