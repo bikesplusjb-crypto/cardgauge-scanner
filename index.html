@@ -14,6 +14,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet"/>
+<!-- Deferred on purpose: the scanner has to be usable before the account
+     code exists. Somebody who only wants a price never waits for this. -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 !function (w, d, t) {
   w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
@@ -416,6 +419,52 @@ input[type=file]{display:none;}
   body{-webkit-overflow-scrolling:touch;}
   .hero-free{white-space:nowrap;}
 }
+
+/* ===== ACCOUNTS AND SAVING =====
+   A login button on a tool with no wall reads as a wall, so the free line
+   sits beside it and the button says what it is actually for. */
+.tb-right{display:flex;align-items:center;gap:8px;}
+.tb-free{font-family:var(--fm);font-size:10px;letter-spacing:.06em;color:var(--green);white-space:nowrap;}
+@media(max-width:560px){.tb-free{display:none;}}
+.tb-auth{font-family:var(--f);font-size:11px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;padding:6px 12px;border-radius:100px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text);cursor:pointer;white-space:nowrap;}
+.tb-auth:hover{border-color:var(--green);color:var(--green);}
+.tb-who{font-family:var(--fm);font-size:10px;color:var(--text2);white-space:nowrap;}
+.tb-who b{color:var(--green);}
+.auth-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:none;
+  align-items:flex-start;justify-content:center;padding:60px 20px 20px;overflow-y:auto;}
+.auth-modal.show{display:flex;}
+.auth-inner{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);
+  padding:28px;max-width:380px;width:100%;position:relative;}
+.auth-inner h3{font-family:var(--f);font-size:18px;font-weight:800;margin-bottom:6px;color:var(--text);}
+.auth-inner p{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:18px;}
+.auth-input{width:100%;padding:11px 14px;border-radius:8px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text);font-family:var(--f);font-size:13px;
+  font-weight:600;outline:none;margin-bottom:10px;}
+.auth-input:focus{border-color:var(--green);}
+.auth-submit{width:100%;padding:12px;border-radius:8px;border:none;background:var(--green);
+  color:#052e16;font-family:var(--f);font-size:13px;font-weight:800;cursor:pointer;margin-top:6px;}
+.auth-switch{font-size:12px;color:var(--text3);text-align:center;margin-top:14px;}
+.auth-switch a{color:var(--green);cursor:pointer;text-decoration:underline;font-weight:700;}
+.auth-close{position:absolute;top:16px;right:18px;background:none;border:none;
+  color:var(--text3);font-size:22px;cursor:pointer;line-height:1;}
+.auth-err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;
+  font-size:11.5px;font-weight:600;padding:8px 12px;border-radius:6px;margin-bottom:10px;display:none;}
+.auth-err.show{display:block;}
+.save-row{display:flex;gap:9px;padding:14px 16px 10px;border-top:1px solid var(--border);
+  background:rgba(34,197,94,.04);}
+.save-note{padding:0 16px 14px;background:rgba(34,197,94,.04);font-family:var(--fm);
+  font-size:10.5px;line-height:1.6;color:var(--text3);text-align:center;}
+.save-btn{flex:1;padding:12px;border-radius:10px;border:none;background:var(--green);
+  color:#052e16;font-family:var(--f);font-size:13.5px;font-weight:800;cursor:pointer;transition:all .18s;}
+.save-btn:hover{background:#16a34a;}
+.save-btn:disabled{opacity:.6;cursor:not-allowed;}
+.save-btn.ghost{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);}
+.save-btn.ghost:hover{border-color:var(--gold);color:var(--gold);background:var(--surface2);}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface3);
+  color:var(--text);padding:11px 22px;border-radius:8px;font-size:12px;font-weight:700;
+  z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border2);}
 </style>
 </head>
 <body>
@@ -425,10 +474,27 @@ input[type=file]{display:none;}
     <div class="tb-logo">CARD<span>GAUGE</span></div>
     <div class="tb-badge">SCANNER</div>
   </a>
-  <a href="https://www.cardgauge.com" target="_top" class="tb-cta" onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'topbar_to_cardgauge',content_type:'scanner_standalone'})">All tools → CardGauge</a>
+  <div class="tb-right" id="tbAuth">
+    <span class="tb-free">Scanning is free</span>
+    <button class="tb-auth" onclick="openAuth('login')">Log in to save</button>
+  </div>
 </div>
 
-<div class="hero">
+<div class="auth-modal" id="authModal">
+  <div class="auth-inner">
+    <button class="auth-close" onclick="closeAuth()">&times;</button>
+    <h3 id="authTitle">Start Your Binder &mdash; Free</h3>
+    <p id="authSub">Save the cards you own, watch, and want &mdash; all in one binder. Your first 25 cards are free.</p>
+    <div class="auth-err" id="authErr"></div>
+    <input class="auth-input" id="authEmail" type="email" placeholder="your@email.com" autocomplete="email"/>
+    <input class="auth-input" id="authPassword" type="password" placeholder="Password (min 6 characters)" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()"/>
+    <button class="auth-submit" id="authSubmit" onclick="submitAuth()">Create Account</button>
+    <div class="auth-switch"><span id="authSwitchText">Already have an account?</span>
+      <a id="authSwitchLink" onclick="toggleAuthMode()">Log in</a></div>
+  </div>
+</div>
+
+<div class="hero" id="top">
   <div class="hero-eyebrow">AI Card Scanner</div>
   <h1>The asking price <span>isn't the price.</span></h1>
   <p>Scan any card and see the real sold comps — what buyers actually paid, not what sellers hope for.</p>
@@ -1665,6 +1731,18 @@ function renderResult(d){
     html+='<div class="rnodata"><b>No listings found.</b><br/>Double-check the spelling, then try adding the year, brand &amp; grade.<br/><span class="rnodata-eg">Example: 2018 Topps Update Shohei Ohtani RC</span></div>';
   }
 
+  /* Save sits directly under the numbers, before the feedback and the
+     search box. It is the one action that carries the scan forward, and
+     until now this page had nowhere to put a card it had just priced. */
+  if(hasData){
+    html+='<div class="save-row">'
+      +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()">\ud83d\udcc2 Add to Binder</button>'
+      +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
+      +'</div>'
+      +'<div class="save-note">Pricing cards is free and always will be \u2014 no account, no limit. '
+      +'The binder is the only part that needs a login, and the first '+FREE_CARD_LIMIT+' cards there are free too.</div>';
+  }
+
   html+=buildBackAsk(d);
 
   /* ===== SCAN FEEDBACK ===== */
@@ -1869,6 +1947,191 @@ function logEvent(event, cardName, usedBack){
       })
     }).catch(function(){});
   }catch(e){}
+}
+
+/* ============================================================
+   ACCOUNTS AND SAVING
+
+   This page priced a card and then had nowhere to put it. The bottom
+   panel offered "Track it in My Binder", which was a bare link to another
+   site — you arrived at an empty binder with the card you just scanned
+   gone, and had to type it in by hand.
+
+   That gap is worse here than anywhere else, because this is the phone
+   version. Sending somebody to a different domain mid-flow loses them,
+   and if the page is installed to a home screen the link can throw them
+   out of the app entirely. So the account lives here now: sign in on this
+   page, save on this page, never leave.
+
+   Logged out, the button opens the sign-up box and REMEMBERS the card,
+   then finishes the save once they're in. Nobody loses the scan they just
+   did in order to create an account.
+   ============================================================ */
+const FREE_CARD_LIMIT = 25;
+const BINDER_PAGE = 'https://www.cardgauge.com/my-binder';
+
+var SB = null;
+var currentUser = null, authMode = 'signup', pendingSave = false;
+
+/* Supabase is deferred, so it may not exist when this first runs. */
+function sbReady(){
+  if(SB) return SB;
+  try{
+    if(window.supabase && window.supabase.createClient){
+      SB = window.supabase.createClient(SB_URL, SB_KEY);
+    }
+  }catch(e){ SB = null; }
+  return SB;
+}
+
+async function checkAuthState(){
+  if(!sbReady()) return;
+  try{
+    var r = await SB.auth.getSession();
+    currentUser = r.data.session ? r.data.session.user : null;
+  }catch(e){ currentUser = null; }
+  renderAuth();
+}
+
+function renderAuth(){
+  var w = document.getElementById('tbAuth');
+  if(!w) return;
+  if(currentUser){
+    w.innerHTML = '<span class="tb-who">Hi, <b>'+esc(currentUser.email.split('@')[0])+'</b></span>'
+      + '<button class="tb-auth" onclick="logOut()">Log Out</button>';
+  } else {
+    w.innerHTML = '<span class="tb-free">Scanning is free</span>'
+      + '<button class="tb-auth" onclick="openAuth(\'login\')">Log in to save</button>';
+  }
+}
+
+function openAuth(mode){
+  setAuthMode(mode||'signup');
+  var m=document.getElementById('authModal'); if(m) m.classList.add('show');
+  var e=document.getElementById('authErr'); if(e) e.classList.remove('show');
+  var f=document.getElementById('authEmail'); if(f) f.focus();
+}
+function closeAuth(){
+  var m=document.getElementById('authModal'); if(m) m.classList.remove('show');
+  pendingSave = false;
+}
+function setAuthMode(mode){
+  authMode = mode;
+  var t=document.getElementById('authTitle'), s=document.getElementById('authSub'),
+      b=document.getElementById('authSubmit'), st=document.getElementById('authSwitchText'),
+      sl=document.getElementById('authSwitchLink');
+  if(!t) return;
+  if(mode==='signup'){
+    t.textContent='Start Your Binder \u2014 Free';
+    s.textContent='Save the cards you own, watch, and want \u2014 all in one binder. Your first '+FREE_CARD_LIMIT+' cards are free.';
+    b.textContent='Create Account'; st.textContent='Already have an account?'; sl.textContent='Log in';
+  } else {
+    t.textContent='Welcome Back';
+    s.textContent='Log in to save this card to your binder.';
+    b.textContent='Log In'; st.textContent='No account yet?'; sl.textContent='Sign up free';
+  }
+}
+function toggleAuthMode(){ setAuthMode(authMode==='signup'?'login':'signup'); }
+
+async function submitAuth(){
+  if(!sbReady()){ toast('Accounts unavailable right now \u2014 scanning still works'); return; }
+  var email=(document.getElementById('authEmail').value||'').trim();
+  var pw=document.getElementById('authPassword').value;
+  var err=document.getElementById('authErr');
+  err.classList.remove('show');
+  if(!email||!pw){ err.textContent='Enter email and password.'; err.classList.add('show'); return; }
+  if(pw.length<6){ err.textContent='Password must be at least 6 characters.'; err.classList.add('show'); return; }
+  var btn=document.getElementById('authSubmit'), orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Working\u2026';
+  try{
+    var r = authMode==='signup'
+      ? await SB.auth.signUp({email:email,password:pw})
+      : await SB.auth.signInWithPassword({email:email,password:pw});
+    if(r.error) throw r.error;
+    currentUser = r.data.user || (r.data.session && r.data.session.user);
+    if(!currentUser){
+      err.textContent='Check your email to confirm your account, then log in.';
+      err.classList.add('show'); btn.disabled=false; btn.textContent=orig; return;
+    }
+    var wanted = pendingSave;
+    closeAuth(); renderAuth();
+    toast(authMode==='signup'?'\u2705 Account created':'\u2705 Logged in');
+    if(wanted) saveToBinder();   // finish what they were trying to do
+  }catch(e){ err.textContent=e.message||'Something went wrong.'; err.classList.add('show'); }
+  btn.disabled=false; btn.textContent=orig;
+}
+
+async function logOut(){
+  if(sbReady()) await SB.auth.signOut();
+  currentUser=null; renderAuth(); toast('Logged out');
+}
+
+function toast(msg){
+  document.querySelectorAll('.toast').forEach(function(t){t.remove();});
+  var t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(function(){t.remove();},2600);
+}
+
+/* The free cap counts WATCHED cards only, matching my-binder.html.
+   Counting every row would mean somebody who logged 25 purchases at a
+   show came home to a "binder full" wall for recording what they bought. */
+async function watchedCount(){
+  if(!sbReady() || !currentUser) return 0;
+  try{
+    var r = await SB.from('watchlist_items')
+      .select('id', { count:'exact', head:true })
+      .eq('user_id', currentUser.id)
+      .is('buy_price', null);
+    return r.count || 0;
+  }catch(e){ return 0; }
+}
+
+async function saveToBinder(){
+  if(!lastResult) return;
+  if(!sbReady()){ toast('Accounts unavailable right now \u2014 scanning still works'); return; }
+  if(!currentUser){
+    pendingSave = true;          // remember the card, then sign them in
+    openAuth('signup');
+    return;
+  }
+  var btn = document.getElementById('saveBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Saving\u2026'; }
+  try{
+    var n = await watchedCount();
+    if(n >= FREE_CARD_LIMIT){
+      toast('Free binder is full \u2014 opening your binder');
+      window.open(BINDER_PAGE,'_blank','noopener');
+      if(btn){ btn.disabled=false; btn.textContent='\ud83d\udcc2 Add to Binder'; }
+      return;
+    }
+    var d = lastResult;
+    var st = computeStats(d);
+    var price = safeNum(d.sold && d.sold.soldMedian) || safeNum(st.avg);
+    var res = await SB.from('watchlist_items').insert({
+      user_id:          currentUser.id,
+      card_name:        String(d.cardName||'Card').slice(0,200),
+      card_image_url:   d.image || null,
+      price_when_added: price || null,
+      current_price:    price || null,
+      status:           'watching',
+      source:           'scanner',
+      last_checked_at:  new Date().toISOString()
+    });
+    if(res.error) throw res.error;
+    toast('\u2705 Saved to your binder');
+    if(window.ttq) ttq.track('AddToWishlist',{content_name:d.cardName,content_type:'scanner_save'});
+    if(btn){ btn.textContent='\u2713 In your binder'; return; }
+  }catch(e){
+    toast('Could not save: '+(e.message||'try again'));
+  }
+  if(btn){ btn.disabled=false; btn.textContent='\ud83d\udcc2 Add to Binder'; }
+}
+
+/* Deferred script, so wait for it rather than racing it. */
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', checkAuthState);
+} else {
+  checkAuthState();
 }
 
 logEvent('visit');
