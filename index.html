@@ -1335,8 +1335,7 @@ function buildAskVsSold(d){
    someone to spend $25 on the strength of a multiplier we made up is the
    exact thing this scanner exists to argue against. */
 
-/* Swap this for the real binder page once its path is settled. */
-const BINDER_URL = 'https://www.cardgauge.com';
+const BINDER_URL = 'https://www.cardgauge.com/my-binder';
 
 function ctaHtml(o){
   var chips = (o.chips||[]).map(function(c){
@@ -1400,9 +1399,17 @@ function renderCta(d, rows, s){
      thin to mean anything, and the panel stays out of the grading question
      entirely. */
   var ladderHasReal = !!(rows && rows.some && rows.some(function(r){ return r.isReal; }));
-  var thinSample    = (safeNum(s.cnt) < THIN_RESULT_N)
-                   || d.matchQuality === 'thin'
-                   || d.matchQuality === 'base_fallback';
+
+  /* Thin means thin on EVIDENCE, not thin on active listings. A card with
+     twenty recorded sales and two people currently listing it is very well
+     understood — judging it by the listing count alone threw away the
+     better source and silenced the panel on exactly the cards it should
+     speak up about. */
+  var soldN      = safeNum(d.sold && d.sold.soldCount);
+  var evidenceN  = Math.max(soldN, safeNum(s.cnt));
+  var thinSample = (evidenceN < THIN_RESULT_N)
+                || d.matchQuality === 'thin'
+                || d.matchQuality === 'base_fallback';
 
   var usable = rows && !rows.inconsistent && top && top.value > 0 && raw > 0
             && ladderHasReal && !thinSample;
