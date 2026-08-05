@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="CardGauge"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-<meta name="description" content="Snap a photo or type a card name to see what a card actually sold for — real transactions, including accepted best offers. Free, no signup."/>
+<meta name="description" content="The asking price isn't the price. Scan any card free and see the real sold comps — what buyers actually paid, including accepted best offers. No signup, no scan limit."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet"/>
@@ -184,11 +184,23 @@ input[type=file]{display:none;}
 .rpval.main{color:var(--green);} .rpval.low{color:var(--text2);} .rpval.high{color:var(--gold-warm);}
 .rpsub{font-family:var(--fm);font-size:8.5px;color:var(--text3);margin-top:4px;letter-spacing:.5px;}
 /* ===== SOLD PRICES — the real answer, the headline ===== */
-.sold-hero{background:linear-gradient(160deg,rgba(34,197,94,.12),rgba(11,22,34,.5));
-  border:1px solid rgba(34,197,94,.34);border-radius:14px;padding:18px 16px;margin-top:12px;}
-.sold-hero-lbl{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;
-  color:var(--green);margin-bottom:7px;display:flex;align-items:center;gap:6px;}
-.sold-hero-val{font-family:var(--fbig);font-size:clamp(38px,10vw,52px);line-height:.95;color:var(--bone);}
+.sold-hero{background:linear-gradient(160deg,rgba(34,197,94,.16),rgba(11,22,34,.5));
+  border:1.5px solid rgba(34,197,94,.5);border-radius:14px;padding:22px 18px;margin-top:12px;
+  box-shadow:0 0 36px rgba(34,197,94,.10);}
+.sold-hero-lbl{font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:2.4px;
+  text-transform:uppercase;color:var(--green);margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+
+/* This is the number people came for.
+
+   Every other figure on the page is context: what sellers hope for, what
+   a grade might fetch, what the range looks like. This one is what buyers
+   actually paid, and collectors quote it to each other as the comp. It was
+   set at the same weight as the asking prices below it, which buried the
+   answer in its own supporting evidence. It now reads as the headline it
+   is — larger than anything else on the result, and green, so the eye
+   lands on it before the asks. */
+.sold-hero-val{font-family:var(--fbig);font-size:clamp(52px,15vw,78px);line-height:.9;
+  color:var(--green);letter-spacing:.5px;text-shadow:0 0 34px rgba(34,197,94,.28);}
 .sold-hero-sub{font-family:var(--fm);font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5;}
 .sold-hero-sub b{color:var(--text2);}
 .sold-range{display:inline-flex;gap:5px;margin-top:9px;font-family:var(--fm);font-size:11px;
@@ -377,6 +389,27 @@ input[type=file]{display:none;}
 .foot a{color:var(--gold);text-decoration:none;font-weight:700;}
 .foot-links{display:flex;gap:16px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
 .foot-links a{color:var(--text2);font-family:var(--fm);font-size:11px;font-weight:600;}
+/* Two small asks in the footer, and deliberately only two.
+
+   This page's whole advantage over the full site is that it is fast and
+   uncluttered — somebody installed it to price a card standing at a
+   table. Stacking WorthGauge, the Shop and a Pro card in here would trade
+   the one thing it has for cross-sells that already live on the site, one
+   tap away through the panel above.
+
+   So: the store, because whoever just priced a card might buy one, and
+   the tip jar, because the tool is free and asking is honest. Both quiet,
+   both below everything else. */
+.foot-asks{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:4px 0 14px;}
+.foot-ask{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:100px;
+  font-family:var(--f);font-size:11.5px;font-weight:800;text-decoration:none;letter-spacing:.2px;
+  transition:all .2s;white-space:nowrap;}
+.foot-ask.store{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);color:var(--gold);}
+.foot-ask.store:hover{background:var(--gold);color:#0a0e1a;}
+.foot-ask.tip{background:transparent;border:1px solid var(--border2);color:var(--text2);}
+.foot-ask.tip:hover{border-color:var(--gold);color:var(--gold);}
+.foot-ask-note{font-family:var(--fm);font-size:10px;color:var(--text3);line-height:1.6;
+  margin:-8px 0 14px;}
 .foot-disc{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.65;}
 .foot-disc b{color:var(--text2);}
 @media(max-width:768px){
@@ -397,8 +430,8 @@ input[type=file]{display:none;}
 
 <div class="hero">
   <div class="hero-eyebrow">AI Card Scanner</div>
-  <h1>Price any card in <span>seconds.</span></h1>
-  <p>Snap a photo or type a card name — see what it actually sold for, not just what sellers are asking.</p>
+  <h1>The asking price <span>isn't the price.</span></h1>
+  <p>Scan any card and see the real sold comps — what buyers actually paid, not what sellers hope for.</p>
   <div class="hero-free">✓ Free · No signup · Real sold prices</div>
 </div>
 
@@ -472,6 +505,17 @@ input[type=file]{display:none;}
     <a href="https://www.cardgauge.com" target="_top">CardGauge.com</a>
     <a href="https://www.tiktok.com/@cardgauge" target="_blank" rel="noopener">TikTok @cardgauge</a>
   </div>
+
+  <div class="foot-asks">
+    <a class="foot-ask store" href="https://www.ebay.com/usr/cardgauge" target="_blank" rel="noopener"
+       onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'ebay_store_scanner',content_type:'scanner_standalone'})">
+      &#128722; Cards for sale on eBay</a>
+    <a class="foot-ask tip" href="https://buymeacoffee.com/cardgaugejg" target="_blank" rel="noopener"
+       onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'bmac_scanner',content_type:'scanner_standalone'})">
+      &#9749; Buy me a coffee</a>
+  </div>
+  <div class="foot-ask-note">A separate eBay seller account &mdash; the scanner takes no cut of any sale and never
+    prices a card differently because of it. Tips are welcome and never required.</div>
   Sold prices are <b>real completed transactions</b> from the last 14 days, including accepted best offers. Asking prices show what is listed right now. Markets move — check current comps before buying, selling, or grading.<br/>
   Part of <a href="https://www.cardgauge.com" target="_top">CardGauge</a> · your sports card workstation.
   <div class="foot-disc">
@@ -1507,7 +1551,7 @@ function renderResult(d){
 
     // Asking prices: headline if there's no sold data, secondary if there is.
     if(haveSold){
-      html+='<div class="rprices" style="opacity:.82">'
+      html+='<div class="rprices" style="opacity:.68">'
         +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
         +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval" style="color:var(--gold-warm)">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+s.cnt+' listed now</div></div>'
         +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
