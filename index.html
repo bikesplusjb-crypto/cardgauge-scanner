@@ -51,9 +51,6 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .hero h1 span{color:var(--green);}
 .hero p{font-size:16px;color:var(--text2);line-height:1.55;max-width:34ch;margin:0 auto;}
 .hero-free{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:7px 16px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:100px;font-family:var(--fm);font-size:12px;font-weight:600;color:var(--green);}
-.cg-count{display:none;align-items:center;gap:7px;margin:10px auto 0;padding:6px 15px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.32);border-radius:100px;font-family:var(--fm);font-size:11.5px;font-weight:700;color:var(--gold-warm);}
-.cg-count .ico{font-size:12px;}
-.cg-count b{font-family:var(--fbig);font-size:14px;letter-spacing:.5px;color:var(--gold-warm);font-weight:400;}
 .wrap{max-width:640px;margin:0 auto;padding:20px 20px 60px;}
 .scan-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px 22px;margin-bottom:18px;position:relative;z-index:1;}
 /* ===== TWO-SLOT CAPTURE =====
@@ -371,6 +368,9 @@ input[type=file]{display:none;}
 .cg-cta-chip{font-family:var(--fm);font-size:11px;font-weight:600;padding:7px 13px;border-radius:100px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);}
 .cg-cta-btn{display:inline-block;background:var(--gold);color:var(--bg);font-family:var(--f);font-weight:800;font-size:15px;padding:14px 30px;border-radius:12px;text-decoration:none;transition:all .2s;}
 .cg-cta-btn:hover{background:var(--gold-warm);transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,158,11,.35);}
+.cg-cta-alt{display:block;text-align:center;margin-top:11px;font-family:var(--fm);
+  font-size:12px;color:var(--gold-warm);text-decoration:none;opacity:.85;}
+.cg-cta-alt:hover{opacity:1;text-decoration:underline;}
 .cg-cta-foot{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:12px;letter-spacing:.04em;}
 .cg-cta h3 br{line-height:1.2;}
 .foot{text-align:center;padding:30px 20px;color:var(--text3);font-size:12px;line-height:1.7;}
@@ -400,7 +400,6 @@ input[type=file]{display:none;}
   <h1>Price any card in <span>seconds.</span></h1>
   <p>Snap a photo or type a card name — see what it actually sold for, not just what sellers are asking.</p>
   <div class="hero-free">✓ Free · No signup · Real sold prices</div>
-  <div class="cg-count" id="cgCount"><span class="ico">🔍</span><b id="cgCountNum">0</b> cards priced</div>
 </div>
 
 <div class="wrap">
@@ -565,24 +564,14 @@ function tagEbay(url, soldOnly){
 /* ===== SCAN COUNTER ===== */
 const SB_URL='https://nlaqvfplecacbbdbmhxd.supabase.co';
 const SB_KEY='sb_publishable_9e5zQmOwtT6aJM1t-xSEyQ_jA2tDY5N';
-function cgSetCount(n){
-  var el=document.getElementById('cgCountNum');
-  var wrap=document.getElementById('cgCount');
-  if(el)el.textContent=Number(n).toLocaleString();
-  if(wrap)wrap.style.display='inline-flex';
-}
-async function cgLoadCount(){
-  try{
-    var r=await fetch(SB_URL+'/rest/v1/scan_counter?select=total&id=eq.1',{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
-    var d=await r.json();
-    if(d&&d[0]&&typeof d[0].total==='number')cgSetCount(d[0].total);
-  }catch(e){}
-}
+/* The public "cards priced" pill was removed. The tally still increments
+   so the running total keeps building in Supabase and stays visible on the
+   private stats page — visitors just don't see it. Put the pill back when
+   the number is one worth showing. */
 async function cgBumpCount(){
   try{
     var r=await fetch(SB_URL+'/rest/v1/rpc/increment_scan_counter',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},body:'{}'});
-    var d=await r.json();
-    if(typeof d==='number')cgSetCount(d);
+    await r.json();
   }catch(e){}
 }
 
@@ -1360,6 +1349,12 @@ function ctaHtml(o){
     +'<a class="cg-cta-btn" href="'+o.href+'" target="_top" '
       +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\''+o.tag+'\',content_type:\'scanner_standalone\'})">'
       +esc(o.btn)+'</a>'
+    /* Every panel needs a way through to the main site. The grading and
+       binder panels send their primary button somewhere else, so without
+       this the only route to CardGauge was the top bar. */
+    +(o.alt?'<a class="cg-cta-alt" href="https://www.cardgauge.com" target="_top" '
+      +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'cta_alt_to_cardgauge\',content_type:\'scanner_standalone\'})">'
+      +esc(o.alt)+'</a>':'')
     +(o.foot?'<div class="cg-cta-foot">'+o.foot+'</div>':'');
 }
 
@@ -1367,9 +1362,9 @@ function ctaDefault(){
   return {
     eyebrow:'THE REST OF THE TOOLKIT',
     title:'The scanner is one tool.<br/>CardGauge is the rest.',
-    body:'Sold comps instead of asking prices, a profit tracker that remembers what you paid, '
-        +'a binder you can share, and a show log for what you bought where.',
-    chips:['Sold comps','Profit tracker','My Binder','Show log','WorthGauge'],
+    body:'Sold comps instead of asking prices, a binder you can share, a tracker that remembers '
+        +'what you paid, and a portfolio that shows what all of it actually did.',
+    chips:['Sold comps','My Binder','Profit tracker','Portfolio','Show log'],
     btn:'Open CardGauge',
     href:'https://www.cardgauge.com',
     tag:'cta_default_to_cardgauge',
@@ -1428,10 +1423,13 @@ function renderCta(d, rows, s){
             + ' plus shipping and a long wait, so the card has to actually make the grade for that to pay. '
             + estNote,
         chips:['Centering','Corners','Edges','Surface'],
-        btn:'Pre-screen this card',
+        btn:'Photograph it on the pre-screen',
         href:GRADE_TOOL_URL,
         tag:'cta_grade_prescreen',
-        foot:'Rough gap after fees: ' + fmtMoney(gain) + '. Check sold comps before you submit.'
+        alt:'or see sold comps and track it on CardGauge \u2192',
+        foot:'Rough gap after fees: ' + fmtMoney(gain)
+            + '. The pre-screen reads centering and corners from fresh photos \u2014 '
+            + 'it starts blank, so have the card handy. Check sold comps before you submit.'
       });
       return;
     }
@@ -1442,10 +1440,11 @@ function renderCta(d, rows, s){
       body:'A ' + esc(topLabel) + ' is around ' + fmtMoney(top.value) + ' and ungraded it\u2019s about '
           + fmtMoney(raw) + '. After the ~$' + GRADE_COST
           + ' fee there isn\u2019t enough left to be worth the wait. Log it, watch it, and revisit if the market moves.',
-      chips:['My Binder','Profit tracker','Price history'],
+      chips:['My Binder','Profit tracker','Portfolio'],
       btn:'Track it in My Binder',
       href:BINDER_URL,
       tag:'cta_track_in_binder',
+      alt:'or open the full toolkit on CardGauge \u2192',
       foot:'We don\u2019t buy or sell cards, so there\u2019s nothing in it for us either way.'
     });
     return;
@@ -1821,7 +1820,6 @@ function logEvent(event, cardName, usedBack){
   }catch(e){}
 }
 
-cgLoadCount();
 logEvent('visit');
 renderCta(null, null, null);   // default panel until there's a result to react to
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
