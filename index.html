@@ -2132,6 +2132,33 @@ async function saveToBinder(){
     var d = lastResult;
     var st = computeStats(d);
     var price = safeNum(d.sold && d.sold.soldMedian) || safeNum(st.avg);
+
+    /* The scan knows year, brand, set, player, card number and parallel.
+       Flattening them into card_name and discarding the parts is why a
+       binder can be searched but not sorted, grouped or checked against
+       a set. Keep them.
+
+       Placeholders get dropped — the AI answers "Unknown" for a set it
+       can't read, which is fine to receive and useless to store. A null
+       sorts last; the string "Unknown" sorts between T and V and looks
+       like a real set name.
+
+       STORAGE USES A NARROWER FILTER THAN THE DISPLAY LINE. notJunk also
+       strips "Base" and "Base Set", which is right above a price on a
+       sports card — nobody writes it in a listing. But Base Set is the
+       actual NAME of the 1999 Pokemon set, and the most collected set
+       there is. Nulling it would lose the field on exactly the cards
+       somebody most wants sorted. Only genuinely empty values go.
+
+       A typed search has no AI behind it and legitimately has none of
+       this, so every field is optional. */
+    var EMPTY_VALUE = /^(unknown|n\/a|na|none|null|-|\?)$/i;
+    var field = function(v){
+      var t = String(v == null ? '' : v).trim();
+      return (!t || EMPTY_VALUE.test(t)) ? null : t.slice(0,120);
+    };
+    var yr = parseInt(d.year, 10);
+
     var res = await SB.from('watchlist_items').insert({
       user_id:          currentUser.id,
       card_name:        String(d.cardName||'Card').slice(0,200),
@@ -2140,7 +2167,13 @@ async function saveToBinder(){
       current_price:    price || null,
       status:           'watching',
       source:           'scanner',
-      last_checked_at:  new Date().toISOString()
+      last_checked_at:  new Date().toISOString(),
+      year:             (yr >= 1860 && yr <= 2100) ? yr : null,
+      brand:            field(d.brand),
+      set_name:         field(d.set),
+      player:           field(d.player),
+      card_number:      field(d.cardNumber),
+      parallel:         field(d.parallel)
     });
     if(res.error) throw res.error;
     toast('\u2705 Saved to your binder');
