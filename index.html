@@ -420,6 +420,31 @@ input[type=file]{display:none;}
   .hero-free{white-space:nowrap;}
 }
 
+/* ===== THE SCANNER IS THE PAGE =====
+   This one is the phone version — installed to a home screen and opened
+   at a card table, usually one-handed, often in bad light. The capture
+   slots are the only thing that matters here, so they get the room. The
+   headline still earns its place (it is the argument for using this at
+   all) but it does not need to be a billboard above a tool somebody
+   opened deliberately. */
+.hero h1{font-size:clamp(22px,5.4vw,34px);letter-spacing:-.6px;line-height:1.15;margin-bottom:8px;}
+.hero p{font-size:14px;max-width:42ch;line-height:1.5;}
+.hero{padding-top:22px;padding-bottom:12px;}
+
+.slot-body{max-width:150px;}
+.slot-label{font-size:13.5px;font-weight:800;}
+.slot-hint{font-size:10px;}
+.slot-tag{font-size:10.5px;}
+
+/* A thumb reaching across a phone needs a bigger target than a mouse
+   does, and the two slots are the only things on this screen worth
+   hitting. */
+@media(max-width:520px){
+  .slot-body{max-width:126px;}
+  .hero h1{font-size:clamp(21px,6.4vw,27px);}
+  .hero p{font-size:13.5px;}
+}
+
 /* ===== ACCOUNTS AND SAVING =====
    A login button on a tool with no wall reads as a wall, so the free line
    sits beside it and the button says what it is actually for. */
@@ -2173,7 +2198,12 @@ async function saveToBinder(){
       set_name:         field(d.set),
       player:           field(d.player),
       card_number:      field(d.cardNumber),
-      parallel:         field(d.parallel)
+      parallel:         field(d.parallel),
+      /* Two sets can share a name, a year and a brand and still be
+         different sets — 1986 Topps is 792 cards in baseball and 396 in
+         football. Without this, looking up a set size hands a football
+         collector the baseball number. */
+      sport:            field(d.sport)
     });
     if(res.error) throw res.error;
     toast('\u2705 Saved to your binder');
