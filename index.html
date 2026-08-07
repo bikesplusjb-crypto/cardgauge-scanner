@@ -1518,6 +1518,14 @@ function buildAskVsSold(d){
 const BINDER_URL = 'https://www.cardgauge.com/my-binder';
 
 function ctaHtml(o){
+  /* A null panel means "say nothing", not "crash".
+
+     The merged build deliberately makes ctaDefault() return null so the
+     generic pitch doesn't run on the site that pitch points at. But the
+     no-verdict path still called ctaHtml(ctaDefault()), which then threw
+     on o.chips and took the whole panel down \u2014 on the most common
+     path, since most cards lack the evidence for a grading verdict. */
+  if(!o) return '';
   var chips = (o.chips||[]).map(function(c){
     return '<div class="cg-cta-chip">'+esc(c)+'</div>';
   }).join('');
@@ -1660,7 +1668,17 @@ function renderCta(d, rows, s){
     return;
   }
 
-  el.innerHTML = ctaHtml(ctaDefault());
+  /* No grading verdict to give. On the standalone the default panel
+     still has something to say; on the merged page it is deliberately
+     silent. Either way somebody has just scanned a card, so the install
+     offer belongs here too \u2014 and this is the path most cards take. */
+  var fallback = ctaDefault();
+  if(fallback){
+    fallback.keep = true;
+    el.innerHTML = ctaHtml(fallback);
+  } else {
+    el.innerHTML = keepHtml();
+  }
 }
 
 function renderResult(d){
