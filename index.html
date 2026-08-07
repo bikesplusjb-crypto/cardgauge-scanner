@@ -386,6 +386,28 @@ input[type=file]{display:none;}
 .cg-cta-alt{display:block;text-align:center;margin-top:11px;font-family:var(--fm);
   font-size:12px;color:var(--gold-warm);text-decoration:none;opacity:.85;}
 .cg-cta-alt:hover{opacity:1;text-decoration:underline;}
+/* ===== KEEP IT ON YOUR PHONE =====
+   The install offer used to live at the very bottom of the home page,
+   which is where nobody scrolls unless they are already sold.
+
+   The moment it actually means something is right after a result:
+   somebody has just got a real number, they are thinking that was
+   useful, and "keep this handy" is an obvious yes rather than a demand.
+   Before that it is asking for commitment ahead of value, and it sends
+   them to a different domain where they will be signed out.
+
+   So it appears only under a result, and only on a phone \u2014 telling
+   somebody at a desktop to add it to their home screen is noise. */
+.cg-keep{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+  font-family:var(--fm);font-size:11.5px;color:var(--text3);line-height:1.6;text-align:center;}
+.cg-keep b{color:var(--text2);}
+.cg-keep a{color:var(--green);text-decoration:none;font-weight:700;white-space:nowrap;
+  border:1px solid rgba(34,197,94,.35);border-radius:100px;padding:7px 15px;
+  background:rgba(34,197,94,.08);}
+.cg-keep a:hover{background:rgba(34,197,94,.16);}
+@media(min-width:820px){ .cg-keep{display:none;} }
+
 .cg-cta-foot{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:12px;letter-spacing:.04em;}
 .cg-cta h3 br{line-height:1.2;}
 .foot{text-align:center;padding:30px 20px;color:var(--text3);font-size:12px;line-height:1.7;}
@@ -1512,7 +1534,28 @@ function ctaHtml(o){
     +(o.alt?'<a class="cg-cta-alt" href="https://www.cardgauge.com" target="_top" '
       +'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'cta_alt_to_cardgauge\',content_type:\'scanner_standalone\'})">'
       +esc(o.alt)+'</a>':'')
-    +(o.foot?'<div class="cg-cta-foot">'+o.foot+'</div>':'');
+    +(o.foot?'<div class="cg-cta-foot">'+o.foot+'</div>':'')
+    /* Only under a real result. The default panel \u2014 the one showing
+       before anybody has scanned anything \u2014 has nothing to keep. */
+    +(o.keep ? keepHtml() : '');
+}
+
+/* Where somebody already is decides what this should say. On the
+   standalone they are in the app, so the offer is to install it. On the
+   Wix page they are on the site, so the offer is to go and get the fast
+   one. Saying "add to home screen" from the site would install the site
+   \u2014 the Wix wrapper, iframe and all \u2014 which is the slow thing
+   dressed up as the fast one. */
+function keepHtml(){
+  var onStandalone = location.hostname.indexOf('scan.') === 0;
+  return onStandalone
+    ? '<div class="cg-keep"><span><b>Scanning at a show?</b> Add this to your home screen '
+      + 'and it opens straight here \u2014 no browser, no menus.</span></div>'
+    : '<div class="cg-keep"><span><b>Scanning at a show?</b> There\'s a stripped-down '
+      + 'version for your phone \u2014 just the scanner, opens instantly.</span>'
+      + '<a href="https://scan.cardgauge.com" target="_blank" rel="noopener" '
+      + 'onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'keep_on_phone_result\',content_type:\'scanner\'})">'
+      + 'Put it on my phone \u2192</a></div>';
 }
 
 function ctaDefault(){
@@ -1591,6 +1634,7 @@ function renderCta(d, rows, s){
         btn:'Photograph it on the pre-screen',
         href:GRADE_TOOL_URL,
         tag:'cta_grade_prescreen',
+      keep:true,
         alt:'or see sold comps and track it on CardGauge \u2192',
         foot:'Rough gap after fees: ' + fmtMoney(gain)
             + '. The pre-screen reads centering and corners from fresh photos \u2014 '
@@ -1609,6 +1653,7 @@ function renderCta(d, rows, s){
       btn:'Track it in My Binder',
       href:BINDER_URL,
       tag:'cta_track_in_binder',
+      keep:true,
       alt:'or open the full toolkit on CardGauge \u2192',
       foot:'We don\u2019t buy or sell cards, so there\u2019s nothing in it for us either way.'
     });
