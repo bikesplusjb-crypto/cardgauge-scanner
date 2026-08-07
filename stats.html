@@ -82,6 +82,26 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
   color:var(--gold-warm);width:58px;font-weight:600;}
 .empty{font-family:var(--fm);font-size:11.5px;color:var(--text3);padding:6px 0;}
 
+/* ── the trust step ────────────────────────────────────────
+   Scanning is free and sells nothing directly. Its job is to be so
+   obviously honest that the paid half becomes believable. This is the
+   number that says whether that works. */
+.trust{border:1px solid var(--border2);border-radius:var(--radius);
+  background:linear-gradient(160deg,rgba(34,197,94,.08),rgba(17,24,39,.4));
+  padding:20px;margin-bottom:16px;}
+.trust.cold{background:linear-gradient(160deg,rgba(239,68,68,.06),rgba(17,24,39,.4));}
+.trust-k{font-family:var(--fm);font-size:10px;letter-spacing:2px;color:var(--text3);margin-bottom:7px;}
+.trust-n{font-family:var(--fbig);font-size:clamp(38px,11vw,56px);line-height:.96;}
+.trust-n.warm{color:var(--green);} .trust-n.cool{color:var(--gold-warm);} .trust-n.cold{color:var(--red);}
+.trust-of{font-family:var(--fm);font-size:12px;color:var(--text2);margin-top:9px;line-height:1.7;}
+.trust-of b{color:var(--text);}
+.trust-read{font-size:13px;color:var(--text2);line-height:1.6;margin-top:13px;
+  padding-top:13px;border-top:1px solid var(--border);}
+.trust-read b{color:var(--text);}
+.srcbar{display:flex;height:9px;border-radius:100px;overflow:hidden;
+  background:var(--surface2);margin:14px 0 10px;}
+.srcbar i{display:block;}
+
 /* ── coverage meter ───────────────────────────────────────── */
 .meter{height:9px;border-radius:100px;background:var(--surface2);
   overflow:hidden;display:flex;margin:4px 0 12px;}
@@ -168,8 +188,26 @@ async function load(){
         + 'Run <b>stats_setup.sql</b> in the Supabase SQL editor first.</div>';
       return;
     }
-    if(!r.ok){ showGate('That token was rejected. Try again.'); return; }
-    data = await r.json();
+    /* Read the body before deciding what went wrong. Every failure used
+       to be reported as a bad token, which sent debugging in the wrong
+       direction when the real cause was a missing grant. */
+    let body = null;
+    try { body = await r.json(); } catch(e){}
+
+    if(!r.ok){
+      const msg = (body && (body.message || body.hint || body.details)) || '';
+      if(/not authorised/i.test(msg)){
+        showGate('That token was rejected. Try again.');
+      } else {
+        app.innerHTML = '<div class="err"><b>Supabase returned ' + r.status + '.</b><br/>'
+          + esc(msg || 'No message returned.')
+          + '<br/><br/>If this mentions permission, run:<br/>'
+          + '<span style="font-family:var(--fm);font-size:12px">'
+          + 'grant execute on function public.cg_stats(text) to anon, authenticated;</span></div>';
+      }
+      return;
+    }
+    data = body;
   }catch(e){
     app.innerHTML = '<div class="err">Could not reach Supabase. '
       + 'Check the connection and reload.</div>';
@@ -182,6 +220,65 @@ function render(d){
   const t     = d.totals   || {};
   const daily = d.daily    || [];
   const cov   = d.sold_coverage || {};
+
+  /* ── THE TRUST STEP ─────────────────────────────────────────
+     A rate, not a count. "17 saved" means nothing on its own — 17 of
+     20 is a working funnel and 17 of 400 is not, and only the second
+     number tells you which.
+
+     Not a clean conversion either: one person can scan five cards and
+     save one, and a save can land a day after the scan. It is a
+     direction of travel, and the reading below says so rather than
+     dressing it up as precision. */
+  const tr    = d.trust  || {};
+  const bin   = d.binder || {};
+  const saves = Number(tr.saves_7d) || 0;
+  const scans = Number(t.scans_7d)  || 0;
+  const rate  = scans ? Math.round((saves / scans) * 100) : null;
+  const band  = rate === null ? '' : rate >= 30 ? 'warm' : rate >= 10 ? 'cool' : 'cold';
+
+  let reading;
+  if (!scans) {
+    reading = 'No scans this week, so there is nothing to measure yet.';
+  } else if (!saves) {
+    reading = '<b>Nobody who scanned saved a card.</b> They are getting a price and leaving. '
+      + 'More traffic will not change that — whatever stops them happens after the number appears.';
+  } else if (rate >= 30) {
+    reading = '<b>People who scan are keeping the card.</b> The tool is convincing them, so the '
+      + 'constraint is how many people arrive, not what happens once they do.';
+  } else if (rate >= 10) {
+    reading = 'Some are keeping cards, most are not. Worth knowing whether the ones who leave never '
+      + 'wanted a binder, or hit something in the way of getting one.';
+  } else {
+    reading = '<b>Almost nobody who scans saves.</b> They come for a number and go. That is the gap '
+      + 'to close before spending anything on traffic.';
+  }
+
+  /* Where cards come from at all, so the scanner's share is visible
+     against pasting and the other routes in. */
+  const bySrc = bin.by_source || {};
+  const srcTotal = Object.keys(bySrc).reduce(function(a,k){ return a + Number(bySrc[k]||0); }, 0);
+  const srcCol = { scanner:'#22c55e', bulk:'#3b82f6', profit_tracker:'#a855f7', show_log:'#f59e0b' };
+  const srcBar = srcTotal
+    ? '<div class="srcbar">' + Object.keys(bySrc).map(function(k){
+        return '<i style="width:' + ((bySrc[k]/srcTotal)*100) + '%;background:'
+          + (srcCol[k] || '#2a3a55') + '"></i>'; }).join('') + '</div>'
+      + '<div class="legend">' + Object.keys(bySrc).map(function(k){
+        return '<span><i class="dot" style="background:' + (srcCol[k] || '#2a3a55') + '"></i>'
+          + esc(k.replace(/_/g,' ')) + ' ' + bySrc[k] + '</span>'; }).join('') + '</div>'
+    : '';
+
+  const trustBlock =
+      '<div class="trust' + (band === 'cold' ? ' cold' : '') + '">'
+    +   '<div class="trust-k">SCANNED, THEN KEPT IT · 7 DAYS</div>'
+    +   '<div class="trust-n ' + band + '">' + (rate === null ? '—' : rate + '%') + '</div>'
+    +   '<div class="trust-of"><b>' + num(saves) + '</b> card' + (saves === 1 ? '' : 's')
+    +     ' saved from the scanner, against <b>' + num(scans) + '</b> scan' + (scans === 1 ? '' : 's')
+    +     '.<br/><b>' + num(tr.savers_7d) + '</b> different '
+    +     (Number(tr.savers_7d) === 1 ? 'person' : 'people') + ' saved something.</div>'
+    +   srcBar
+    +   '<div class="trust-read">' + reading + '</div>'
+    + '</div>';
 
   /* Oldest → newest for the bar strip; the query returns newest first. */
   const days  = daily.slice().reverse();
@@ -237,6 +334,8 @@ function render(d){
     +    ' &nbsp;·&nbsp; 30 days <b>' + num(t.scans_30d) + '</b>'
     +    ' &nbsp;·&nbsp; all time <b>' + num(t.scans_all) + '</b></div>'
     + '</div>'
+
+    + trustBlock
 
     + '<div class="card">'
     +  '<h2>Scans per day · 30 days</h2>'
