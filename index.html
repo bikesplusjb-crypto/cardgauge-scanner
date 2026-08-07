@@ -482,6 +482,26 @@ input[type=file]{display:none;}
 .auth-err.show{display:block;}
 .save-row{display:flex;gap:9px;padding:14px 16px 10px;border-top:1px solid var(--border);
   background:rgba(34,197,94,.04);}
+/* ===== NOT SIGNED IN =====
+   The top bar says "Log in to save" and it is easy to miss — it is in
+   the corner, above the fold, read once on arrival and forgotten by
+   the time a result appears.
+
+   This sits where saving actually happens, and it states the
+   consequence rather than the status. "Log in to save" is a label;
+   "this card will not be saved anywhere yet" is what somebody needs
+   to know before they tap and assume it worked.
+
+   It matters more here than on most sites because scan.cardgauge.com
+   and cardgauge.com keep separate sessions. Somebody signed in on one
+   arrives signed out on the other, with no reason to suspect it. */
+.notin{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;
+  background:rgba(245,158,11,.09);border-top:1px solid rgba(245,158,11,.32);
+  font-size:12.5px;line-height:1.55;color:var(--gold-warm);}
+.notin .ico{flex-shrink:0;font-size:14px;line-height:1.3;}
+.notin b{color:#fff;}
+.notin a{color:#fff;text-decoration:underline;cursor:pointer;font-weight:800;
+  text-underline-offset:2px;}
 .save-note{padding:0 16px 14px;background:rgba(34,197,94,.04);font-family:var(--fm);
   font-size:10.5px;line-height:1.6;color:var(--text3);text-align:center;}
 .save-btn{flex:1;padding:12px;border-radius:10px;border:none;background:var(--green);
@@ -1763,8 +1783,25 @@ function renderResult(d){
      search box. It is the one action that carries the scan forward, and
      until now this page had nowhere to put a card it had just priced. */
   if(hasData){
+    /* Stated before the button, not after the disappointment. */
+    if(!currentUser){
+      html+='<div class="notin">'
+        +'<span class="ico">&#9888;&#65039;</span>'
+        +'<span><b>You\'re not signed in \u2014 this card won\'t be saved anywhere yet.</b> '
+        +'<a onclick="openAuth(\'signup\')">Create a free binder</a> or '
+        +'<a onclick="openAuth(\'login\')">log in</a> and it saves in one tap. '
+        +'Takes about ten seconds and the first 25 cards are free.</span>'
+      +'</div>';
+    }
+
     html+='<div class="save-row">'
-      +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()">\ud83d\udcc2 Add to Binder</button>'
+      /* The button text changes with the state, so it is never a
+         promise it cannot keep. Tapping it logged out opens the
+         sign-up box and remembers the card, which is the right
+         behaviour — but the label should say so first. */
+      +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()">'
+      +(currentUser ? '\ud83d\udcc2 Add to Binder' : '\ud83d\udcc2 Sign in &amp; save this card')
+      +'</button>'
       +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
       +'</div>'
       +'<div class="save-note">Pricing cards is free and always will be \u2014 no account, no limit. '
