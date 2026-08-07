@@ -1702,9 +1702,28 @@ function renderResult(d){
         +'<span class="sold-check-sub">These are asking prices. Sold comps are the real answer.</span>'
         +'</a>';
     } else {
-      var anchor = (d.sold && safeNum(d.sold.soldMedian))
-        ? 'Buyers are paying around '+fmtMoney(d.sold.soldMedian)+'. That\'s your number.'
-        : 'Live listings for this card.';
+      /* Do not quote a number the page has just warned about.
+
+         When the spread check fires, the sold median is describing
+         several different cards at once — a base card, a parallel and a
+         slab averaged together. Saying "buyers are paying around $2,
+         that's your number" directly under a warning that the search is
+         catching several versions is the page contradicting itself, and
+         the confident half is the one people act on.
+
+         Real case: a 2025 Mosaic Jaxson Dart Red and Blue Parallel RC
+         showed a $2 raw median because the search pulled base Mosaic
+         Darts. The warning fired correctly and the line underneath still
+         told somebody $2 was their number. */
+      var anchor;
+      if (spreadFlagged) {
+        anchor = 'Narrow the search above before trusting this number \u2014 '
+               + 'right now it is mixing several versions of this card.';
+      } else if (d.sold && safeNum(d.sold.soldMedian)) {
+        anchor = 'Buyers are paying around '+fmtMoney(d.sold.soldMedian)+'. That\'s your number.';
+      } else {
+        anchor = 'Live listings for this card.';
+      }
       html+='<a class="sold-check" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" style="margin-top:12px;border-radius:11px 11px 0 0;border-bottom:none" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'shop_active_listings\',content_type:\'scanner_standalone\'})">'
         +'<span class="sold-check-main">↗ Shop this card on eBay</span>'
         +'<span class="sold-check-sub">'+esc(anchor)+'</span>'
