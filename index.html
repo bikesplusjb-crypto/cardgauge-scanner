@@ -1584,9 +1584,22 @@ function renderCta(d, rows, s){
   var el = document.getElementById('ctaPanel');
   if(!el) return;
 
+  /* The merged build starts this panel hidden so an empty bordered box
+     never flashes on load. Nothing was turning it back on, so once the
+     step that did got removed, the panel could write content nobody
+     could see \u2014 which is worse than not writing it, because
+     everything looks like it worked.
+
+     Visibility is decided by whether there is anything to show, at the
+     one place that knows: right here, after the content is built. */
+  var show = function(html){
+    el.innerHTML = html || '';
+    el.style.display = html ? '' : 'none';
+  };
+
   /* No result on screen, or a result with no prices behind it. */
   if(!d || !s || !(s.avg > 0)){
-    el.innerHTML = ctaHtml(ctaDefault());
+    show(ctaHtml(ctaDefault()));
     return;
   }
 
@@ -1632,7 +1645,7 @@ function renderCta(d, rows, s){
       : 'That ' + esc(topLabel) + ' figure is estimated, not a real sale \u2014 treat it as a ceiling.';
 
     if(worthIt){
-      el.innerHTML = ctaHtml({
+      show(ctaHtml({
         eyebrow:'WORTH A SECOND LOOK',
         title:'A ' + esc(topLabel) + ' of this one is around ' + fmtMoney(top.value) + '.',
         body:'Ungraded it\u2019s about ' + fmtMoney(raw) + '. Grading runs roughly $' + GRADE_COST
@@ -1647,11 +1660,11 @@ function renderCta(d, rows, s){
         foot:'Rough gap after fees: ' + fmtMoney(gain)
             + '. The pre-screen reads centering and corners from fresh photos \u2014 '
             + 'it starts blank, so have the card handy. Check sold comps before you submit.'
-      });
+      }));
       return;
     }
 
-    el.innerHTML = ctaHtml({
+    show(ctaHtml({
       eyebrow:'HONEST ANSWER',
       title:'Not one to grade.',
       body:'A ' + esc(topLabel) + ' is around ' + fmtMoney(top.value) + ' and ungraded it\u2019s about '
@@ -1664,7 +1677,7 @@ function renderCta(d, rows, s){
       keep:true,
       alt:'or open the full toolkit on CardGauge \u2192',
       foot:'We don\u2019t buy or sell cards, so there\u2019s nothing in it for us either way.'
-    });
+    }));
     return;
   }
 
@@ -1675,9 +1688,9 @@ function renderCta(d, rows, s){
   var fallback = ctaDefault();
   if(fallback){
     fallback.keep = true;
-    el.innerHTML = ctaHtml(fallback);
+    show(ctaHtml(fallback));
   } else {
-    el.innerHTML = keepHtml();
+    show(keepHtml());
   }
 }
 
