@@ -438,6 +438,16 @@ input[type=file]{display:none;}
    So: the store, because whoever just priced a card might buy one, and
    the tip jar, because the tool is free and asking is honest. Both quiet,
    both below everything else. */
+.show-tip{display:flex;align-items:flex-start;gap:9px;text-align:left;text-decoration:none;
+  background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.26);border-radius:100px;
+  padding:9px 16px;margin:14px auto 0;max-width:44ch;
+  font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--text3);transition:all .2s;}
+.show-tip:hover{border-color:var(--blue);background:rgba(59,130,246,.13);}
+.show-tip b{color:var(--blue);}
+.show-tip-ico{flex-shrink:0;font-size:12px;line-height:1.4;}
+.show-tip-go{flex-shrink:0;color:var(--blue);font-weight:700;align-self:center;}
+@media(max-width:520px){ .show-tip{border-radius:12px;max-width:none;} }
+
 .foot-asks{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:4px 0 14px;}
 .foot-ask{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:100px;
   font-family:var(--f);font-size:11.5px;font-weight:800;text-decoration:none;letter-spacing:.2px;
@@ -581,6 +591,23 @@ input[type=file]{display:none;}
   <div class="hero-eyebrow">AI Card Scanner</div>
   <h1>The asking price <span>isn't the price.</span></h1>
   <p>Scan any card and see the real sold comps — what buyers actually paid, not what sellers hope for.</p>
+  <!-- High on the page because it is a REASON to be here, not a
+       footnote. Somebody heading to a show needs to know this before
+       they leave the house, and the footer is read by nobody.
+
+       Worded carefully. The scanner needs a connection and the card
+       show log needs one for its first load \u2014 "no internet needed"
+       would be false on both counts, and false in a way that only
+       shows up when somebody is standing in a hall relying on it.
+       What IS true: once the page is open, logging keeps working. -->
+  <a class="show-tip" href="https://www.cardgauge.com/show-log" target="_top"
+     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'showlog_tip_top',content_type:'scanner_standalone'})">
+    <span class="show-tip-ico">&#128246;</span>
+    <span><b>At a show?</b> Log your finds in the card show log \u2014 open it before you go
+    and it keeps working when the hall&rsquo;s wifi doesn&rsquo;t.</span>
+    <span class="show-tip-go">&rarr;</span>
+  </a>
+
   <div class="hero-free">✓ Free · No signup · Real sold prices</div>
 </div>
 
