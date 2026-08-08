@@ -86,6 +86,13 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .slot-label{font-size:11.5px;font-weight:700;color:var(--text2);text-align:center;line-height:1.3;}
 .slot.filled .slot-label{color:var(--green);}
 .slot-hint{font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:3px;letter-spacing:.04em;}
+/* The back is where the accuracy comes from, so its label is not
+   allowed to look like fine print. "much more accurate" was a benefit
+   and benefits get skipped: a collector went front-only, got a wrong
+   year back, and posted publicly that the tool needed work. It didn't
+   — it was guessing from artwork because nobody told him what the back
+   was for. */
+.slot-hint.strong{color:var(--green);font-weight:600;}
 .slot.filled .slot-hint{display:none;}
 .slot-x{position:absolute;top:7px;right:7px;width:24px;height:24px;border-radius:50%;
   border:1px solid var(--border2);background:var(--surface);color:var(--text3);
@@ -116,6 +123,9 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 
 .dual-note{font-size:11.5px;line-height:1.55;color:var(--text3);text-align:center;
   margin-top:12px;padding:0 4px;}
+/* The bolded half is the part that changes behaviour. Left uniformly
+   grey it reads as a footnote, and a footnote is what got skipped. */
+.dual-note b{color:var(--text2);}
 .dual-note.good{color:var(--green);font-weight:700;}
 .dual-note b{color:var(--text2);}
 
@@ -406,7 +416,10 @@ input[type=file]{display:none;}
   border:1px solid rgba(34,197,94,.35);border-radius:100px;padding:7px 15px;
   background:rgba(34,197,94,.08);}
 .cg-keep a:hover{background:rgba(34,197,94,.16);}
-@media(min-width:820px){ .cg-keep{display:none;} }
+/* Shown on desktop too. Hiding it there was tidier in theory and
+   confusing in practice — somebody at a laptop can still learn the
+   phone version exists, and a line that only appears on some devices
+   is one nobody can verify is working. */
 
 .cg-cta-foot{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:12px;letter-spacing:.04em;}
 .cg-cta h3 br{line-height:1.2;}
@@ -610,13 +623,13 @@ input[type=file]{display:none;}
           </div>
         </div>
         <div class="slot-label" id="backLabel">Tap to add</div>
-        <div class="slot-hint">much more accurate</div>
+        <div class="slot-hint strong">year &amp; card number</div>
         <button class="slot-x" onclick="clearBack(event)" aria-label="Remove back">&times;</button>
       </label>
     </div>
     <input type="file" id="fileInput" accept="image/*"/>
     <input type="file" id="backInput" accept="image/*"/>
-    <div class="dual-note" id="dualNote">The back has the card number, set and year printed on it. Two sides reads that text instead of guessing from the picture.</div>
+    <div class="dual-note" id="dualNote"><b>Front only means we're guessing.</b> The year, the card number and the set are printed on the <b>back</b> \u2014 the front is artwork. Add both and it reads them instead.</div>
     <button class="scan-btn" id="scanBtn">🔍 Scan This Card</button>
 
     <div class="or-line">or type a card name</div>
@@ -1572,7 +1585,7 @@ function ctaDefault(){
     title:'The scanner is one tool.<br/>CardGauge is the rest.',
     body:'Sold comps instead of asking prices, a binder you can share, a tracker that remembers '
         +'what you paid, and a portfolio that shows what all of it actually did.',
-    chips:['Sold comps','My Binder','Profit tracker','Portfolio','Show log'],
+    chips:['Sold comps','My Binder','Profit tracker','Portfolio','Card show log'],
     btn:'Open CardGauge',
     href:'https://www.cardgauge.com',
     tag:'cta_default_to_cardgauge',
