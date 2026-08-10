@@ -671,14 +671,14 @@ input[type=file]{display:none;}
        they leave the house, and the footer is read by nobody.
 
        Worded carefully. The scanner needs a connection and the card
-       show log needs one for its first load \u2014 "no internet needed"
+       show log needs one for its first load — "no internet needed"
        would be false on both counts, and false in a way that only
        shows up when somebody is standing in a hall relying on it.
        What IS true: once the page is open, logging keeps working. -->
   <a class="show-tip" href="https://www.cardgauge.com/show-log" target="_top"
      onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'showlog_tip_top',content_type:'scanner_standalone'})">
     <span class="show-tip-ico">&#128246;</span>
-    <span><b>At a show?</b> Log your finds in the card show log \u2014 open it before you go
+    <span><b>At a show?</b> Log your finds in the card show log — open it before you go
     and it keeps working when the hall&rsquo;s wifi doesn&rsquo;t.</span>
     <span class="show-tip-go">&rarr;</span>
   </a>
@@ -732,7 +732,7 @@ input[type=file]{display:none;}
     </div>
     <input type="file" id="fileInput" accept="image/*"/>
     <input type="file" id="backInput" accept="image/*"/>
-    <div class="dual-note" id="dualNote"><b class="hot">Front only means we&rsquo;re guessing.</b><br/>The year, the card number and the set are printed on the <b>back</b> \u2014 the front is just artwork. Most scanners never ask for it. This one reads both.</div>
+    <div class="dual-note" id="dualNote"><b class="hot">Front only means we&rsquo;re guessing.</b><br/>The year, the card number and the set are printed on the <b>back</b> — the front is just artwork. Most scanners never ask for it. This one reads both.</div>
     <button class="scan-btn" id="scanBtn">🔍 Scan This Card</button>
 
     <div class="or-line">or type a card name</div>
@@ -1669,10 +1669,34 @@ function buildAskVsSold(d){
       +'&#9888;&#65039; '+esc(a.note)+'</div></div>';
   }
 
+  /* Never announce a deal on a page that has just said it cannot tell
+     which card these prices belong to.
+
+     Seen live: the top of the result warned the search was catching
+     several versions, and the bottom said asking prices were 75% below
+     recent sales and there might be a deal. Both cannot be true. A $2
+     low against a $70 high is the tell — the cheap listings are almost
+     certainly a different version, and pointing somebody at them is
+     the one mistake this scanner exists to avoid.
+
+     The comparison still shows, because the numbers are real. What is
+     withheld is the CONCLUSION. */
+  if(spreadFlagged && a.pct <= -10){
+    a = Object.assign({}, a, {
+      note: 'Can\'t call this one \u2014 the search is catching several versions of '
+          + 'the card, so the gap between asking and sold is comparing different things. '
+          + 'Narrow it down above first.'
+    });
+  }
+
   var suffix = a.basis === 'raw' ? ' (raw)' : a.basis === 'graded' ? ' (graded)' : '';
   var hi = Math.max(a.ask, a.sold) || 1;
   var soldPct = Math.round((a.sold / hi) * 100);
-  var cls = a.pct >= 10 ? 'over' : a.pct <= -10 ? 'under' : 'fair';
+  /* A withheld conclusion is a caution, not a green light \u2014 the
+     colour has to match what the words now say. */
+  var cls = (spreadFlagged && a.pct <= -10) ? 'over'
+          : a.pct >= 10 ? 'over'
+          : a.pct <= -10 ? 'under' : 'fair';
   return '<div class="avs">'
     +'<div class="avs-row">'
       +'<div class="avs-side"><div class="avs-k">Buyers paid'+suffix+'</div><div class="avs-v sold">'+fmtMoney(a.sold)+'</div></div>'
@@ -1935,8 +1959,27 @@ function renderResult(d){
   }
 
   /* Computed up here rather than down in the ROI section, because the
-     refinement chips are built from the same real-grade data. */
-  var rows = buildRoiRows(d, s.avg);
+     refinement chips are built from the same real-grade data.
+
+     THE BASE HAS TO BE THE SOLD MEDIAN, NOT THE ASKING MEDIAN.
+
+     When there are no real per-grade sales to anchor to, the ladder
+     falls back to multiplying a base price by the grade multipliers.
+     That base was s.avg — the TYPICAL ASK tile — on a page whose
+     headline is that the asking price isn't the price.
+
+     A real case: a card with a $12 sold median from 100+ sales and a
+     ~$5 typical ask produced a ladder of $6 / $7 / $15 / $33. On the
+     sold median it should read roughly $13 / $17 / $35 / $78. That is
+     the difference between "not worth grading" and "grade it", and it
+     was wrong in the direction that costs somebody a card.
+
+     Sold first, ask only when there are no sales at all. */
+  var ladderBase = safeNum(d.sold && d.sold.soldRaw && d.sold.soldRaw.count >= THIN_RESULT_N
+                             ? d.sold.soldRaw.median : 0)
+                || safeNum(d.sold && d.sold.soldMedian)
+                || safeNum(s.avg);
+  var rows = buildRoiRows(d, ladderBase);
 
   var soldUrl = d.soldCompsUrl ? tagEbay(d.soldCompsUrl, true) : ebayLink(currentQuery, true);
   var activeUrl = ebayLink(currentQuery, false);
