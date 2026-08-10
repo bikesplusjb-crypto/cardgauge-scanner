@@ -95,6 +95,8 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
 .trust-n.warm{color:var(--green);} .trust-n.cool{color:var(--gold-warm);} .trust-n.cold{color:var(--red);}
 .trust-of{font-family:var(--fm);font-size:12px;color:var(--text2);margin-top:9px;line-height:1.7;}
 .trust-of b{color:var(--text);}
+.subhead{font-family:var(--fm);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--text3);margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--border);}
 .trust-read{font-size:13px;color:var(--text2);line-height:1.6;margin-top:13px;
   padding-top:13px;border-top:1px solid var(--border);}
 .trust-read b{color:var(--text);}
@@ -348,13 +350,29 @@ function render(d){
     + '<div class="grid">'
     +  cell('People · 7d',  num(t.people_7d),  num(t.visits_7d) + ' visits')
     +  cell('Scanned · 7d', num(t.scanners_7d), 'sessions that scanned')
-    +  cell('Both sides · 7d', num(t.backs_7d), 'used the back image')
+    /* A share, not a bare count.
+
+       This sat beside "23 sessions that scanned" as a plain 37, which
+       invites reading 37/23 as a rate — and those are different units.
+       One session can scan several cards. What means something is the
+       share of SCANS that used the back image, because that is what the
+       copy change was meant to move. */
+    +  cell('Both sides · 7d',
+            (Number(t.scans_7d) ? Math.round((Number(t.backs_7d)/Number(t.scans_7d))*100) + '%' : '—'),
+            num(t.backs_7d) + ' of ' + num(t.scans_7d) + ' scans used the back')
     +  cell('Public counter', num(d.counter), 'shown on the scanner')
     + '</div>'
 
     + '<div class="two">'
     +  '<div class="card"><h2>Where they came from · 30d</h2>'
-    +    rows(d.sources||[], 'source') + '</div>'
+    +    rows(d.sources||[], 'source')
+    /* Own-domain hits, kept but separated. Somebody moving from the
+       scanner to the site is not a channel, and letting those outrank
+       every real source made internal navigation look like acquisition. */
+    +    ((d.internal||[]).length
+          ? '<div class="subhead">Moving around the site</div>' + rows(d.internal, 'source')
+          : '')
+    + '</div>'
     +  '<div class="card"><h2>Most looked up · 30d</h2>'
     +    rows(d.cards||[], 'card') + '</div>'
     + '</div>'
