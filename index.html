@@ -1598,6 +1598,72 @@ function buildListingMix(d){
   + '</div>';
 }
 
+/* Title-case a word without mangling the things that are not words.
+   Roman numerals, card numbers, grader names and suffixes like RC or
+   VMAX are already correct and must survive untouched. */
+var KEEP_UPPER = /^(RC|SP|SSP|GU|MEM|AUTO|PSA|BGS|SGC|CGC|TAG|NM|MT|VMAX|VSTAR|GX|EX|LV|HP|MLB|NBA|NFL|NHL|UFC|WWE|II|III|IV|VI|VII|VIII|IX|XI|XII)$/i;
+function titleWord(w){
+  if(!w) return w;
+  if(/\d/.test(w)) return w;                       // 2018, #US285, 4/102
+  if(KEEP_UPPER.test(w)) return w.toUpperCase();
+  if(w.length <= 2 && w === w.toUpperCase()) return w;
+  return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+}
+
+/* The header, assembled from what was parsed rather than what was
+   typed. Same output whether the card came from a photo or the search
+   box. */
+/* eBay is asked for 100 listings and returns at most 100. A count
+   sitting exactly on the ceiling is a ceiling, not a total \u2014 printing
+   it as "100 listed now" states as fact something we simply stopped
+   counting. Same reasoning as the sold count printing "100+". */
+var EBAY_CAP = 100;
+function listedLabel(n){
+  var v = Number(n) || 0;
+  return (v >= EBAY_CAP ? EBAY_CAP + '+' : v) + ' listed now';
+}
+
+function buildTitle(d){
+  if(!d) return '';
+  var parts = [];
+  var yr = parseInt(d.year, 10);
+  if(yr >= 1860 && yr <= 2100) parts.push(String(yr));
+
+  /* notJunk strips "Base Set", which is correct on a sports card \u2014
+     nobody writes it and it is a description, not a product. In Pokemon
+     it is the NAME of the 1999 set and the most collected set in the
+     hobby, so stripping it here turned "1999 Pokemon Base Set
+     Charizard" into "1999 Pokemon Charizard". Same distinction the
+     server already draws when deciding what to store. */
+  var isPoke = /pok/i.test(String(d.sport||'') + ' ' + String(d.brand||'') + ' ' + String(d.set||''));
+  var keep = function(v){
+    if(!v) return false;
+    if(isPoke) return !/^(unknown|n\/a|na|none|null|-|\?)$/i.test(String(v).trim());
+    return notJunk(v);
+  };
+
+  var seen = {};
+  [d.brand, d.set, d.player].forEach(function(v){
+    if(!keep(v)) return;
+    var t = String(v).trim().split(/\s+/).map(titleWord).join(' ');
+    var k = t.toLowerCase();
+    if(seen[k]) return;                              // "Bowman" as both brand and set
+    seen[k] = 1;
+    parts.push(t);
+  });
+
+  if(parts.length < 2) return '';                    // not enough to beat the raw string
+
+  var out = parts.join(' ');
+  if(notJunk(d.cardNumber)){
+    var n = String(d.cardNumber).trim();
+    out += ' #' + n.replace(/^#/, '');
+  }
+  if(notJunk(d.parallel)) out += ' ' + String(d.parallel).trim().split(/\s+/).map(titleWord).join(' ');
+  if(d.isRookie && String(d.sport||'').toLowerCase().indexOf('pok') === -1) out += ' RC';
+  return out;
+}
+
 function buildVerifyWarning(d){
   var v = d && d.verified;
   if(!v || !v.checked) return '';
@@ -1943,7 +2009,18 @@ function renderResult(d){
   fbSent = false;
   spreadFlagged = false;
   var el=document.getElementById('result');var s=computeStats(d);
-  var cardName=d.cardName||'Card';
+  /* Build the title from the parsed fields, not from whatever the
+     person typed.
+
+     A photo scan produces a clean display name, but a typed search
+     echoes the raw string straight back — "2018 Topps chrome shohei
+     Ohtani Rc" as somebody actually typed it, lowercase and all. The
+     structured fields are already there on both paths; using them gives
+     the same header whichever way the card arrived.
+
+     Falls back to the raw string when the parser found nothing, because
+     a messy title beats an empty one. */
+  var cardName = buildTitle(d) || d.cardName || 'Card';
   /* The AI returns "Unknown" for a set it can't read. That's a fine thing
      for the backend to receive and a terrible thing to print next to a
      price — it reads as "we don't know what this card is." Say nothing
@@ -2011,13 +2088,13 @@ function renderResult(d){
     if(haveSold){
       html+='<div class="rprices" style="opacity:.68">'
         +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
-        +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval" style="color:var(--gold-warm)">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+s.cnt+' listed now</div></div>'
+        +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval" style="color:var(--gold-warm)">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+listedLabel(s.cnt)+'</div></div>'
         +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
         +'</div>';
     } else {
       html+='<div class="rprices">'
         +'<div class="rpbox"><div class="rplabel">LOW ASK</div><div class="rpval low">'+fmtMoney(s.low)+'</div></div>'
-        +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval main">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+s.cnt+' active listings</div></div>'
+        +'<div class="rpbox"><div class="rplabel">TYPICAL ASK</div><div class="rpval main">'+fmtMoney(s.avg)+'</div><div class="rpsub">'+listedLabel(s.cnt)+'</div></div>'
         +'<div class="rpbox"><div class="rplabel">HIGH ASK</div><div class="rpval high">'+fmtMoney(s.high)+'</div></div>'
         +'</div>';
     }
