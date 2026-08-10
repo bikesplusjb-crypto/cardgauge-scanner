@@ -165,6 +165,42 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100v
 .dual-note.good{color:var(--green);font-weight:700;}
 /* The first line is the one that changes behaviour, so it is allowed
    to be louder than the explanation that follows it. */
+/* ===== VERIFIED AGAINST THE CATALOG =====
+   Shown only when it disagrees.
+
+   A green "verified" tick on every correct scan is noise — people stop
+   seeing a badge that always says yes, and then it says nothing on the
+   one scan where it matters. The useful case is the catalog saying this
+   card number is not in this set, which is what a misread looks like
+   from the outside.
+
+   Worded as a doubt, not a correction. The catalog can be wrong too,
+   and quietly overwriting the read would leave somebody with a
+   confident answer they had no way to question. */
+/* ===== HOW THESE SALES HAPPENED =====
+   An auction ending at $14.50 and a Buy It Now at $14.50 are not the
+   same fact. One is several people converging on a price; the other is
+   one person accepting one seller's number. A median built entirely
+   from fixed-price listings is closer to an asking price than it looks.
+
+   A bar rather than percentages, because the shape is the reading. */
+.mix{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.mix-bar{display:flex;height:6px;border-radius:100px;overflow:hidden;background:var(--surface2);}
+.mix-bar i{display:block;}
+.mix-key{display:flex;gap:12px;flex-wrap:wrap;margin-top:7px;
+  font-family:var(--fm);font-size:9.5px;color:var(--text3);}
+.mix-key span{display:inline-flex;align-items:center;gap:5px;}
+.mix-key i{width:7px;height:7px;border-radius:2px;display:inline-block;}
+.mix-note{font-family:var(--fm);font-size:10.5px;line-height:1.65;color:var(--text3);margin-top:7px;}
+.mix-note.warn{color:var(--gold-warm);}
+
+.vwarn{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:12px 14px;
+  border-radius:10px;background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.34);
+  font-size:12.5px;line-height:1.55;color:var(--gold-warm);}
+.vwarn .ico{flex-shrink:0;font-size:14px;line-height:1.3;}
+.vwarn b{color:#fff;}
+.vwarn .fix{display:block;margin-top:6px;color:var(--text3);font-family:var(--fm);font-size:10.5px;}
+
 .dual-note .hot{color:var(--green);font-size:14.5px;font-weight:800;display:inline-block;
   margin-bottom:5px;letter-spacing:-.1px;}
 
@@ -706,6 +742,19 @@ input[type=file]{display:none;}
     </div>
     <div class="search-hint">✏️ Year + brand + player gets the best match</div>
 
+    <!-- For somebody who arrived from a video and has no card in their
+         hand. Two empty photo boxes are useless to them; one tap on a
+         card they recognise is not. -->
+    <div class="tryrow">
+      <div class="tryrow-k">No card to hand? Try one of these</div>
+      <div class="trychips">
+        <button class="trychip" onclick="trySample('2018 Topps Update Shohei Ohtani RC')">Ohtani rookie</button>
+        <button class="trychip" onclick="trySample('1999 Pokemon Base Set Charizard 4/102')">Base Set Charizard</button>
+        <button class="trychip" onclick="trySample('2003 Topps Chrome LeBron James')">LeBron rookie</button>
+        <button class="trychip" onclick="trySample('2017 Topps Update Aaron Judge RC')">Judge rookie</button>
+      </div>
+    </div>
+
     <div class="status" id="status"></div>
   </div>
 
@@ -1020,6 +1069,17 @@ async function doScan(){
     if(window.ttq)ttq.track('ViewContent',{content_name:d.cardName,content_type:'scan_result'});
   }catch(e){setStatus('❌ '+e.message,'error');}
   scanning=false;btn.disabled=false;updateScanBtn();
+}
+
+/* Fills the box and runs it for real. Deliberately not a stored result
+   \u2014 somebody tapping this is deciding whether to trust the numbers,
+   and a canned answer is exactly the wrong thing to show them. */
+function trySample(q){
+  var el = document.getElementById('searchInput');
+  if(!el) return;
+  el.value = q;
+  if(window.ttq) ttq.track('Search',{content_name:q,content_type:'sample_card'});
+  doSearch();
 }
 
 async function doSearch(){
@@ -1510,6 +1570,48 @@ function buildRoiRows(d, avgPrice){
    a $125 median doesn't inform anyone — it just makes the median look like
    a guess, when the real story is that the search is catching several
    different cards. Say that, and point at the fix. */
+/* Only speaks up when the catalog disagrees with the read. Silence here
+   is the normal, correct case and should stay silent. */
+/* Silent unless the source told us how each sale happened, and unless
+   there is more than one kind. An empty breakdown is worse than none. */
+function buildListingMix(d){
+  var m = d && d.sold && d.sold.listingMix;
+  if(!m || !m.total) return '';
+
+  var seg = [
+    { n:m.auction,   c:'#22c55e', label:'auction' },
+    { n:m.bestOffer, c:'#3b82f6', label:'best offer' },
+    { n:m.fixed,     c:'#f59e0b', label:'fixed price' },
+    { n:m.other,     c:'#2a3a55', label:'other' }
+  ].filter(function(x){ return x.n > 0; });
+  if(seg.length < 2 && !m.note) return '';
+
+  return '<div class="mix">'
+    + '<div class="mix-bar">' + seg.map(function(x){
+        return '<i style="width:' + ((x.n/m.total)*100) + '%;background:' + x.c + '"></i>';
+      }).join('') + '</div>'
+    + '<div class="mix-key">' + seg.map(function(x){
+        return '<span><i style="background:' + x.c + '"></i>' + x.n + ' ' + x.label + '</span>';
+      }).join('') + '</div>'
+    + (m.note ? '<div class="mix-note' + (m.note.indexOf('sellers asked') > -1 ? ' warn' : '')
+        + '">' + esc(m.note) + '</div>' : '')
+  + '</div>';
+}
+
+function buildVerifyWarning(d){
+  var v = d && d.verified;
+  if(!v || !v.checked) return '';
+  if(v.exists === true && v.confidence !== 'low') return '';
+  if(!v.note) return '';
+
+  return '<div class="vwarn">'
+    + '<span class="ico">&#9888;&#65039;</span>'
+    + '<span><b>This might not be the right card.</b> ' + esc(v.note)
+    + '<span class="fix">The prices below are for the card as read above \u2014 '
+    + 'if that is wrong, so are they.</span></span>'
+  + '</div>';
+}
+
 function buildSoldHero(d){
   var sold = d.sold;
   if(!sold || !sold.soldCount || sold.rateLimited) return '';
@@ -1690,7 +1792,30 @@ function renderCta(d, rows, s){
          || safeNum(d.raw && d.raw.count >= THIN_RESULT_N ? d.raw.median : 0)
          || safeNum(s.avg);
 
-  var top = (rows && rows.length) ? rows[rows.length - 1] : null;
+  /* Judge it on the 9, not the 10.
+
+     This used to take the last rung of the ladder — the PSA 10 — and
+     ask whether that beat the raw price plus the fee. Almost every card
+     clears that bar, because a 10 is worth several times a raw copy of
+     nearly anything. But most cards do not come back a 10. Recommending
+     a submission on the strength of the best possible outcome is
+     telling somebody to gamble and calling it advice.
+
+     The 9 is the honest comparison: it is what a genuinely nice card
+     realistically grades. If the maths does not work at a 9, then the
+     only version that pays is a coin flip, and that is a "no".
+
+     The 10 is still shown — people want the ceiling — it just no longer
+     decides the verdict. */
+  var gradeRow = function(want){
+    if(!rows || !rows.length) return null;
+    for(var i = 0; i < rows.length; i++){
+      if(Number(rows[i].grade) === want) return rows[i];
+    }
+    return null;
+  };
+  var top     = (rows && rows.length) ? rows[rows.length - 1] : null;  // ceiling, for display
+  var verdict = gradeRow(9) || top;                                    // what the maths uses
   var company = (rows && rows.company) || 'PSA';
 
   /* A grading recommendation has to rest on at least one real sale or
@@ -1718,26 +1843,36 @@ function renderCta(d, rows, s){
 
   if(usable){
     var topLabel = company + ' ' + top.grade;
-    var gain = top.value - raw - GRADE_COST;
-    var worthIt = (top.value >= raw * GRADE_WORTH_IT_X) && gain > 0;
-    var estNote = top.isReal
-      ? 'That ' + esc(topLabel) + ' figure is a real sale.'
-      : 'That ' + esc(topLabel) + ' figure is estimated, not a real sale \u2014 treat it as a ceiling.';
+    var vLabel   = company + ' ' + verdict.grade;
+    var gain     = verdict.value - raw - GRADE_COST;
+    var worthIt  = (verdict.value >= raw * GRADE_WORTH_IT_X) && gain > 0;
+
+    var estNote = verdict.isReal
+      ? 'That ' + esc(vLabel) + ' figure is a real sale.'
+      : 'That ' + esc(vLabel) + ' figure is estimated, not a real sale \u2014 treat it as a ceiling.';
+
+    /* Say which grade the answer rests on. Somebody looking at a large
+       PSA 10 number further up the page needs to know the
+       recommendation was not built on it. */
+    var basisNote = (verdict !== top && top)
+      ? ' Worked out on a ' + esc(vLabel) + ' rather than the ' + esc(topLabel)
+        + ', because most cards don\u2019t come back a ' + top.grade + '.'
+      : '';
 
     if(worthIt){
       show(ctaHtml({
         eyebrow:'WORTH A SECOND LOOK',
-        title:'A ' + esc(topLabel) + ' of this one is around ' + fmtMoney(top.value) + '.',
+        title:'A ' + esc(vLabel) + ' of this one is around ' + fmtMoney(verdict.value) + '.',
         body:'Ungraded it\u2019s about ' + fmtMoney(raw) + '. Grading runs roughly $' + GRADE_COST
             + ' plus shipping and a long wait, so the card has to actually make the grade for that to pay. '
-            + estNote,
+            + estNote + basisNote,
         chips:['Centering','Corners','Edges','Surface'],
         btn:'Photograph it on the pre-screen',
         href:GRADE_TOOL_URL,
         tag:'cta_grade_prescreen',
       keep:true,
         alt:'or see sold comps and track it on CardGauge \u2192',
-        foot:'Rough gap after fees: ' + fmtMoney(gain)
+        foot:'Rough gap after fees at a ' + esc(vLabel) + ': ' + fmtMoney(gain)
             + '. The pre-screen reads centering and corners from fresh photos \u2014 '
             + 'it starts blank, so have the card handy. Check sold comps before you submit.'
       }));
@@ -1747,9 +1882,14 @@ function renderCta(d, rows, s){
     show(ctaHtml({
       eyebrow:'HONEST ANSWER',
       title:'Not one to grade.',
-      body:'A ' + esc(topLabel) + ' is around ' + fmtMoney(top.value) + ' and ungraded it\u2019s about '
+      body:'A ' + esc(vLabel) + ' is around ' + fmtMoney(verdict.value) + ' and ungraded it\u2019s about '
           + fmtMoney(raw) + '. After the ~$' + GRADE_COST
-          + ' fee there isn\u2019t enough left to be worth the wait. Log it, watch it, and revisit if the market moves.',
+          + ' fee there isn\u2019t enough left to be worth the wait.'
+          + (verdict !== top && top
+              ? ' A ' + esc(topLabel) + ' would be about ' + fmtMoney(top.value)
+                + ', but that is the ceiling, not the likely outcome.'
+              : '')
+          + ' Log it, watch it, and revisit if the market moves.',
       chips:['My Binder','Profit tracker','Portfolio'],
       btn:'Track it in My Binder',
       href:BINDER_URL,
@@ -1814,7 +1954,12 @@ function renderResult(d){
   if(hasData){
     // Sold prices lead when we have them.
     if(haveSold){
-      html+=buildSoldHero(d);          // sets spreadFlagged
+      /* Before the price, not after. Somebody who is about to read a number
+     should know first that we are unsure which card it belongs to. */
+  html+=buildVerifyWarning(d);
+
+  html+=buildSoldHero(d);          // sets spreadFlagged
+      html+=buildListingMix(d);        // how those sales happened
       html+=buildRefine(d, rows);      // must follow buildSoldHero
       html+=buildAskVsSold(d);
     }
