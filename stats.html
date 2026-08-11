@@ -42,6 +42,11 @@ body{
 .hero-unit{font-family:var(--f);font-size:14px;color:var(--text2);margin-top:8px;}
 .hero-cmp{font-family:var(--fm);font-size:11.5px;color:var(--text3);margin-top:10px;}
 .hero-cmp b{color:var(--text2);font-weight:600;}
+/* The scan/search split. Which way people come in decides what to
+   build next — heavy search means desktop, and desktop has no camera. */
+.hero-split{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;padding-top:12px;
+  border-top:1px solid var(--border);font-family:var(--fm);font-size:11px;color:var(--text3);}
+.hero-split b{color:var(--text2);font-weight:600;}
 
 /* ── bars ─────────────────────────────────────────────────── */
 .card{border:1px solid var(--border);border-radius:var(--radius);
@@ -49,10 +54,15 @@ body{
 .card h2{font-family:var(--fm);font-size:10.5px;letter-spacing:1.6px;
   text-transform:uppercase;color:var(--text2);margin-bottom:14px;font-weight:600;}
 .bars{display:flex;align-items:flex-end;gap:3px;height:110px;}
-.bar{flex:1;min-width:0;background:var(--border2);border-radius:2px 2px 0 0;
-  position:relative;transition:background .15s;min-height:2px;}
-.bar.today{background:var(--gold);}
-.bar:hover{background:var(--gold-warm);}
+.bar{flex:1;min-width:0;border-radius:2px 2px 0 0;position:relative;min-height:2px;
+  display:flex;flex-direction:column;justify-content:flex-end;}
+.bar i{display:block;width:100%;}
+/* Two segments per day: photo scans below, typed searches above.
+   One flat bar hid the fact that nearly half of all lookups never
+   touch the camera. */
+.bar .seg-scan{background:var(--gold);}
+.bar .seg-search{background:var(--blue);opacity:.75;}
+.bar.today .seg-scan{background:var(--gold-warm);}
 .bar:hover .tip{opacity:1;}
 .tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
   background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
@@ -81,6 +91,9 @@ tr:last-child td{border-bottom:none;}
 td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
   color:var(--gold-warm);width:58px;font-weight:600;}
 .empty{font-family:var(--fm);font-size:11.5px;color:var(--text3);padding:6px 0;}
+/* How a card was looked up, next to how often. A card that is only
+   ever typed is a card nobody has in their hand. */
+.how{font-family:var(--fm);font-size:9.5px;color:var(--text3);display:block;margin-top:3px;}
 
 /* ── the trust step ────────────────────────────────────────
    Scanning is free and sells nothing directly. Its job is to be so
@@ -103,6 +116,13 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
 .srcbar{display:flex;height:9px;border-radius:100px;overflow:hidden;
   background:var(--surface2);margin:14px 0 10px;}
 .srcbar i{display:block;}
+
+/* Owner testing is still inside every scan_events number, because that
+   table carries no user id. Said out loud rather than left for somebody
+   to rediscover in three weeks. */
+.caveat{font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--gold-warm);
+  background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);
+  border-radius:9px;padding:10px 12px;margin-top:13px;}
 
 /* ── coverage meter ───────────────────────────────────────── */
 .meter{height:9px;border-radius:100px;background:var(--surface2);
@@ -149,6 +169,12 @@ const esc = s => String(s==null?'':s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const num = n => Number(n||0).toLocaleString();
 
+/* Every totals field the SQL may or may not have. Reading a missing key
+   straight into num() prints 0, which is indistinguishable from a real
+   zero — so an out-of-date function would silently report no traffic
+   rather than saying it is out of date. */
+function has(o, k){ return o && Object.prototype.hasOwnProperty.call(o, k); }
+
 /* Token comes from the URL so the page can be bookmarked. It is kept
    out of any request that could be logged elsewhere — it only ever
    goes in the POST body to Supabase. */
@@ -187,7 +213,7 @@ async function load(){
     });
     if(r.status === 404){
       app.innerHTML = '<div class="err">The <b>cg_stats</b> function does not exist yet. '
-        + 'Run <b>stats_setup.sql</b> in the Supabase SQL editor first.</div>';
+        + 'Run <b>trust_stats.sql</b> in the Supabase SQL editor first.</div>';
       return;
     }
     /* Read the body before deciding what went wrong. Every failure used
@@ -223,37 +249,55 @@ function render(d){
   const daily = d.daily    || [];
   const cov   = d.sold_coverage || {};
 
+  /* An old cg_stats returns scans_* but no lookups_*. Rather than
+     printing zeros that look like a dead week, say plainly that the
+     SQL half of this pair has not been deployed. */
+  if(!has(t, 'lookups_7d')){
+    app.innerHTML = '<div class="err"><b>The database function is out of date.</b><br/>'
+      + 'This page expects the Aug 10 <b>cg_stats</b>, which counts typed searches as well as '
+      + 'photo scans. The version running still returns scans only, so every number here would '
+      + 'be about half of the truth.<br/><br/>'
+      + 'Run the updated <b>trust_stats.sql</b> in the Supabase SQL editor, then reload.</div>';
+    return;
+  }
+
   /* ── THE TRUST STEP ─────────────────────────────────────────
      A rate, not a count. "17 saved" means nothing on its own — 17 of
      20 is a working funnel and 17 of 400 is not, and only the second
      number tells you which.
 
-     Not a clean conversion either: one person can scan five cards and
-     save one, and a save can land a day after the scan. It is a
+     THE DENOMINATOR IS LOOKUPS, NOT SCANS. A card saved after a typed
+     search still counts as a save — source='scanner' is set by the
+     save path, not by how the card was found — so dividing by photo
+     scans alone compared two different populations and overstated the
+     rate by roughly the share of searches, which is currently 45%.
+
+     Still not a clean conversion: one person can look up five cards
+     and save one, and a save can land a day after the lookup. It is a
      direction of travel, and the reading below says so rather than
      dressing it up as precision. */
-  const tr    = d.trust  || {};
-  const bin   = d.binder || {};
-  const saves = Number(tr.saves_7d) || 0;
-  const scans = Number(t.scans_7d)  || 0;
-  const rate  = scans ? Math.round((saves / scans) * 100) : null;
-  const band  = rate === null ? '' : rate >= 30 ? 'warm' : rate >= 10 ? 'cool' : 'cold';
+  const tr      = d.trust  || {};
+  const bin     = d.binder || {};
+  const saves   = Number(tr.saves_7d) || 0;
+  const lookups = Number(t.lookups_7d) || 0;
+  const rate    = lookups ? Math.round((saves / lookups) * 100) : null;
+  const band    = rate === null ? '' : rate >= 30 ? 'warm' : rate >= 10 ? 'cool' : 'cold';
 
   let reading;
-  if (!scans) {
-    reading = 'No scans this week, so there is nothing to measure yet.';
+  if (!lookups) {
+    reading = 'No lookups this week, so there is nothing to measure yet.';
   } else if (!saves) {
-    reading = '<b>Nobody who scanned saved a card.</b> They are getting a price and leaving. '
+    reading = '<b>Nobody who looked up a card saved it.</b> They are getting a price and leaving. '
       + 'More traffic will not change that — whatever stops them happens after the number appears.';
   } else if (rate >= 30) {
-    reading = '<b>People who scan are keeping the card.</b> The tool is convincing them, so the '
+    reading = '<b>People who look up a card keep it.</b> The tool is convincing them, so the '
       + 'constraint is how many people arrive, not what happens once they do.';
   } else if (rate >= 10) {
     reading = 'Some are keeping cards, most are not. Worth knowing whether the ones who leave never '
       + 'wanted a binder, or hit something in the way of getting one.';
   } else {
-    reading = '<b>Almost nobody who scans saves.</b> They come for a number and go. That is the gap '
-      + 'to close before spending anything on traffic.';
+    reading = '<b>Almost nobody who looks up a card saves it.</b> They come for a number and go. '
+      + 'That is the gap to close before spending anything on traffic.';
   }
 
   /* Where cards come from at all, so the scanner's share is visible
@@ -272,27 +316,51 @@ function render(d){
 
   const trustBlock =
       '<div class="trust' + (band === 'cold' ? ' cold' : '') + '">'
-    +   '<div class="trust-k">SCANNED, THEN KEPT IT · 7 DAYS</div>'
+    +   '<div class="trust-k">LOOKED UP, THEN KEPT IT · 7 DAYS</div>'
     +   '<div class="trust-n ' + band + '">' + (rate === null ? '—' : rate + '%') + '</div>'
     +   '<div class="trust-of"><b>' + num(saves) + '</b> card' + (saves === 1 ? '' : 's')
-    +     ' saved from the scanner, against <b>' + num(scans) + '</b> scan' + (scans === 1 ? '' : 's')
+    +     ' saved from the scanner, against <b>' + num(lookups) + '</b> lookup' + (lookups === 1 ? '' : 's')
+    +     ' (' + num(t.scans_7d) + ' scanned, ' + num(t.searches_7d) + ' typed)'
     +     '.<br/><b>' + num(tr.savers_7d) + '</b> different '
     +     (Number(tr.savers_7d) === 1 ? 'person' : 'people') + ' saved something.</div>'
     +   srcBar
     +   '<div class="trust-read">' + reading + '</div>'
+    +   '<div class="caveat">Saves exclude your own account. Lookups do not \u2014 scan_events '
+    +     'has no user id, so your testing is still inside every number above the save line. '
+    +     'The real rate is higher than this.</div>'
     + '</div>';
 
   /* Oldest → newest for the bar strip; the query returns newest first. */
   const days  = daily.slice().reverse();
-  const peak  = Math.max(1, ...days.map(x => Number(x.scans)||0));
+  const peak  = Math.max(1, ...days.map(x => Number(x.lookups)||0));
   const today = days.length ? days[days.length-1].day : '';
 
   const bars = days.map(x => {
-    const n = Number(x.scans)||0;
-    const h = Math.round((n/peak)*100);
+    const nS = Number(x.scans)||0, nQ = Number(x.searches)||0, nT = nS + nQ;
+    const h  = Math.round((nT/peak)*100);
+    /* Segment heights are shares of THIS bar, so the two always add to
+       the bar's own height whatever the day's total. */
+    const pS = nT ? (nS/nT)*100 : 0;
     return '<div class="bar' + (x.day===today?' today':'') + '" style="height:' + Math.max(h,2) + '%">'
-      + '<span class="tip">' + esc(x.day) + ' · ' + num(n) + ' scans</span></div>';
+      + '<span class="tip">' + esc(x.day) + ' · ' + num(nT) + ' lookups ('
+      + num(nS) + ' scan / ' + num(nQ) + ' search)</span>'
+      + '<i class="seg-search" style="height:' + (100-pS) + '%"></i>'
+      + '<i class="seg-scan" style="height:' + pS + '%"></i>'
+      + '</div>';
   }).join('');
+
+  /* Most-looked-up rows carry a scan/search split now, so a card that
+     is only ever typed is visible as such — nobody had that one in
+     their hand. */
+  const cardRows = (arr) => arr.length
+    ? '<table>' + arr.map(x => {
+        const s = Number(x.scans)||0, q = Number(x.searches)||0;
+        const how = (s && q) ? (s + ' scanned · ' + q + ' typed')
+                  : s ? (s + ' scanned') : (q + ' typed');
+        return '<tr><td>' + esc(x.card) + '<span class="how">' + how + '</span></td>'
+             + '<td class="n">' + num(x.n) + '</td></tr>';
+      }).join('') + '</table>'
+    : '<div class="empty">nothing in the last 30 days</div>';
 
   const rows = (arr, keyName) => arr.length
     ? '<table>' + arr.map(x =>
@@ -300,25 +368,33 @@ function render(d){
       ).join('') + '</table>'
     : '<div class="empty">nothing in the last 30 days</div>';
 
-  /* Sold coverage. This is the number that answers whether a bigger
-     API plan is worth paying for — an empty result means the user saw
-     asking prices only. */
+  /* Sold coverage. This is the number that answers whether the API
+     plan is earning its keep — an empty result means the user saw
+     asking prices only.
+
+     The old copy here recommended trialling "the next tier" and named
+     the 14-day Starter plan. That advice was for a plan already left
+     behind: /api/cardapi-status now reports a 30-day lookback and a
+     50,000 daily record limit. Telling yourself to buy something you
+     own is how a dashboard loses your trust. */
   const q   = Number(cov.queries)||0;
-  const has = Number(cov.with_data)||0;
-  const pct = q ? Math.round((has/q)*100) : 0;
+  const has_= Number(cov.with_data)||0;
+  const pct = q ? Math.round((has_/q)*100) : 0;
   let verdict;
   if(!q){
-    verdict = 'No lookups cached yet. This fills in as the scanner gets used.';
+    verdict = 'No lookups cached under the current filter version yet. '
+      + 'This fills in as cards get priced.';
   } else if(pct >= 70){
     verdict = '<b>' + pct + '% of lookups come back with real sold prices.</b> '
-      + 'A longer lookback window would not change much — the 14-day Starter plan is doing the job.';
+      + 'The 30-day window is doing its job \u2014 nothing to change here.';
   } else if(pct >= 40){
     verdict = '<b>' + pct + '% of lookups find sold prices.</b> '
-      + 'Worth watching. If this slides toward a third, the 30-day window on the next tier starts to pay for itself.';
+      + 'Worth watching. If it slides toward a third, the gap is more likely the queries being '
+      + 'too specific than the lookback being too short.';
   } else {
     verdict = '<b>Only ' + pct + '% of lookups find sold prices.</b> '
-      + 'Most people are seeing asking prices alone. That is the case for a longer lookback window — '
-      + 'trial the next tier for a month and compare this number.';
+      + 'Most people are seeing asking prices alone. With a 30-day window already in place, '
+      + 'that points at the search terms rather than the plan \u2014 check what those queries look like.';
   }
 
   app.innerHTML =
@@ -328,37 +404,49 @@ function render(d){
     + '</div>'
 
     + '<div class="hero">'
-    +  '<div class="hero-lbl">SCANS · LAST 24 HOURS</div>'
-    +  '<div class="hero-n">' + num(t.scans_24h) + '</div>'
+    +  '<div class="hero-lbl">CARD LOOKUPS · LAST 24 HOURS</div>'
+    +  '<div class="hero-n">' + num(t.lookups_24h) + '</div>'
     +  '<div class="hero-unit">from ' + num(t.people_24h) + ' ' + (Number(t.people_24h)===1?'session':'sessions') + '</div>'
-    +  '<div class="hero-cmp">48 hours <b>' + num(t.scans_48h) + '</b>'
-    +    ' &nbsp;·&nbsp; 7 days <b>' + num(t.scans_7d) + '</b>'
-    +    ' &nbsp;·&nbsp; 30 days <b>' + num(t.scans_30d) + '</b>'
-    +    ' &nbsp;·&nbsp; all time <b>' + num(t.scans_all) + '</b></div>'
+    +  '<div class="hero-cmp">48 hours <b>' + num(t.lookups_48h) + '</b>'
+    +    ' &nbsp;·&nbsp; 7 days <b>' + num(t.lookups_7d) + '</b>'
+    +    ' &nbsp;·&nbsp; 30 days <b>' + num(t.lookups_30d) + '</b>'
+    +    ' &nbsp;·&nbsp; all time <b>' + num(t.lookups_all) + '</b></div>'
+    +  '<div class="hero-split">'
+    +    '<span>7d photo scans <b>' + num(t.scans_7d) + '</b></span>'
+    +    '<span>7d typed searches <b>' + num(t.searches_7d) + '</b></span>'
+    +    '<span>' + (Number(t.lookups_7d)
+            ? Math.round((Number(t.searches_7d)/Number(t.lookups_7d))*100) + '% typed'
+            : '\u2014') + '</span>'
+    +  '</div>'
     + '</div>'
 
     + trustBlock
 
     + '<div class="card">'
-    +  '<h2>Scans per day · 30 days</h2>'
+    +  '<h2>Lookups per day · 30 days</h2>'
     +  '<div class="bars">' + (bars || '') + '</div>'
     +  '<div class="axis"><span>' + esc(days.length?days[0].day:'') + '</span>'
     +    '<span>peak ' + num(peak) + '</span>'
     +    '<span>' + esc(today) + '</span></div>'
+    +  '<div class="legend" style="margin-top:10px">'
+    +    '<span><i class="dot" style="background:var(--gold)"></i>photo scan</span>'
+    +    '<span><i class="dot" style="background:var(--blue);opacity:.75"></i>typed search</span>'
+    +  '</div>'
     + '</div>'
 
     + '<div class="grid">'
     +  cell('People · 7d',  num(t.people_7d),  num(t.visits_7d) + ' visits')
-    +  cell('Scanned · 7d', num(t.scanners_7d), 'sessions that scanned')
-    /* A share, not a bare count.
-
-       This sat beside "23 sessions that scanned" as a plain 37, which
-       invites reading 37/23 as a rate — and those are different units.
-       One session can scan several cards. What means something is the
-       share of SCANS that used the back image, because that is what the
-       copy change was meant to move. */
+    /* Sessions that did SOMETHING, against sessions that merely
+       arrived. This is the number that says whether the page works;
+       counting only photo scans put it at a third of the truth. */
+    +  cell('Used it · 7d',
+            (Number(t.people_7d) ? Math.round((Number(t.scanners_7d)/Number(t.people_7d))*100) + '%' : '\u2014'),
+            num(t.scanners_7d) + ' of ' + num(t.people_7d) + ' sessions looked up a card')
+    /* A share, not a bare count, and measured against SCANS rather
+       than lookups — a typed search has no images, so it could never
+       have used a back and would only dilute the rate. */
     +  cell('Both sides · 7d',
-            (Number(t.scans_7d) ? Math.round((Number(t.backs_7d)/Number(t.scans_7d))*100) + '%' : '—'),
+            (Number(t.scans_7d) ? Math.round((Number(t.backs_7d)/Number(t.scans_7d))*100) + '%' : '\u2014'),
             num(t.backs_7d) + ' of ' + num(t.scans_7d) + ' scans used the back')
     +  cell('Public counter', num(d.counter), 'shown on the scanner')
     + '</div>'
@@ -374,7 +462,7 @@ function render(d){
           : '')
     + '</div>'
     +  '<div class="card"><h2>Most looked up · 30d</h2>'
-    +    rows(d.cards||[], 'card') + '</div>'
+    +    cardRows(d.cards||[]) + '</div>'
     + '</div>'
 
     + '<div class="card">'
@@ -384,7 +472,7 @@ function render(d){
     +    '<i class="none" style="width:' + (100-pct) + '%"></i>'
     +  '</div>'
     +  '<div class="legend">'
-    +    '<span><i class="dot" style="background:var(--green)"></i>' + num(has) + ' found sold data</span>'
+    +    '<span><i class="dot" style="background:var(--green)"></i>' + num(has_) + ' found sold data</span>'
     +    '<span><i class="dot" style="background:var(--border2)"></i>' + num(cov.empty) + ' asks only</span>'
     +  '</div>'
     +  '<div class="verdict">' + verdict + '</div>'
