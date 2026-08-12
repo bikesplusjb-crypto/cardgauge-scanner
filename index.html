@@ -251,6 +251,22 @@ input[type=file]{display:none;}
 .search-row input:focus{border-color:var(--green);}
 .search-row button{padding:0 22px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap;}
 .search-hint{font-family:var(--fm);font-size:10.5px;color:var(--text3);text-align:center;margin-top:9px;line-height:1.5;}
+
+/* ===== SAMPLE CARDS =====
+   These four buttons were in the markup with no CSS behind them, so they
+   rendered as default browser buttons — grey, chunky, and obviously
+   unfinished on a page this dark. Somebody who arrived from a video with
+   no card in hand met a broken-looking row at exactly the moment they
+   were deciding whether the tool was worth trying. */
+.tryrow{margin-top:16px;padding-top:15px;border-top:1px solid var(--border);text-align:center;}
+.tryrow-k{font-family:var(--fm);font-size:10px;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--text3);margin-bottom:10px;}
+.trychips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;}
+.trychip{font-family:var(--fm);font-size:11px;font-weight:600;padding:8px 13px;
+  border-radius:100px;border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text2);cursor:pointer;transition:all .16s;line-height:1.2;}
+.trychip:hover{border-color:var(--green);color:var(--green);background:rgba(34,197,94,.08);}
+
 .status{margin-top:14px;padding:12px;border-radius:10px;font-size:13px;font-weight:600;text-align:center;display:none;align-items:center;justify-content:center;gap:9px;}
 .status.show{display:flex;}
 .status.loading{background:rgba(59,130,246,.1);color:var(--blue);}
@@ -297,6 +313,14 @@ input[type=file]{display:none;}
 .sold-range.hidden{display:none;}
 .sold-basis{display:inline-block;margin-left:10px;vertical-align:middle;padding:2px 8px;border-radius:100px;font-size:9px;
   font-family:var(--fm);letter-spacing:.05em;background:rgba(34,197,94,.14);color:var(--green);}
+/* The badge has to change colour when the label stops being true. A green
+   RAW tag over a median the server has flagged as mixed is the page
+   vouching for a number it was just told not to trust. */
+.sold-basis.mixed{background:rgba(245,158,11,.16);color:var(--gold-warm);}
+.sold-mixed{margin-top:11px;padding:11px 12px;border-radius:10px;
+  background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.32);
+  font-size:11.5px;line-height:1.55;color:var(--gold-warm);}
+.sold-mixed b{color:#fff;}
 /* A range many multiples wide isn't a range, it's a warning that the query
    is pulling in more than one card. Say that instead of printing the number
    and letting it undercut the median sitting right above it. */
@@ -394,6 +418,43 @@ input[type=file]{display:none;}
 .backask-btn:disabled{opacity:.6;cursor:not-allowed;}
 .backask-thumb{max-width:72px;max-height:100px;border-radius:6px;border:1px solid var(--border2);
   display:block;margin:0 auto 10px;}
+
+/* ===== SELL ONE LIKE THIS =====
+   Deliberately NOT a third blue bar. Two eBay links are already
+   stacked here, and a third identical one turns a hierarchy into a
+   wall — the eye stops telling them apart and taps none of them.
+
+   Green because this is the one link on the page where money moves
+   TOWARD the person reading. That is a different kind of action from
+   the two above it, and colour is the cheapest way to say so.
+
+   It carries the number, too. "Sell one like this" is a button;
+   "list around $180" is an answer, and the answer is why anybody
+   taps. */
+.sell{display:block;text-decoration:none;padding:15px 16px;
+  background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(34,197,94,.03));
+  border-top:1px solid rgba(34,197,94,.3);border-bottom:1px solid rgba(34,197,94,.3);
+  transition:background .18s;}
+.sell:hover{background:rgba(34,197,94,.2);}
+.sell-row{display:flex;align-items:center;gap:12px;}
+.sell-main{flex:1;font-family:var(--f);font-size:14px;font-weight:800;
+  color:var(--green);letter-spacing:.2px;line-height:1.35;}
+.sell-go{font-family:var(--fbig);font-size:22px;color:var(--green);line-height:1;}
+.sell-sub{display:block;font-family:var(--fm);font-size:9.5px;color:var(--text3);
+  margin-top:6px;line-height:1.6;}
+.sell-sub b{color:var(--text2);}
+
+/* The state that matters more than the happy path.
+
+   When the sold median has been flagged as mixing versions, this does
+   not offer a list price at all. Handing somebody a number to list at,
+   directly under a warning that we cannot tell which card the number
+   describes, would be talking them into mispricing their own card —
+   and doing it in the one place they were most likely to trust us. */
+.sell-off{padding:13px 16px;background:rgba(0,0,0,.2);
+  border-top:1px solid var(--border);font-family:var(--fm);font-size:10px;
+  line-height:1.7;color:var(--text3);text-align:center;}
+.sell-off b{color:var(--gold-warm);}
 
 /* ===== PRICE NOTE ===== */
 .pnote{padding:12px 16px;font-size:12px;line-height:1.5;font-weight:600;
@@ -1686,35 +1747,63 @@ function buildSoldHero(d){
   var lo  = safeNum(sold.soldLow);
   var hi  = safeNum(sold.soldHigh);
 
-  spreadFlagged = med > 0 && (
+  /* The server now says outright when the pool it priced from isn't one
+     card — either too few confirmed base sales survived the filter, or the
+     raw median landed too close to the PSA 9 for both to describe the same
+     thing. That verdict beats anything this page can infer from the range,
+     because the server saw the individual sales and we only see a summary.
+
+     It rides the SAME flag as the local spread check, which is what makes
+     it reach everything downstream: the deal callout goes quiet, the
+     "that's your number" line withholds itself, the refinement chips
+     appear, and the EDIT box lights up. One flag, four behaviours. */
+  var contaminated = !!sold.soldContaminated;
+
+  spreadFlagged = contaminated || (med > 0 && (
     (hi > 0 && hi / med >= WIDE_SPREAD_X) ||
     (lo > 0 && med / lo >= WIDE_SPREAD_X)
-  );
+  ));
 
   var lookback = sold.lookbackDays || 14;
   var whenNote = sold.lastSaleDate ? ('last sale '+sold.lastSaleDate) : '';
-  var basisTag = sold.soldBasis === 'raw'
-    ? '<span class="sold-basis">RAW</span>'
-    : (sold.soldGraded && sold.soldGraded.count ? '<span class="sold-basis">MIXED</span>' : '');
+  var basisTag = contaminated
+    ? '<span class="sold-basis mixed">MIXED</span>'
+    : (sold.soldBasis === 'raw'
+        ? '<span class="sold-basis">RAW</span>'
+        : (sold.soldGraded && sold.soldGraded.count ? '<span class="sold-basis">MIXED</span>' : ''));
 
   var rangeHtml = (lo > 0 || hi > 0)
     ? '<div class="sold-range'+(spreadFlagged?' hidden':'')+'" id="soldRange">range <b>'
         +fmtMoney(lo)+'</b> &ndash; <b>'+fmtMoney(hi)+'</b></div>'
     : '';
 
-  var spreadHtml = spreadFlagged
-    ? '<div class="sold-spread">'
+  /* One warning, not two. When the server has explained WHY the pool is
+     mixed, its reason is more specific than "prices are all over the
+     place" — and printing both makes the page sound unsure of itself. */
+  var warnHtml = '';
+  if(contaminated){
+    warnHtml = '<div class="sold-mixed">&#9888;&#65039; <b>This number is mixing versions.</b> '
+      + esc(sold.soldWarning || 'The recent sales look like more than one version of this card.')
+      + ((sold.soldUngradedCount)
+          ? ' <span style="opacity:.85">('+sold.soldBaseCount+' of '+sold.soldUngradedCount
+            +' ungraded sales confirmed as the base card.)</span>' : '')
+      + '<button class="sold-range-toggle" onclick="toggleRange(event)" '
+      + 'style="display:block;margin-top:9px">SHOW FULL RANGE</button>'
+      + '</div>';
+  } else if(spreadFlagged){
+    warnHtml = '<div class="sold-spread">'
         +'<div class="sold-spread-t">&#9888;&#65039; Sale prices are all over the place &mdash; '
         +'this search is catching several versions of the card. '
         +'Pick one below to see what that version really goes for.</div>'
         +'<button class="sold-range-toggle" onclick="toggleRange(event)">SHOW FULL RANGE</button>'
-      +'</div>'
-    : '';
+      +'</div>';
+  }
 
   return '<div class="sold-hero">'
     +'<div class="sold-hero-lbl">&#9679; What it actually sold for</div>'
     +'<div class="sold-hero-val">'+fmtMoney(med)+basisTag+'</div>'
-    +(spreadFlagged ? spreadHtml + rangeHtml : rangeHtml)
+    +warnHtml
+    +rangeHtml
     +'<div class="sold-hero-sub">Median of <b>'+soldCountLabel(sold.soldCount, sold.limitUsed)+'</b> real sales'
       +(sold.bestOfferCount ? ', incl. <b>'+sold.bestOfferCount+'</b> accepted best offers' : '')
       +' &middot; past '+lookback+' days'
@@ -1771,6 +1860,64 @@ function buildAskVsSold(d){
     +'<div class="avs-track"><div class="avs-fill" style="width:'+Math.max(8,soldPct)+'%"></div></div>'
     +'<div class="avs-note '+cls+'">'+esc(a.note)+'</div>'
   +'</div>';
+}
+
+/* ===== SELL ONE LIKE THIS =====
+   eBay's listing flow, prefilled with the card we just priced.
+
+   VERIFY THIS URL BEFORE TRUSTING IT. eBay's sell endpoints move more
+   often than its search ones, and the failure mode is silent: a
+   changed path lands somebody on a generic page instead of a prefilled
+   form, and nothing on our side would notice. It is one constant on
+   purpose — when it breaks, this is the only line to change.
+
+   No campid. EPN pays on purchases, not listings, so tagging a sell
+   link would earn nothing and imply an interest we do not have. Saying
+   that on the block is worth more than the tag would be. */
+const EBAY_SELL_URL = 'https://www.ebay.com/sl/sell';
+
+function sellLink(query){
+  var q = String(query || '').replace(/(^|\s)-\S+/g, '').replace(/\s+/g, ' ').trim();
+  return EBAY_SELL_URL + '?sellFlow=PRELIST&keyword=' + encodeURIComponent(q);
+}
+
+/* Only offered when the sold number is one we are willing to stand
+   behind. spreadFlagged already carries both the local wide-range
+   check and the server's contamination verdict, so there is one gate
+   rather than two that can disagree. */
+function buildSell(d){
+  if(!d.sold || !d.sold.soldCount || d.sold.rateLimited) return '';
+
+  if(spreadFlagged){
+    return '<div class="sell-off">Not suggesting a list price on this one \u2014 '
+      + '<b>we can\'t tell which version these sales are for.</b><br/>'
+      + 'Narrow the search and it comes back.</div>';
+  }
+
+  var med = safeNum(d.sold.soldMedian);
+  if(!med) return '';
+
+  return '<a class="sell" href="' + esc(sellLink(currentQuery)) + '" '
+    + 'target="_blank" rel="noopener" '
+    + 'onclick="onSellClick()">'
+    + '<span class="sell-row">'
+      + '<span class="sell-main">\ud83d\udcb0 Sell one like this \u2014 list around '
+      + fmtMoney(med) + '</span>'
+      + '<span class="sell-go">\u2197</span>'
+    + '</span>'
+    + '<span class="sell-sub">Opens eBay\'s listing form with the card details filled in. '
+    + '<b>We take no cut and never see the sale.</b></span>'
+  + '</a>';
+}
+
+/* Logged from day one. A feature nobody can measure is a feature
+   nobody can decide about later. */
+function onSellClick(){
+  try{
+    logEvent('sell_click', (lastResult && lastResult.cardName) || currentQuery, false);
+    if(window.ttq) ttq.track('ClickButton',
+      {content_name:'sell_one_like_this', content_type:'scanner_standalone'});
+  }catch(e){}
 }
 
 /* ===== BOTTOM CTA =====
@@ -1924,7 +2071,16 @@ function renderCta(d, rows, s){
      speak up about. */
   var soldN      = safeNum(d.sold && d.sold.soldCount);
   var evidenceN  = Math.max(soldN, safeNum(s.cnt));
+
+  /* A contaminated pool cannot support a grading recommendation. The whole
+     verdict is (graded value − raw − fee), and if the raw figure is a blend
+     of base cards, inserts and refractors, the subtraction is meaningless.
+     Better to say nothing than to tell somebody to spend $25 on arithmetic
+     the page has already flagged as unreliable. */
+  var contaminated = !!(d.sold && d.sold.soldContaminated);
+
   var thinSample = (evidenceN < THIN_RESULT_N)
+                || contaminated
                 || d.matchQuality === 'thin'
                 || d.matchQuality === 'base_fallback';
 
@@ -2051,10 +2207,18 @@ function renderResult(d){
      the difference between "not worth grading" and "grade it", and it
      was wrong in the direction that costs somebody a card.
 
-     Sold first, ask only when there are no sales at all. */
-  var ladderBase = safeNum(d.sold && d.sold.soldRaw && d.sold.soldRaw.count >= THIN_RESULT_N
-                             ? d.sold.soldRaw.median : 0)
-                || safeNum(d.sold && d.sold.soldMedian)
+     Sold first, ask only when there are no sales at all.
+
+     BUT a contaminated sold median is worse than an asking median,
+     because it carries the authority of "real sales" while describing
+     several different cards. When the server flags it, fall through to
+     the ask and let the "est." labels on the ladder do their job. Real
+     per-grade sales still anchor the rungs either way; this only sets
+     the fallback. */
+  var soldPoisoned = !!(d.sold && d.sold.soldContaminated);
+  var ladderBase = (!soldPoisoned && safeNum(d.sold && d.sold.soldRaw && d.sold.soldRaw.count >= THIN_RESULT_N
+                             ? d.sold.soldRaw.median : 0))
+                || (!soldPoisoned && safeNum(d.sold && d.sold.soldMedian))
                 || safeNum(s.avg);
   var rows = buildRoiRows(d, ladderBase);
 
@@ -2151,7 +2315,13 @@ function renderResult(d){
         +'</a>'
         +'<a class="verify-link" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_verify\',content_type:\'scanner_standalone\'})">'
         +'↗ Or see the sold listings behind that number</a>'
-        +'<div class="aff-note">eBay links are affiliate links — costs you nothing, and we don\'t set the prices.</div>';
+        /* Sits BELOW both buying links on purpose. Most people arrive
+           holding a card and wondering what it is worth; only some of
+           them are ready to sell it. Putting the sell action above the
+           buy links would serve the smaller intent first. */
+        +buildSell(d)
+        +'<div class="aff-note">eBay links are affiliate links — costs you nothing, and we don\'t set the prices. '
+        +'The sell link carries no affiliate tag at all.</div>';
     }
 
     /* These two come from live listings, so they are asking prices — even
@@ -2392,40 +2562,17 @@ function dismissInstall(){
    full URL. */
 var ATTR_KEY = 'cg_attr';
 
-/* Pull UTM tags from a URL, whichever URL we can actually see. */
-function utmFrom(href){
-  try{
-    var u = new URL(href, window.location.href);
-    var p = u.searchParams;
-    if(!p.get('utm_source')) return null;
-    return {
-      utm_source:   p.get('utm_source'),
-      utm_medium:   p.get('utm_medium'),
-      utm_campaign: p.get('utm_campaign')
-    };
-  }catch(e){ return null; }
-}
-
 function readAttr(){
-  /* THE IFRAME PROBLEM.
+  var p;
+  try { p = new URLSearchParams(window.location.search); } catch(e){ p = null; }
 
-     On the Wix homepage this scanner runs inside an iframe, so
-     window.location is the IFRAME's address — some filesusr URL — not
-     the page somebody actually opened. A visit to
-     cardgauge.com/?utm_source=youtube therefore recorded no tag at all,
-     and the row landed as a self-referral from www.cardgauge.com.
+  var fresh = {
+    utm_source:   p ? p.get('utm_source')   : null,
+    utm_medium:   p ? p.get('utm_medium')   : null,
+    utm_campaign: p ? p.get('utm_campaign') : null
+  };
 
-     That is exactly what the events table showed, and it is also why
-     tiktok_bio worked while youtube did not: the TikTok link points at
-     scan.cardgauge.com, which is not embedded in anything.
-
-     Inside an iframe, document.referrer IS the parent page's full URL,
-     query string included. So: own URL first, then the parent's. */
-  var fresh = utmFrom(window.location.href)
-           || utmFrom(document.referrer || '')
-           || { utm_source: null, utm_medium: null, utm_campaign: null };
-
-  // No UTMs anywhere? Fall back to who linked here.
+  // No UTMs? Fall back to who linked here.
   if(!fresh.utm_source){
     var ref = '';
     try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch(e){}
