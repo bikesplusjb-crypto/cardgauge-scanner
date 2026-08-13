@@ -463,10 +463,16 @@ function render(d){
        Expect a 0 here for a while. It is a series that starts now so it
        exists when there is enough traffic to read it, not a number to
        judge anything by yet. */
-    +  cell('Sell taps · 7d', num(t.sell_clicks_7d),
-            (Number(t.lookups_7d)
-              ? Math.round((Number(t.sell_clicks_7d)/Number(t.lookups_7d))*100) + '% of lookups'
-              : 'no lookups yet'))
+    /* Acted on it: kept the session, or went to list a card. Both are
+       "somebody did something after seeing a price", which is the step
+       this whole dashboard exists to measure — and at 113 lookups a
+       week, splitting them into two tiles gives you two zeros instead
+       of one signal. */
+    +  cell('Acted on it · 7d',
+            num(Number(t.bench_saves_7d||0) + Number(t.sell_clicks_7d||0)),
+            (has(t,'bench_saves_7d')
+              ? (num(t.bench_saves_7d) + ' kept a bench, ' + num(t.sell_clicks_7d) + ' went to sell')
+              : num(t.sell_clicks_7d) + ' sell taps \u2014 bench not counted yet'))
     +  cell('Public counter', num(d.counter), 'shown on the scanner')
     + '</div>'
 
