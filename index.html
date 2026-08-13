@@ -2605,6 +2605,37 @@ function attrSession(){
 
 var CG_ATTR = null;
 
+/* ===== IS THIS THE OWNER TESTING? =====
+   scan_events carries no user id, and shouldn't — the scanner runs
+   logged out for most people, so an id would be null on the majority
+   of rows and useless for this.
+
+   A flag is enough. Set it once on your own phone by opening any page
+   with ?owner=1 on the end; it sticks in localStorage from then on.
+   Every event after that is marked, and cg_stats filters them out.
+
+   WHY IT MATTERS more than it sounds: the trust rate divides saves by
+   lookups. Saves already exclude the owner because watchlist_items has
+   a user id. Lookups did not. So a day spent testing pushed the
+   denominator up while the numerator stayed put, and the one number
+   the dashboard exists to measure was being dragged down by the work
+   of building it.
+
+   Deliberately NOT automatic. Guessing at "this looks like the
+   developer" from a user agent or an IP would quietly drop real
+   visitors, which is a worse failure than counting a few of your own
+   scans. It only ever marks a device you marked on purpose. */
+var CG_OWNER_KEY = 'cg_is_owner';
+
+function cgIsOwner(){
+  try{
+    var p = new URLSearchParams(location.search);
+    if(p.get('owner') === '1'){ localStorage.setItem(CG_OWNER_KEY,'1'); }
+    if(p.get('owner') === '0'){ localStorage.removeItem(CG_OWNER_KEY); }
+    return localStorage.getItem(CG_OWNER_KEY) === '1';
+  }catch(e){ return false; }
+}
+
 function logEvent(event, cardName, usedBack){
   try{
     if(!CG_ATTR) CG_ATTR = readAttr();
@@ -2621,7 +2652,8 @@ function logEvent(event, cardName, usedBack){
         p_referrer_host: refHost || null,
         p_card_name:     cardName ? String(cardName).slice(0,200) : null,
         p_used_back:     !!usedBack,
-        p_session_id:    attrSession()
+        p_session_id:    attrSession(),
+        p_is_owner:      cgIsOwner()
       })
     }).catch(function(){});
   }catch(e){}
