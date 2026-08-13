@@ -898,7 +898,7 @@ input[type=file]{display:none;}
 
   <div class="foot-asks">
     <a class="foot-ask store" href="https://www.ebay.com/usr/cardgauge" target="_blank" rel="noopener"
-       onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'ebay_store_scanner',content_type:'scanner_standalone'})">
+       onclick="affClick('own_store');if(window.ttq)ttq.track('ClickButton',{content_name:'ebay_store_scanner',content_type:'scanner_standalone'})">
       &#128722; Cards for sale on eBay</a>
   </div>
   <div class="foot-ask-note">A separate eBay seller account &mdash; the scanner takes no cut of any sale and never
@@ -1973,6 +1973,29 @@ function buildSell(d){
 
 /* Logged from day one. A feature nobody can measure is a feature
    nobody can decide about later. */
+/* ===== AFFILIATE CLICKS =====
+   Every one of these already fires a TikTok pixel event, which means
+   the counts live in TikTok's dashboard and nowhere you look. eBay and
+   Amazon report the other half — whether a click became a purchase
+   — but neither will tell you which link on which page sent it.
+
+   This closes the near half. It says nothing about revenue and is not
+   meant to: what it answers is whether anybody is clicking these at
+   all, which is the question that decides whether a missing commission
+   means nobody bought or nobody clicked.
+
+   Own-store clicks are tagged separately. EPN credits the final value
+   fee on your OWN listings when traffic arrives through your campid,
+   so those are worth more per click than the rest and worth counting
+   apart from them. */
+function affClick(where){
+  try{
+    logEvent('affiliate_click', String(where||'').slice(0,60), false);
+    if(window.ttq) ttq.track('ClickButton',
+      {content_name:'aff_'+where, content_type:'affiliate'});
+  }catch(e){}
+}
+
 function onSellClick(){
   try{
     logEvent('sell_click', (lastResult && lastResult.cardName) || currentQuery, false);
@@ -2579,7 +2602,7 @@ function renderResult(d){
        underneath as the check-our-work path — demoted, not hidden. It also
        happens to be the only link here that can pay for the API. */
     if(!haveSold){
-      html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
+      html+='<a class="sold-check" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="affClick(\'sold_check\');if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_check\',content_type:\'scanner_standalone\'})">'
         +'<span class="sold-check-main">↗ See what it actually SOLD for</span>'
         +'<span class="sold-check-sub">These are asking prices. Sold comps are the real answer.</span>'
         +'</a>';
@@ -2606,11 +2629,11 @@ function renderResult(d){
       } else {
         anchor = 'Live listings for this card.';
       }
-      html+='<a class="sold-check" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" style="margin-top:12px;border-radius:11px 11px 0 0;border-bottom:none" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'shop_active_listings\',content_type:\'scanner_standalone\'})">'
+      html+='<a class="sold-check" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" style="margin-top:12px;border-radius:11px 11px 0 0;border-bottom:none" onclick="affClick(\'shop_active\');if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'shop_active_listings\',content_type:\'scanner_standalone\'})">'
         +'<span class="sold-check-main">↗ Shop this card on eBay</span>'
         +'<span class="sold-check-sub">'+esc(anchor)+'</span>'
         +'</a>'
-        +'<a class="verify-link" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_verify\',content_type:\'scanner_standalone\'})">'
+        +'<a class="verify-link" href="'+soldUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="affClick(\'sold_verify\');if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'sold_comps_verify\',content_type:\'scanner_standalone\'})">'
         +'↗ Or see the sold listings behind that number</a>'
         /* Sits BELOW both buying links on purpose. Most people arrive
            holding a card and wondering what it is worth; only some of
@@ -2740,7 +2763,7 @@ function renderResult(d){
     +'</div>'
     +'<div id="sqBody">'
       +'<div class="sq-text">'+esc(currentQuery)+'</div>'
-      +'<a class="sq-link" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'open_search_on_ebay\',content_type:\'scanner_standalone\'})">↗ Open this exact search on eBay</a>'
+      +'<a class="sq-link" href="'+activeUrl+'" target="_blank" rel="noopener nofollow sponsored" onclick="affClick(\'open_search\');if(window.ttq)ttq.track(\'ClickButton\',{content_name:\'open_search_on_ebay\',content_type:\'scanner_standalone\'})">↗ Open this exact search on eBay</a>'
       +'<div class="sq-why">'
         +(spreadFlagged
           ? 'The buttons above are the quick fix. For anything they don\'t cover — a specific parallel, a serial number, a set name — <b>tap EDIT</b> and type it in.'
