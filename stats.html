@@ -422,7 +422,15 @@ function render(d){
     + '<div class="hero">'
     +  '<div class="hero-lbl">CARD LOOKUPS · LAST 24 HOURS</div>'
     +  '<div class="hero-n">' + num(t.lookups_24h) + '</div>'
-    +  '<div class="hero-unit">from ' + num(t.people_24h) + ' ' + (Number(t.people_24h)===1?'session':'sessions') + '</div>'
+    /* Sessions that actually looked something up, not sessions that
+       loaded the page. The old line put lookups next to a headcount of
+       everyone who arrived, which invited reading it as one lookup
+       each — and made a good day look like a thin one. */
+    +  '<div class="hero-unit">' + (has(t,'scanners_24h')
+         ? ('from <b style="color:var(--text)">' + num(t.scanners_24h) + '</b> '
+            + (Number(t.scanners_24h)===1?'session':'sessions') + ' \u00b7 '
+            + num(t.people_24h) + ' were on the site')
+         : ('from ' + num(t.people_24h) + ' ' + (Number(t.people_24h)===1?'session':'sessions'))) + '</div>'
     +  '<div class="hero-cmp">48 hours <b>' + num(t.lookups_48h) + '</b>'
     +    ' &nbsp;·&nbsp; 7 days <b>' + num(t.lookups_7d) + '</b>'
     +    ' &nbsp;·&nbsp; 30 days <b>' + num(t.lookups_30d) + '</b>'
