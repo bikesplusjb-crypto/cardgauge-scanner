@@ -120,6 +120,16 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
 /* Owner testing is still inside every scan_events number, because that
    table carries no user id. Said out loud rather than left for somebody
    to rediscover in three weeks. */
+.aff{margin-top:16px;}
+.aff-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.aff-row:last-child{border-bottom:none;}
+.aff-row b{font-family:var(--fm);font-size:12.5px;color:var(--gold-warm);font-weight:600;}
+.aff-row.own{color:var(--green);}
+.aff-row.own b{color:var(--green);}
+.aff-note{font-family:var(--fm);font-size:10.5px;line-height:1.7;color:var(--text3);
+  margin-top:11px;padding-top:11px;border-top:1px solid var(--border);}
+.aff-note b{color:var(--text2);}
 .caveat{font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--gold-warm);
   background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);
   border-radius:9px;padding:10px 12px;margin-top:13px;}
@@ -490,6 +500,8 @@ function render(d){
     +    cardRows(d.cards||[]) + '</div>'
     + '</div>'
 
+    + affPanel(d, t)
+
     + '<div class="card">'
     +  '<h2>Sold-price coverage · 30d</h2>'
     +  '<div class="meter">'
@@ -529,6 +541,53 @@ function ownerCaveat(t){
     + 'border-color:var(--border)"><b style="color:var(--green)">\u2713</b> '
     + n + ' of your own lookup' + (n===1?'':'s') + ' excluded this week. '
     + 'Everything above is other people.</div>';
+}
+
+/* Placement names in the order they appear on a result page, so the
+   list reads as a funnel rather than an alphabet. */
+var AFF_LABEL = {
+  shop_active: 'Shop this card on eBay',
+  sold_verify: 'See the sold listings',
+  sold_check:  'See what it SOLD for',
+  open_search: 'Open this search on eBay',
+  own_store:   'Your own eBay store',
+  shop_amazon: 'Shop (Amazon)'
+};
+var AFF_ORDER = ['shop_active','sold_verify','sold_check','open_search','shop_amazon','own_store'];
+
+function affPanel(d, t){
+  if(!has(t,'aff_clicks_30d')) return '';
+  var by = d.aff_by_place || {};
+  var total = Number(t.aff_clicks_30d || 0);
+
+  if(!total){
+    return '<div class="card"><h2>Affiliate clicks \u00b7 30d</h2>'
+      + '<div class="empty">Nothing clicked yet. Tracking started when this shipped \u2014 '
+      + 'from here on, a missing commission means nobody bought rather than nobody clicked.</div></div>';
+  }
+
+  var rows = AFF_ORDER.filter(function(k){ return by[k]; }).map(function(k){
+    return '<div class="aff-row'+(k==='own_store'?' own':'')+'"><span>'
+      + esc(AFF_LABEL[k]||k) + '</span><b>' + num(by[k]) + '</b></div>';
+  }).join('');
+
+  /* Anything the page sends that this list does not know about gets
+     shown raw rather than dropped silently. */
+  Object.keys(by).forEach(function(k){
+    if(AFF_ORDER.indexOf(k) === -1)
+      rows += '<div class="aff-row"><span>'+esc(k)+'</span><b>'+num(by[k])+'</b></div>';
+  });
+
+  var own = Number(t.own_store_clicks_7d || 0);
+  return '<div class="card"><h2>Affiliate clicks \u00b7 30d</h2>'
+    + '<div class="aff">' + rows + '</div>'
+    + '<div class="aff-note">Clicks, not sales \u2014 whether any became a purchase only shows '
+    + 'in eBay Partner Network and Amazon Associates. '
+    + (own ? '<b>' + own + ' of this week\'s went to your own store</b>, where EPN also credits '
+           + 'the final value fee on anything that sells.'
+          : 'Clicks to <b>your own store</b> are worth more than the rest \u2014 EPN credits the '
+           + 'final value fee on those sales too.')
+    + '</div></div>';
 }
 
 function cell(label, n, sub){
