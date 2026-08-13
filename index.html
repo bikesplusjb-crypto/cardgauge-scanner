@@ -456,6 +456,65 @@ input[type=file]{display:none;}
   line-height:1.7;color:var(--text3);text-align:center;}
 .sell-off b{color:var(--gold-warm);}
 
+/* ===== THE SESSION BENCH =====
+   The page calls itself a workstation. A first-time visitor saw a
+   scanner that answered one question and forgot it, which is a lookup
+   tool with a bigger headline.
+
+   The obvious fix is a logged-in dashboard, and it is the wrong first
+   move: two people have saved anything, so a returning-collector view
+   would be an empty box on almost every visit, and an empty bench is
+   worse than no bench.
+
+   This works at the traffic that actually exists. The bench assembles
+   itself out of what somebody looks up in the session they are already
+   in — no login, no empty state — and by the second card the page is
+   visibly doing something no lookup tool does.
+
+   It also moves the save ask to the only moment it is obviously worth
+   saying yes to: after the work exists, rather than under the first
+   result somebody has no reason to keep yet. */
+.bench{border:1px solid rgba(245,158,11,.32);border-radius:var(--radius-lg);
+  background:linear-gradient(160deg,rgba(245,158,11,.07),rgba(17,24,39,.55));
+  overflow:hidden;margin-top:13px;}
+.bench-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:13px 15px 10px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.bench-t{font-size:13.5px;font-weight:800;color:var(--text);}
+.bench-t span{color:var(--gold-warm);font-weight:600;}
+.bench-n{font-family:var(--fm);font-size:10px;color:var(--text3);}
+.brow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  padding:10px 15px;border-bottom:1px solid var(--border);}
+.brow:last-of-type{border-bottom:none;}
+/* The card just looked up is marked. On the fifth lookup "which one
+   did I just do" stops being obvious without it. */
+.brow.now{background:rgba(245,158,11,.05);}
+.bname{font-size:12px;color:var(--text);line-height:1.35;min-width:0;overflow-wrap:anywhere;}
+.bname span{display:block;font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:3px;}
+.bname .tick{color:var(--green);font-weight:800;margin-right:5px;}
+.bval{font-family:var(--fm);font-size:12.5px;font-weight:700;color:var(--green);
+  text-align:right;white-space:nowrap;}
+.bval.warn{color:var(--gold-warm);}
+.bval small{display:block;font-size:8.5px;font-weight:400;color:var(--text3);margin-top:2px;}
+.btot{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  padding:12px 15px;background:rgba(0,0,0,.26);border-top:1px solid var(--border);flex-wrap:wrap;}
+.btot-k{font-family:var(--fm);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text2);}
+.btot-v{font-family:var(--fbig);font-size:24px;color:var(--gold-warm);line-height:1;}
+.bench-cta{padding:12px 15px;background:rgba(34,197,94,.07);
+  border-top:1px solid rgba(34,197,94,.25);}
+.bench-btn{display:block;width:100%;padding:12px;border-radius:10px;border:none;
+  background:var(--green);color:#052e16;font-family:var(--f);font-size:13.5px;
+  font-weight:800;cursor:pointer;text-align:center;text-decoration:none;}
+.bench-btn:disabled{opacity:.6;cursor:not-allowed;}
+.bench-btn.done{background:var(--surface2);border:1px solid rgba(34,197,94,.4);color:var(--green);}
+.bench-fine{font-family:var(--fm);font-size:9px;line-height:1.65;color:var(--text3);
+  text-align:center;margin-top:8px;}
+.bench-fine b{color:var(--text2);}
+.bench-clear{display:block;width:100%;text-align:center;background:none;border:none;
+  font-family:var(--fm);font-size:9px;letter-spacing:.08em;color:var(--text3);
+  padding:9px 0 4px;cursor:pointer;text-decoration:underline;}
+.bench-clear:hover{color:var(--text2);}
+
 /* ===== PRICE NOTE ===== */
 .pnote{padding:12px 16px;font-size:12px;line-height:1.5;font-weight:600;
   display:flex;gap:8px;align-items:flex-start;
@@ -822,6 +881,9 @@ input[type=file]{display:none;}
   </div>
 
   <div class="result" id="result"></div>
+
+  <!-- The session bench. Renders from the second lookup on. -->
+  <div id="benchBox"></div>
 
   <div class="install" id="installCard"></div>
 
@@ -1919,6 +1981,241 @@ function onSellClick(){
   }catch(e){}
 }
 
+/* ═══ THE SESSION BENCH ═══════════════════════════════════════
+   See the CSS note. What follows is deliberately small: one array,
+   one render, one save loop. No backend, no login required, nothing
+   that can fail in a way that costs somebody their result.
+
+   Persisted in sessionStorage rather than held in memory. Somebody
+   standing at a card table reloads by accident, or the service worker
+   updates under them mid-session — losing six lookups to either would
+   be worse than the feature is good. It dies with the tab, which is
+   what "this session" means and what the panel says. */
+var BENCH_KEY = 'cg_bench';
+var bench = [];
+var benchSaved = false;
+
+function benchLoad(){
+  try{
+    var raw = sessionStorage.getItem(BENCH_KEY);
+    bench = raw ? (JSON.parse(raw) || []) : [];
+    if(!Array.isArray(bench)) bench = [];
+  }catch(e){ bench = []; }
+}
+function benchStore(){
+  try{ sessionStorage.setItem(BENCH_KEY, JSON.stringify(bench.slice(0,40))); }catch(e){}
+}
+
+/* Only what the row needs and what a save needs. The full payload
+   carries up to a hundred listings; putting that in sessionStorage
+   would blow the quota inside a few lookups and take the bench with
+   it. */
+function benchAdd(d, s){
+  if(!d) return;
+  var name = String(d.cardName || '').trim();
+  if(!name) return;
+
+  var contaminated = !!(d.sold && d.sold.soldContaminated);
+  var soldMed  = safeNum(d.sold && d.sold.soldMedian);
+  var soldN    = Number((d.sold && d.sold.soldCount) || 0);
+
+  /* A value we have already refused to vouch for does not get carried
+     into the bench as though it were one. The row shows a dash and
+     says why, and the total is honest about how many it could price. */
+  var value = contaminated ? 0 : (soldMed || safeNum(s && s.avg));
+
+  var how = contaminated ? 'mixing versions'
+          : (d.usedBack ? 'scanned \u00b7 both sides'
+          : (frontFile ? 'scanned \u00b7 front only' : 'typed'));
+
+  var item = {
+    key:    (name + '|' + (d.searchQuery || '')).toLowerCase(),
+    name:   name.slice(0,140),
+    how:    how,
+    value:  value,
+    soldN:  contaminated ? 0 : soldN,
+    contaminated: contaminated,
+    query:  String(d.searchQuery || '').slice(0,200),
+    image:  d.image || null,
+    year:   d.year || null,
+    brand:  d.brand || null,
+    set:    d.set || null,
+    player: d.player || null,
+    number: d.cardNumber || null,
+    parallel: d.parallel || null,
+    sport:  d.sport || null,
+    saved:  false
+  };
+
+  /* Re-pricing a card, or correcting its search, should update the row
+     rather than add a second one — otherwise narrowing a bad result
+     leaves both versions sitting there. */
+  var at = -1;
+  for(var i=0;i<bench.length;i++){
+    if(bench[i].name.toLowerCase() === item.name.toLowerCase()){ at = i; break; }
+  }
+  if(at > -1){
+    item.saved = bench[at].saved;
+    bench.splice(at,1);
+  }
+  bench.unshift(item);
+  if(bench.length > 40) bench.length = 40;
+  benchStore();
+}
+
+function benchClear(){
+  bench = [];
+  benchSaved = false;
+  benchStore();
+  var el = document.getElementById('benchBox');
+  if(el) el.innerHTML = '';
+  if(window.ttq) ttq.track('ClickButton',{content_name:'bench_clear',content_type:'scanner'});
+}
+
+/* Nothing below two. One card is a lookup, not a session, and a
+   one-row table with a total under it reads as a bug rather than a
+   feature. */
+function benchHtml(){
+  if(bench.length < 2) return '';
+
+  var priced = bench.filter(function(b){ return b.value > 0; });
+  var total  = priced.reduce(function(a,b){ return a + b.value; }, 0);
+  var allSaved = bench.every(function(b){ return b.saved; });
+
+  var rows = bench.map(function(b,i){
+    var val = b.value > 0
+      ? '<div class="bval">'+fmtMoney(b.value)
+        + (b.soldN ? '<small>'+b.soldN+' sales</small>' : '') + '</div>'
+      : '<div class="bval warn">\u2014<small>'
+        + (b.contaminated ? 'not priced' : 'no sales') + '</small></div>';
+    return '<div class="brow'+(i===0 && !allSaved ? ' now' : '')+'">'
+      + '<div class="bname">'+(b.saved ? '<span class="tick">\u2713</span>' : '')
+      + esc(b.name)+'<span>'+esc(b.saved ? 'saved' : b.how)+'</span></div>'
+      + val + '</div>';
+  }).join('');
+
+  var totLabel = priced.length === bench.length
+    ? (bench.length === 2 ? 'Both priced' : 'All '+bench.length+' priced')
+    : priced.length + ' of ' + bench.length + ' priced';
+
+  var cta;
+  if(allSaved){
+    cta = '<div class="bench-cta">'
+      + '<a class="bench-btn done" href="'+BINDER_PAGE+'" target="_blank" rel="noopener">'
+      + '\u2713 In your binder \u2014 open it</a>'
+      + '<div class="bench-fine">Add what you paid for each and the tracker works out '
+      + '<b>what you\'d actually clear after fees.</b></div></div>';
+  } else {
+    var n = bench.filter(function(b){ return !b.saved; }).length;
+    cta = '<div class="bench-cta">'
+      + '<button class="bench-btn" id="benchBtn" onclick="benchSaveAll()">\ud83d\udcc2 '
+      + (currentUser ? 'Keep these '+n+' cards' : 'Sign in &amp; keep these '+n)
+      + '</button>'
+      + '<div class="bench-fine">'
+      + (priced.length < bench.length
+          ? 'The unpriced ones save too \u2014 <b>narrow the search later and the value fills in.</b> '
+          : 'Ten seconds, and they\'re still here tomorrow \u2014 with what you paid, if you add it. ')
+      + 'First '+FREE_CARD_LIMIT+' free.</div></div>';
+  }
+
+  return '<div class="bench">'
+    + '<div class="bench-top">'
+      + '<div class="bench-t">Your bench <span>\u00b7 '
+      + (allSaved ? 'saved to your binder' : 'this session') + '</span></div>'
+      + '<div class="bench-n">'+bench.length+' cards</div>'
+    + '</div>'
+    + rows
+    + '<div class="btot"><div class="btot-k">'+totLabel+'</div>'
+      + '<div class="btot-v">'+fmtMoney(total)+'</div></div>'
+    + cta
+    + (allSaved ? '' : '<button class="bench-clear" onclick="benchClear()">CLEAR BENCH</button>')
+  + '</div>';
+}
+
+function benchRender(){
+  var el = document.getElementById('benchBox');
+  if(el) el.innerHTML = benchHtml();
+}
+
+/* One insert per unsaved card. Sequential rather than parallel: a
+   handful of rows is not worth a burst of concurrent writes, and a
+   failure halfway through leaves a clear picture of what landed. */
+async function benchSaveAll(){
+  if(!bench.length) return;
+  if(!sbReady()){ toast('Accounts unavailable right now \u2014 scanning still works'); return; }
+  if(!currentUser){
+    pendingBench = true;          // remember the bench, then sign them in
+    openAuth('signup');
+    return;
+  }
+
+  var btn = document.getElementById('benchBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+
+  var todo = bench.filter(function(b){ return !b.saved; });
+  var done = 0, failed = 0;
+
+  try{
+    var n = isPro ? 0 : await watchedCount();
+    if(!isPro && n + todo.length > FREE_CARD_LIMIT){
+      var room = Math.max(0, FREE_CARD_LIMIT - n);
+      if(!room){
+        toast('Free binder is full \u2014 opening your binder');
+        window.open(BINDER_PAGE,'_blank','noopener');
+        if(btn){ btn.disabled=false; benchRender(); }
+        return;
+      }
+      todo = todo.slice(0, room);
+      toast('Saving '+room+' \u2014 that fills your free binder');
+    }
+  }catch(e){}
+
+  for(var i=0;i<todo.length;i++){
+    var b = todo[i];
+    try{
+      var res = await SB.from('watchlist_items').insert({
+        user_id:          currentUser.id,
+        card_name:        b.name.slice(0,200),
+        card_image_url:   b.image || null,
+        price_when_added: b.value || null,
+        current_price:    b.value || null,
+        status:           'watching',
+        source:           'scanner',
+        last_checked_at:  new Date().toISOString(),
+        year:             (parseInt(b.year,10) >= 1860 && parseInt(b.year,10) <= 2100)
+                            ? parseInt(b.year,10) : null,
+        brand:            benchField(b.brand),
+        set_name:         benchField(b.set),
+        player:           benchField(b.player),
+        card_number:      benchField(b.number),
+        parallel:         benchField(b.parallel),
+        sport:            benchField(b.sport)
+      });
+      if(res.error) throw res.error;
+      b.saved = true; done++;
+    }catch(e){ failed++; }
+  }
+
+  benchStore();
+  benchSaved = done > 0;
+  benchRender();
+
+  if(done) toast('\u2705 '+done+' card'+(done===1?'':'s')+' saved to your binder');
+  if(failed) toast('Could not save '+failed+' of them \u2014 try again');
+  if(window.ttq && done) ttq.track('AddToWishlist',
+    {content_name:'bench_save_'+done, content_type:'scanner_bench'});
+  logEvent('bench_save', bench.length ? bench[0].name : null, false);
+}
+
+/* Same placeholder rule the single save uses: the AI answers "Unknown"
+   for a field it could not read, which is fine to receive and useless
+   to store. A null sorts last; the string sorts between T and V and
+   looks like a real set name. */
+function benchField(v){
+  var t = String(v == null ? '' : v).trim();
+  return (!t || /^(unknown|n\/a|na|none|null|-|\?)$/i.test(t)) ? null : t.slice(0,120);
+}
+
 /* ===== BOTTOM CTA =====
    Reacts to whatever is on screen. Three states:
 
@@ -2454,6 +2751,9 @@ function renderResult(d){
 
   html+='</div>';
   el.innerHTML=html;
+  /* The bench is fed only by results that actually priced. A card the
+     search could not find at all is not work somebody did. */
+  if(hasData){ benchAdd(d, s); benchRender(); }
   renderCta(d, rows, s);
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
   // Ask only after they've seen it work.
@@ -2682,6 +2982,9 @@ const BINDER_PAGE = 'https://www.cardgauge.com/my-binder';
 
 var SB = null;
 var currentUser = null, authMode = 'signup', pendingSave = false, isPro = false;
+/* Set when somebody taps the bench save while logged out, so the
+   whole session survives making an account. */
+var pendingBench = false;
 
 /* Supabase is deferred, so it may not exist when this first runs. */
 function sbReady(){
@@ -2742,6 +3045,7 @@ function openAuth(mode){
 function closeAuth(){
   var m=document.getElementById('authModal'); if(m) m.classList.remove('show');
   pendingSave = false;
+  pendingBench = false;
 }
 function setAuthMode(mode){
   authMode = mode;
@@ -2782,10 +3086,11 @@ async function submitAuth(){
       err.classList.add('show'); btn.disabled=false; btn.textContent=orig; return;
     }
     await checkPro();
-    var wanted = pendingSave;
+    var wanted = pendingSave, wantedBench = pendingBench;
     closeAuth(); renderAuth();
     toast(authMode==='signup'?'\u2705 Account created':'\u2705 Logged in');
-    if(wanted) saveToBinder();   // finish what they were trying to do
+    if(wantedBench){ pendingBench = false; benchSaveAll(); }
+    else if(wanted) saveToBinder();   // finish what they were trying to do
   }catch(e){ err.textContent=e.message||'Something went wrong.'; err.classList.add('show'); }
   btn.disabled=false; btn.textContent=orig;
 }
@@ -2901,6 +3206,8 @@ if(document.readyState === 'loading'){
   checkAuthState();
 }
 
+benchLoad();
+benchRender();   // a reload mid-session keeps the bench
 logEvent('visit');
 renderCta(null, null, null);   // default panel until there's a result to react to
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
