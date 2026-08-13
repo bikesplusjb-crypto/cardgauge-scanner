@@ -325,9 +325,15 @@ function render(d){
     +     (Number(tr.savers_7d) === 1 ? 'person' : 'people') + ' saved something.</div>'
     +   srcBar
     +   '<div class="trust-read">' + reading + '</div>'
-    +   '<div class="caveat">Saves exclude your own account. Lookups do not \u2014 scan_events '
-    +     'has no user id, so your testing is still inside every number above the save line. '
-    +     'The real rate is higher than this.</div>'
+    /* The caveat has to describe the state the data is actually in, and
+       that state changed the day the owner flag shipped. Saying
+       "your testing is still in here" after it stops being true is the
+       same failure as saying the opposite before it was — a dashboard
+       that describes itself wrongly is worse than one that says
+       nothing, because you stop checking.
+
+       So it reads the number rather than asserting a state. */
+    +   ownerCaveat(t)
     + '</div>';
 
   /* Oldest → newest for the bar strip; the query returns newest first. */
@@ -448,6 +454,19 @@ function render(d){
     +  cell('Both sides · 7d',
             (Number(t.scans_7d) ? Math.round((Number(t.backs_7d)/Number(t.scans_7d))*100) + '%' : '\u2014'),
             num(t.backs_7d) + ' of ' + num(t.scans_7d) + ' scans used the back')
+    /* Sell-link taps, measured against LOOKUPS rather than visits. The
+       sell block only exists on a result page, so the only people who
+       could have tapped it are the ones who looked something up —
+       dividing by all sessions would understate it by the bounce rate
+       and make a working feature look dead.
+
+       Expect a 0 here for a while. It is a series that starts now so it
+       exists when there is enough traffic to read it, not a number to
+       judge anything by yet. */
+    +  cell('Sell taps · 7d', num(t.sell_clicks_7d),
+            (Number(t.lookups_7d)
+              ? Math.round((Number(t.sell_clicks_7d)/Number(t.lookups_7d))*100) + '% of lookups'
+              : 'no lookups yet'))
     +  cell('Public counter', num(d.counter), 'shown on the scanner')
     + '</div>'
 
@@ -480,6 +499,30 @@ function render(d){
 
     + '<div class="foot">Private. Not linked from anywhere and excluded from search engines.<br/>'
     +  'Anyone with this URL can read these numbers.</div>';
+}
+
+/* Three honest states, chosen by what the data says rather than by
+   what was true when this was written.
+
+   owner_lookups_7d is only present once the updated cg_stats is
+   deployed; an older function returns nothing for it, and the page
+   should say so rather than silently implying the exclusion is on. */
+function ownerCaveat(t){
+  if(!has(t, 'owner_lookups_7d')){
+    return '<div class="caveat">Saves exclude your own account. Lookups do not \u2014 '
+      + 'your testing is still inside every number above the save line, so <b>the real rate '
+      + 'is higher than this.</b></div>';
+  }
+  var n = Number(t.owner_lookups_7d) || 0;
+  if(!n){
+    return '<div class="caveat">Owner exclusion is live but nothing has been marked yet. '
+      + 'Open the scanner once with <b>?owner=1</b> on the end, or these numbers still '
+      + 'include your own testing.</div>';
+  }
+  return '<div class="caveat" style="color:var(--text3);background:transparent;'
+    + 'border-color:var(--border)"><b style="color:var(--green)">\u2713</b> '
+    + n + ' of your own lookup' + (n===1?'':'s') + ' excluded this week. '
+    + 'Everything above is other people.</div>';
 }
 
 function cell(label, n, sub){
