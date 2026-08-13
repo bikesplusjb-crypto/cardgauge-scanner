@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="CardGauge"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-<meta name="description" content="The asking price isn't the price. Scan any card free and see the real sold comps — what buyers actually paid, including accepted best offers. No signup, no scan limit."/>
+<meta name="description" content="The only card scanner that reads both sides — the year, set and card number are printed on the back. Real sold prices, and an honest warning when they're mixing versions. Free, no signup, no scan limit."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet"/>
@@ -725,8 +725,10 @@ input[type=file]{display:none;}
 
 <div class="hero" id="top">
   <div class="hero-eyebrow">AI Card Scanner</div>
-  <h1>The asking price <span>isn't the price.</span></h1>
-  <p>Scan any card and see the real sold comps — what buyers actually paid, not what sellers hope for.</p>
+  <h1>Reads both sides. <span>Says when it isn't sure.</span></h1>
+  <p>The year, the set and the card number are printed on the back &mdash; the front is
+  artwork. And when the sales it finds are mixing versions, it tells you rather than
+  averaging them into a number that looks certain.</p>
   <!-- High on the page because it is a REASON to be here, not a
        footnote. Somebody heading to a show needs to know this before
        they leave the house, and the footer is read by nobody.
@@ -744,7 +746,7 @@ input[type=file]{display:none;}
     <span class="show-tip-go">&rarr;</span>
   </a>
 
-  <div class="hero-free">✓ Free · No signup · Real sold prices</div>
+  <div class="hero-free">✓ Free · No signup · Both sides read</div>
 </div>
 
 <div class="wrap">
@@ -1986,8 +1988,9 @@ function ctaDefault(){
   return {
     eyebrow:'THE REST OF THE TOOLKIT',
     title:'The scanner is one tool.<br/>CardGauge is the rest.',
-    body:'Sold comps instead of asking prices, a binder you can share, a tracker that remembers '
-        +'what you paid, and a portfolio that shows what all of it actually did.',
+    body:'A binder you can share, a tracker that works out what you\'d actually clear after '
+        +'fees, set checklists that name the cards you\'re missing, and a show log that keeps '
+        +'working when the hall\'s wifi doesn\'t.',
     chips:['Sold comps','My Binder','Profit tracker','Portfolio','Card show log'],
     btn:'Open CardGauge',
     href:'https://www.cardgauge.com',
