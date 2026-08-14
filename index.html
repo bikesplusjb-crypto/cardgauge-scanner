@@ -1007,7 +1007,10 @@ async function cgBumpCount(){
 }
 
 var frontFile = null, scanning = false;
-var lastResult = null;      // last rendered payload (for re-price merges)
+var lastResult = null;
+/* Cards saved this session, so a re-render never shows a kept card as
+   unkept. Keyed on display name, which is what the save writes. */
+var savedKeys = {};      // last rendered payload (for re-price merges)
 var currentQuery = '';      // the search string behind the current numbers
 var spreadFlagged = false;  // did this result trip the wide-spread warning
 var refineBase = '';        // the query before any refinement chip was applied
@@ -2749,9 +2752,13 @@ function renderResult(d){
        is no bench, so it stays: somebody who prices one card and wants
        to keep it should not have to look up a second one first. */
     if(bench.length < 2){
+      var alreadySaved = !!savedKeys[String(d.cardName||'').toLowerCase()];
       html+='<div class="save-row">'
-        +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()">'
-        +(currentUser ? '\ud83d\udcc2 Keep this card' : '\ud83d\udcc2 Sign in &amp; keep this card')
+        +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()"'
+        +(alreadySaved ? ' disabled' : '')+'>'
+        +(alreadySaved ? '\u2713 In your binder'
+          : currentUser ? '\ud83d\udcc2 Keep this card'
+                        : '\ud83d\udcc2 Sign in &amp; keep this card')
         +'</button>'
         +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
         +'</div>'
@@ -3062,14 +3069,47 @@ function sbReady(){
   return SB;
 }
 
+/* THE BUG THIS FIXES.
+
+   Supabase loads from a deferred <script>, so on a slow connection it
+   can still be parsing when this first runs. The old version did
+   `if(!sbReady()) return;` and never came back — auth silently never
+   ran, currentUser stayed null for the entire session, and a signed-in
+   Pro user saw "You're not signed in — this card won't be saved
+   anywhere yet" sitting above a button that said "In your binder".
+
+   Worse than the contradiction: every save in that session went through
+   the logged-out path, so somebody with an account was being asked to
+   make another one.
+
+   It now retries until the library is there, and re-renders any result
+   already on screen once it knows who the person is. */
+var authRetries = 0;
+
 async function checkAuthState(){
-  if(!sbReady()) return;
+  if(!sbReady()){
+    /* ~5s of retries. Past that the library is not coming — a blocked
+       CDN or an offline phone — and scanning still works without it. */
+    if(authRetries++ < 25){ setTimeout(checkAuthState, 200); }
+    else console.warn('[auth] Supabase never loaded; running signed-out');
+    return;
+  }
+  var before = currentUser ? currentUser.id : null;
   try{
     var r = await SB.auth.getSession();
     currentUser = r.data.session ? r.data.session.user : null;
   }catch(e){ currentUser = null; }
   if(currentUser) await checkPro();
   renderAuth();
+
+  /* A result rendered before auth resolved is showing the wrong save
+     state. Re-render it rather than leaving a signed-in person looking
+     at a signed-out prompt. Guarded on an actual change so this cannot
+     loop. */
+  var after = currentUser ? currentUser.id : null;
+  if(before !== after && lastResult){
+    try{ renderResult(lastResult); }catch(e){}
+  }
 }
 
 /* Fails OPEN. If the check itself breaks, a subscriber still gets to save
@@ -3154,6 +3194,11 @@ async function submitAuth(){
     var wanted = pendingSave, wantedBench = pendingBench;
     closeAuth(); renderAuth();
     toast(authMode==='signup'?'\u2705 Account created':'\u2705 Logged in');
+    /* Repaint the result first. Signing in changes the save prompt, the
+       "not signed in" warning and the bench CTA, and leaving those
+       stale is how a signed-in user ends up reading "this card won't be
+       saved anywhere yet" directly above a card that just saved. */
+    if(lastResult){ try{ renderResult(lastResult); }catch(e){} }
     if(wantedBench){ pendingBench = false; benchSaveAll(); }
     else if(wanted) saveToBinder();   // finish what they were trying to do
   }catch(e){ err.textContent=e.message||'Something went wrong.'; err.classList.add('show'); }
@@ -3257,11 +3302,18 @@ async function saveToBinder(){
     if(res.error) throw res.error;
     toast('\u2705 Saved to your binder');
     if(window.ttq) ttq.track('AddToWishlist',{content_name:d.cardName,content_type:'scanner_save'});
+    /* Remember it in STATE, not just on the button. The saved look used
+       to live only in the DOM node's text, so anything that rebuilt the
+       result — a re-price, a refinement chip, an auth change — silently
+       reverted a saved card to looking unsaved. */
+    savedKeys[String(d.cardName||'').toLowerCase()] = true;
     if(btn){ btn.textContent='\u2713 In your binder'; return; }
   }catch(e){
     toast('Could not save: '+(e.message||'try again'));
   }
-  if(btn){ btn.disabled=false; btn.textContent='\ud83d\udcc2 Add to Binder'; }
+  if(btn){ btn.disabled=false;
+    btn.textContent = currentUser ? '\ud83d\udcc2 Keep this card'
+                                  : '\ud83d\udcc2 Sign in & keep this card'; }
 }
 
 /* Deferred script, so wait for it rather than racing it. */
