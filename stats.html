@@ -130,6 +130,23 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
 .aff-note{font-family:var(--fm);font-size:10.5px;line-height:1.7;color:var(--text3);
   margin-top:11px;padding-top:11px;border-top:1px solid var(--border);}
 .aff-note b{color:var(--text2);}
+.funnel{margin-top:14px;}
+.fstep{display:flex;align-items:baseline;gap:12px;padding:9px 0;
+  border-bottom:1px solid var(--border);}
+.fstep:last-child{border-bottom:none;}
+.fstep-k{flex:1;font-size:13px;color:var(--text2);}
+.fstep-n{font-family:var(--fbig);font-size:20px;color:var(--text);line-height:1;min-width:44px;
+  text-align:right;}
+.fstep-r{font-family:var(--fm);font-size:10px;color:var(--text3);min-width:56px;text-align:right;}
+.fstep.paid .fstep-n{color:var(--green);}
+.fstep.paid .fstep-k{color:var(--text);font-weight:700;}
+.fsrc{display:flex;justify-content:space-between;gap:12px;padding:6px 0;
+  font-family:var(--fm);font-size:11px;color:var(--text3);}
+.fsrc b{color:var(--gold-warm);font-weight:600;}
+.fnote{font-family:var(--fm);font-size:10.5px;line-height:1.7;color:var(--text3);
+  margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.fnote b{color:var(--text2);}
+.fnote.bad{color:var(--gold-warm);}
 .caveat{font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--gold-warm);
   background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);
   border-radius:9px;padding:10px 12px;margin-top:13px;}
@@ -508,6 +525,8 @@ function render(d){
     +    cardRows(d.cards||[]) + '</div>'
     + '</div>'
 
+    + funnelPanel(d, t)
+
     + affPanel(d, t)
 
     + '<div class="card">'
@@ -562,6 +581,68 @@ var AFF_LABEL = {
   shop_amazon: 'Shop (Amazon)'
 };
 var AFF_ORDER = ['shop_active','sold_verify','sold_check','open_search','shop_amazon','own_store'];
+
+/* The Pro funnel. Four steps that used to live in three systems: the
+   wall was unmeasured, the click only reached TikTok, the payment only
+   existed in Stripe. Shown as a ladder with the drop-off between rungs,
+   because the RATE is the finding — a wall nobody reaches and a wall
+   everybody bounces off need opposite fixes and look identical as raw
+   counts. */
+var WALL_LABEL = {
+  bulk_full:     'Paste blocked \u2014 binder already full',
+  bulk_overflow: 'Paste would overflow the free limit',
+  add_card_btn:  'Add-a-card, already at the cap',
+  add_card_full: '"+ Add a Card" while full',
+  free_strip:    'Tapped the nudge strip',
+  share_locked:  'Tried the locked share panel'
+};
+
+function funnelPanel(d, t){
+  if(!has(t,'pro_walls_30d')) return '';
+
+  var views  = Number(t.binder_views_30d||0);
+  var walls  = Number(t.pro_walls_30d||0);
+  var clicks = Number(t.pro_clicks_30d||0);
+  var paid   = Number(t.pro_paid_30d||0);
+
+  if(!views && !walls && !clicks && !paid){
+    return '<div class="card"><h2>Pro funnel \u00b7 30d</h2>'
+      + '<div class="empty">Nothing recorded yet. Tracking started when this shipped \u2014 '
+      + 'from here on, a zero here means nobody reached the wall rather than nobody measured it.</div></div>';
+  }
+
+  var pct = function(n, of){ return of ? Math.round((n/of)*100)+'%' : '\u2014'; };
+  var rows =
+      '<div class="fstep"><div class="fstep-k">Opened their binder</div>'
+        +'<div class="fstep-n">'+num(views)+'</div><div class="fstep-r"></div></div>'
+    + '<div class="fstep"><div class="fstep-k">Hit the Pro wall</div>'
+        +'<div class="fstep-n">'+num(walls)+'</div><div class="fstep-r">'+pct(walls,views)+'</div></div>'
+    + '<div class="fstep"><div class="fstep-k">Clicked through to Pro</div>'
+        +'<div class="fstep-n">'+num(clicks)+'</div><div class="fstep-r">'+pct(clicks,walls)+'</div></div>'
+    + '<div class="fstep paid"><div class="fstep-k">Paid</div>'
+        +'<div class="fstep-n">'+num(paid)+'</div><div class="fstep-r">'+pct(paid,clicks)+'</div></div>';
+
+  var by = d.pro_wall_by_source || {};
+  var src = Object.keys(by).sort(function(a,b){ return by[b]-by[a]; }).map(function(k){
+    return '<div class="fsrc"><span>'+esc(WALL_LABEL[k]||k)+'</span><b>'+num(by[k])+'</b></div>';
+  }).join('');
+
+  /* The one number that invalidates the rest of the panel. */
+  var fails = Number(t.pro_check_fails_30d||0);
+  var note = fails
+    ? '<div class="fnote bad">\u26a0 <b>'+fails+' Pro checks failed</b> and fell back to granting '
+      + 'access. Pro status is unverifiable while that is happening \u2014 fix it before reading '
+      + 'anything above as a conversion rate.</div>'
+    : '<div class="fnote">Payment comes from the Stripe webhook, not from a click \u2014 '
+      + 'it is the only step here that means money. '
+      + (Number(t.pro_cancelled_30d) ? '<b>'+num(t.pro_cancelled_30d)+' cancelled</b> in the same window.' : '')
+      + '</div>';
+
+  return '<div class="card"><h2>Pro funnel \u00b7 30d</h2>'
+    + '<div class="funnel">' + rows + '</div>'
+    + (src ? '<div class="fnote" style="padding-top:12px">Where the wall was hit</div>' + src : '')
+    + note + '</div>';
+}
 
 function affPanel(d, t){
   if(!has(t,'aff_clicks_30d')) return '';
