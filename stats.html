@@ -525,6 +525,8 @@ function render(d){
     +    cardRows(d.cards||[]) + '</div>'
     + '</div>'
 
+    + savePanel(d, t)
+
     + funnelPanel(d, t)
 
     + affPanel(d, t)
@@ -596,6 +598,51 @@ var WALL_LABEL = {
   free_strip:    'Tapped the nudge strip',
   share_locked:  'Tried the locked share panel'
 };
+
+/* Saving, as a rate rather than a count. Two saves against 110 lookups
+   was the number that prompted this, and on its own it says nothing:
+   the missing figure was how many people were ever offered a save.
+
+   Bench and single-card offers are shown apart because most sessions
+   look up one card and never see a bench — which makes them different
+   problems with different fixes. */
+function savePanel(d, t){
+  if(!has(t,'save_offers_30d')) return '';
+  var offers = Number(t.save_offers_30d||0);
+  var benches= Number(t.bench_shown_30d||0);
+  var saves  = Number(t.bench_saves_30d||0);
+  var shown  = offers + benches;
+
+  if(!shown){
+    return '<div class="card"><h2>Saving \u00b7 30d</h2>'
+      + '<div class="empty">Nothing recorded yet. From here on, a low save count can be read '
+      + 'against how many people were actually asked.</div></div>';
+  }
+
+  var pct = shown ? Math.round((saves/shown)*100) : 0;
+  var read;
+  if(benches < 5){
+    read = '<b>Almost nobody reaches a second lookup</b>, so the bench barely gets shown. '
+         + 'That is a different problem from people declining it \u2014 the fix is giving '
+         + 'somebody a reason to price a second card, not changing the offer.';
+  } else if(pct >= 10){
+    read = 'The offer is landing when people see it. Worth showing it more often.';
+  } else {
+    read = '<b>People see the offer and decline it.</b> The offer itself is the problem, '
+         + 'not how often it appears.';
+  }
+
+  return '<div class="card"><h2>Saving \u00b7 30d</h2>'
+    + '<div class="funnel">'
+      + '<div class="fstep"><div class="fstep-k">Offered on a single card</div>'
+        + '<div class="fstep-n">'+num(offers)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep"><div class="fstep-k">Saw a bench (2+ cards)</div>'
+        + '<div class="fstep-n">'+num(benches)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep paid"><div class="fstep-k">Kept their cards</div>'
+        + '<div class="fstep-n">'+num(saves)+'</div><div class="fstep-r">'+pct+'%</div></div>'
+    + '</div>'
+    + '<div class="fnote">'+read+'</div></div>';
+}
 
 function funnelPanel(d, t){
   if(!has(t,'pro_walls_30d')) return '';
