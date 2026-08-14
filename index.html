@@ -2155,9 +2155,22 @@ function benchHtml(){
   + '</div>';
 }
 
+/* Logged once per session, the first time the bench is actually on
+   screen. Two saves means nothing without knowing how many people saw
+   the offer: 2 of 40 is a wrong offer, 2 of 3 is a traffic problem, and
+   they need opposite responses. */
+var benchShownLogged = false;
+var saveOfferLogged  = false;
+
 function benchRender(){
   var el = document.getElementById('benchBox');
-  if(el) el.innerHTML = benchHtml();
+  if(!el) return;
+  var html = benchHtml();
+  el.innerHTML = html;
+  if(html && !benchShownLogged){
+    benchShownLogged = true;
+    logEvent('bench_shown', String(bench.length), false);
+  }
 }
 
 /* One insert per unsaved card. Sequential rather than parallel: a
@@ -2724,21 +2737,39 @@ function renderResult(d){
       +'</div>';
     }
 
-    html+='<div class="save-row">'
-      /* The button text changes with the state, so it is never a
-         promise it cannot keep. Tapping it logged out opens the
-         sign-up box and remembers the card, which is the right
-         behaviour — but the label should say so first. */
-      +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()">'
-      +(currentUser ? '\ud83d\udcc2 Add to Binder' : '\ud83d\udcc2 Sign in &amp; save this card')
-      +'</button>'
-      +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
-      +'</div>'
-      +'<div class="save-note">Pricing cards is free and always will be \u2014 no account, no limit. '
-      +(isPro
-         ? 'Your binder is unlimited.'
-         : 'The binder is the only part that needs a login, and the first '+FREE_CARD_LIMIT+' cards there are free too.')
-      +'</div>';
+    /* ONE SAVE ACTION, NOT TWO.
+
+       This button and the bench's "Keep these N cards" were both
+       green, the same size, about 200px apart, and did different
+       things — one card versus the session. That is a choice nobody
+       asked for, on a phone, at the moment we most want a yes.
+
+       From the second lookup the bench is the save, so this steps
+       aside rather than competing with it. On the first lookup there
+       is no bench, so it stays: somebody who prices one card and wants
+       to keep it should not have to look up a second one first. */
+    if(bench.length < 2){
+      html+='<div class="save-row">'
+        +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()">'
+        +(currentUser ? '\ud83d\udcc2 Keep this card' : '\ud83d\udcc2 Sign in &amp; keep this card')
+        +'</button>'
+        +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
+        +'</div>'
+        /* WHAT SAVING BUYS YOU, not what it costs.
+
+           The old note said "the binder is the only part that needs a
+           login", which describes a toll. Somebody who just got a
+           price has no reason to make an account to store a number
+           they can already see — the reason is what happens to the
+           card afterwards, and nothing here said it. */
+        +'<div class="save-note">'
+        +(isPro
+           ? 'Kept cards get re-priced every night. Your binder is unlimited.'
+           : '<b>Kept cards get re-priced every night</b>, so you can see what moved — and '
+             +'they group into sets so you can see which numbers you\'re still missing. '
+             +'First '+FREE_CARD_LIMIT+' are free.')
+        +'</div>';
+    }
   }
 
   html+=buildBackAsk(d);
@@ -2776,7 +2807,18 @@ function renderResult(d){
   el.innerHTML=html;
   /* The bench is fed only by results that actually priced. A card the
      search could not find at all is not work somebody did. */
-  if(hasData){ benchAdd(d, s); benchRender(); }
+  if(hasData){
+    benchAdd(d, s);
+    benchRender();
+    /* The one-card prompt is what a single-lookup session sees, and
+       most sessions are single-lookup. Counting it separately is what
+       distinguishes "the bench offer is wrong" from "almost nobody
+       ever reaches a bench". */
+    if(bench.length < 2 && !saveOfferLogged){
+      saveOfferLogged = true;
+      logEvent('save_offer_shown', currentUser ? 'signed_in' : 'logged_out', false);
+    }
+  }
   renderCta(d, rows, s);
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
   // Ask only after they've seen it work.
