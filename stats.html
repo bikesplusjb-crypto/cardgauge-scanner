@@ -527,6 +527,8 @@ function render(d){
 
     + savePanel(d, t)
 
+    + setPanel(d, t)
+
     + funnelPanel(d, t)
 
     + affPanel(d, t)
@@ -606,6 +608,49 @@ var WALL_LABEL = {
    Bench and single-card offers are shown apart because most sessions
    look up one card and never see a bench — which makes them different
    problems with different fixes. */
+/* The set builder, which had no visibility at all until now. Kept as a
+   short block rather than a funnel: the useful reading is whether the
+   missing-cards screen is ever reached, and how often the catalog
+   fails to match a set somebody actually owns. */
+function setPanel(d, t){
+  if(!has(t,'set_missing_30d')) return '';
+  var looks = Number(t.set_lookups_30d||0);
+  var miss  = Number(t.set_missing_30d||0);
+  var part  = Number(t.set_partial_30d||0);
+  var nomat = Number(t.set_nomatch_30d||0);
+
+  if(!looks && !miss){
+    return '<div class="card"><h2>Set builder \u00b7 30d</h2>'
+      + '<div class="empty">Nobody has looked up a set. It\'s reachable only from a binder '
+      + 'with saved cards, so this stays at zero until saves move.</div></div>';
+  }
+
+  var read;
+  if(!miss){
+    read = '<b>People look sets up and stop there.</b> They never open the missing list \u2014 '
+         + 'which is the part worth paying for.';
+  } else if(nomat > miss){
+    read = '<b>The catalog is failing more often than it succeeds.</b> The sets people own '
+         + 'aren\'t the sets it carries.';
+  } else {
+    read = 'The missing-cards screen is being reached. That\'s the moment worth building around.';
+  }
+
+  return '<div class="card"><h2>Set builder \u00b7 30d</h2>'
+    + '<div class="funnel">'
+      + '<div class="fstep"><div class="fstep-k">Looked up a set size</div>'
+        + '<div class="fstep-n">'+num(looks)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep paid"><div class="fstep-k">Opened the missing list</div>'
+        + '<div class="fstep-n">'+num(miss)+'</div><div class="fstep-r">'
+        + (looks ? Math.round((miss/looks)*100)+'%' : '\u2014')+'</div></div>'
+    + '</div>'
+    + ((part||nomat) ? '<div class="fnote">'
+        + (nomat ? '<b>'+num(nomat)+'</b> sets couldn\'t be matched to the catalog. ' : '')
+        + (part  ? '<b>'+num(part)+'</b> checklists were too big to finish in one day.' : '')
+        + '</div>' : '')
+    + '<div class="fnote">'+read+'</div></div>';
+}
+
 function savePanel(d, t){
   if(!has(t,'save_offers_30d')) return '';
   var offers = Number(t.save_offers_30d||0);
