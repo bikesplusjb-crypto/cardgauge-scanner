@@ -2545,6 +2545,17 @@ function renderResult(d){
   var meta=[d.year,d.brand,d.set].filter(notJunk).join(' · ')||'Trading card';var hasData=s.avg>0;
   currentQuery = d.searchQuery || d.query || cardName;
 
+  /* THE FIX: bench state has to be correct BEFORE any HTML asking
+     "keep this card?" gets built, not after. The old order built the
+     single-card save button first, using bench.length as it stood
+     BEFORE this card was added — so on the second lookup, bench.length
+     was still 1 at decision time, the single button rendered, and only
+     THEN did the card get added and the real 2-card bench appear
+     alongside it. Two save actions, same bug the bench was built to
+     prevent, just at a different seam. Same fix as scanner_full.html,
+     applied here because this file has the identical bug. */
+  if(hasData) benchAdd(d, s);
+
   /* A result that isn't the product of a chip becomes the new baseline that
      chips get appended to, and clears any stale refinement state. */
   if(!d.refined){
@@ -2837,15 +2848,17 @@ function renderResult(d){
 
   html+='</div>';
   el.innerHTML=html;
-  /* The bench is fed only by results that actually priced. A card the
-     search could not find at all is not work somebody did. */
+  /* benchAdd() already ran above, before this HTML was built — so the
+     single-save-button decision and this render both saw the same,
+     current bench state. Only the actual DOM paint for the bench
+     still needs to happen here. */
   if(hasData){
-    benchAdd(d, s);
     benchRender();
     /* The one-card prompt is what a single-lookup session sees, and
        most sessions are single-lookup. Counting it separately is what
        distinguishes "the bench offer is wrong" from "almost nobody
-       ever reaches a bench". */
+       ever reaches a bench". Uses the SAME bench.length the button
+       above was built from. */
     if(bench.length < 2 && !saveOfferLogged){
       saveOfferLogged = true;
       logEvent('save_offer_shown', currentUser ? 'signed_in' : 'logged_out', false);
