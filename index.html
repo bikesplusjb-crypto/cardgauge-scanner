@@ -3084,11 +3084,101 @@ var currentUser = null, authMode = 'signup', pendingSave = false, isPro = false;
 var pendingBench = false;
 
 /* Supabase is deferred, so it may not exist when this first runs. */
+/* ===== SHARED SESSION ACROSS scan.cardgauge.com AND www.cardgauge.com =====
+   Supabase's default storage is localStorage, which the browser scopes
+   to the exact hostname a page loaded from. scan.cardgauge.com and
+   www.cardgauge.com are different hostnames, so a session created on
+   one has never been visible on the other — not a bug in either page,
+   just what a browser does. Anyone who bookmarked or home-screened the
+   standalone scanner and later opened My Binder was asked to sign in
+   again, every time, no matter how the rest of the code was written.
+
+   The fix: store the session in a cookie scoped to the PARENT domain
+   (.cardgauge.com) instead of a per-hostname localStorage. Both
+   subdomains can read a cookie set that way. A session token can run
+   past a single cookie's ~4KB limit, so a large value is split across
+   numbered chunks and reassembled on read — the same approach
+   Supabase's own SSR helper uses, for the same reason.
+
+   This exact block is pasted identically into every page that touches
+   auth (scanner, My Binder, Portfolio, Profit Tracker, Show Log) so
+   all five read and write the same cookie under the same key. */
+var CG_COOKIE_KEY    = 'cg-auth-token';
+var CG_COOKIE_DOMAIN = '.cardgauge.com';
+var CG_COOKIE_MAXAGE = 60 * 60 * 24 * 100;   // 100 days \u2014 matches how long a refresh token stays usable
+
+function cgCookieRaw(name){
+  var esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var m = document.cookie.match(new RegExp('(?:^|; )' + esc + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function cgCookieWrite(name, value, maxAge){
+  document.cookie = name + '=' + encodeURIComponent(value)
+    + '; Domain=' + CG_COOKIE_DOMAIN + '; Path=/; Max-Age=' + maxAge
+    + '; SameSite=Lax; Secure';
+}
+function cgCookieClear(name){
+  var n = parseInt(cgCookieRaw(name + '.chunks') || '0', 10);
+  for(var i=0;i<n;i++) cgCookieWrite(name + '.' + i, '', 0);
+  cgCookieWrite(name + '.chunks', '', 0);
+  cgCookieWrite(name, '', 0);
+}
+
+/* The interface Supabase's GoTrue client expects from a custom storage:
+   getItem / setItem / removeItem. Each may return a value directly or
+   a Promise \u2014 GoTrue accepts both, and these are synchronous, which
+   is simpler and avoids a race on first read. */
+var cgCookieStorage = {
+  getItem: function(key){
+    var chunkCount = cgCookieRaw(key + '.chunks');
+    if(chunkCount){
+      var n = parseInt(chunkCount, 10), parts = [];
+      for(var i=0;i<n;i++){
+        var part = cgCookieRaw(key + '.' + i);
+        if(part == null) return null;   // an incomplete chunk set reads as missing, not corrupt
+        parts.push(part);
+      }
+      return parts.join('');
+    }
+    return cgCookieRaw(key);
+  },
+  setItem: function(key, value){
+    try{
+      cgCookieClear(key);
+      var chunkSize = 3500, chunks = [];
+      for(var i=0;i<value.length;i+=chunkSize) chunks.push(value.slice(i, i+chunkSize));
+      if(chunks.length <= 1){
+        cgCookieWrite(key, value, CG_COOKIE_MAXAGE);
+      } else {
+        chunks.forEach(function(c, idx){ cgCookieWrite(key + '.' + idx, c, CG_COOKIE_MAXAGE); });
+        cgCookieWrite(key + '.chunks', String(chunks.length), CG_COOKIE_MAXAGE);
+      }
+    }catch(e){}
+  },
+  removeItem: function(key){ try{ cgCookieClear(key); }catch(e){} }
+};
+
+/* ONE-TIME MIGRATION. Everyone currently signed in has their session
+   sitting in the OLD per-hostname localStorage, which this new client
+   will not look at. Without this, shipping the fix would sign every
+   existing session out at once \u2014 including yours mid-testing. This
+   copies an old session into the new cookie once, if one exists and
+   the cookie doesn't yet, so nobody loses their login over the switch
+   itself. Safe to leave in permanently; it does nothing once migrated. */
+(function cgMigrateOldSession(){
+  try{
+    if(cgCookieStorage.getItem(CG_COOKIE_KEY)) return;
+    var oldKey = 'sb-nlaqvfplecacbbdbmhxd-auth-token';
+    var old = localStorage.getItem(oldKey);
+    if(old) cgCookieStorage.setItem(CG_COOKIE_KEY, old);
+  }catch(e){}
+})();
+
 function sbReady(){
   if(SB) return SB;
   try{
     if(window.supabase && window.supabase.createClient){
-      SB = window.supabase.createClient(SB_URL, SB_KEY);
+      SB = window.supabase.createClient(SB_URL, SB_KEY, { auth: { storage: cgCookieStorage, storageKey: CG_COOKIE_KEY, persistSession: true, autoRefreshToken: true } });
     }
   }catch(e){ SB = null; }
   return SB;
@@ -3126,6 +3216,17 @@ async function checkAuthState(){
   }catch(e){ currentUser = null; }
   if(currentUser) await checkPro();
   renderAuth();
+
+  /* ?authdebug=1 — see the matching note in scanner_full.html. Same
+     flag, same purpose: prove by eye whether this page's session
+     followed from www.cardgauge.com (or vice versa). */
+  try{
+    if(new URLSearchParams(location.search).get('authdebug') === '1'){
+      toast(currentUser
+        ? ('\u2705 Session found: ' + currentUser.email)
+        : '\u26a0\ufe0f No session on this page');
+    }
+  }catch(e){}
 
   /* A result rendered before auth resolved is showing the wrong save
      state. Re-render it rather than leaving a signed-in person looking
