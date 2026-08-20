@@ -3222,6 +3222,24 @@ async function checkAuthState(){
     var r = await SB.auth.getSession();
     currentUser = r.data.session ? r.data.session.user : null;
   }catch(e){ currentUser = null; }
+  /* A locally cached session can LOOK valid — decoded email and all —
+     while the token behind it has actually expired and the automatic
+     refresh silently failed. Trusting that alone is how someone ends
+     up seeing "Hi, name" next to a binder that's quietly empty: the
+     identity display needs no live check, but every database read
+     does, and a rejected token returns zero rows with no error, not
+     a visible failure. Confirming with the server here, once, is the
+     difference between actually signed in and just looking it. */
+  if(currentUser){
+    try{
+      var _cgCheck = await SB.auth.getUser();
+      if(_cgCheck.error || !_cgCheck.data.user){
+        currentUser = null;
+        try{ await SB.auth.signOut(); }catch(e2){}
+      }
+    }catch(e){ currentUser = null; }
+  }
+
   if(currentUser) await checkPro();
   renderAuth();
 
