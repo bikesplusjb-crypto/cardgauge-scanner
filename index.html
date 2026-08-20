@@ -3088,59 +3088,69 @@ var pendingBench = false;
    Supabase's default storage is localStorage, which the browser scopes
    to the exact hostname a page loaded from. scan.cardgauge.com and
    www.cardgauge.com are different hostnames, so a session created on
-   one has never been visible on the other — not a bug in either page,
-   just what a browser does. Anyone who bookmarked or home-screened the
-   standalone scanner and later opened My Binder was asked to sign in
-   again, every time, no matter how the rest of the code was written.
+   one has never been visible on the other. The fix: store the session
+   in a cookie scoped to the PARENT domain (.cardgauge.com) instead,
+   which both subdomains can read.
 
-   The fix: store the session in a cookie scoped to the PARENT domain
-   (.cardgauge.com) instead of a per-hostname localStorage. Both
-   subdomains can read a cookie set that way. A session token can run
-   past a single cookie's ~4KB limit, so a large value is split across
-   numbered chunks and reassembled on read — the same approach
-   Supabase's own SSR helper uses, for the same reason.
-
-   This exact block is pasted identically into every page that touches
-   auth (scanner, My Binder, Portfolio, Profit Tracker, Show Log) so
-   all five read and write the same cookie under the same key. */
+   HARDENED VERSION. The first version of this touched document.cookie
+   directly with no guard around it. If a page runs inside a sandboxed
+   iframe without allow-same-origin — which is how Wix can serve a
+   custom HTML embed — touching document.cookie at all can throw a
+   SecurityError instead of just failing. An uncaught throw at the top
+   of the script stops everything below it from ever running: no
+   functions get defined, nothing on the page works, and it looks like
+   the whole page broke, not just login. Every single cookie
+   read/write below is now wrapped so it can only ever fail into "no
+   session," never into a crash. Worst case with this version: shared
+   login across subdomains silently doesn't work and everyone signs in
+   per-domain like before, exactly as before this fix ever existed. It
+   cannot make the page worse than that. */
 var CG_COOKIE_KEY    = 'cg-auth-token';
 var CG_COOKIE_DOMAIN = '.cardgauge.com';
-var CG_COOKIE_MAXAGE = 60 * 60 * 24 * 100;   // 100 days \u2014 matches how long a refresh token stays usable
+var CG_COOKIE_MAXAGE = 60 * 60 * 24 * 100;   // 100 days
 
 function cgCookieRaw(name){
-  var esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  var m = document.cookie.match(new RegExp('(?:^|; )' + esc + '=([^;]*)'));
-  return m ? decodeURIComponent(m[1]) : null;
+  try{
+    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var m = document.cookie.match(new RegExp('(?:^|; )' + esc + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }catch(e){ return null; }
 }
 function cgCookieWrite(name, value, maxAge){
-  document.cookie = name + '=' + encodeURIComponent(value)
-    + '; Domain=' + CG_COOKIE_DOMAIN + '; Path=/; Max-Age=' + maxAge
-    + '; SameSite=Lax; Secure';
+  try{
+    document.cookie = name + '=' + encodeURIComponent(value)
+      + '; Domain=' + CG_COOKIE_DOMAIN + '; Path=/; Max-Age=' + maxAge
+      + '; SameSite=Lax; Secure';
+  }catch(e){}
 }
 function cgCookieClear(name){
-  var n = parseInt(cgCookieRaw(name + '.chunks') || '0', 10);
-  for(var i=0;i<n;i++) cgCookieWrite(name + '.' + i, '', 0);
-  cgCookieWrite(name + '.chunks', '', 0);
-  cgCookieWrite(name, '', 0);
+  try{
+    var n = parseInt(cgCookieRaw(name + '.chunks') || '0', 10);
+    for(var i=0;i<n;i++) cgCookieWrite(name + '.' + i, '', 0);
+    cgCookieWrite(name + '.chunks', '', 0);
+    cgCookieWrite(name, '', 0);
+  }catch(e){}
 }
 
-/* The interface Supabase's GoTrue client expects from a custom storage:
-   getItem / setItem / removeItem. Each may return a value directly or
-   a Promise \u2014 GoTrue accepts both, and these are synchronous, which
-   is simpler and avoids a race on first read. */
+/* The interface Supabase's GoTrue client expects: getItem / setItem /
+   removeItem. Every branch is now inside its own try/catch, so a
+   cookie-access failure anywhere in here returns null / no-ops rather
+   than propagating up into Supabase's client construction. */
 var cgCookieStorage = {
   getItem: function(key){
-    var chunkCount = cgCookieRaw(key + '.chunks');
-    if(chunkCount){
-      var n = parseInt(chunkCount, 10), parts = [];
-      for(var i=0;i<n;i++){
-        var part = cgCookieRaw(key + '.' + i);
-        if(part == null) return null;   // an incomplete chunk set reads as missing, not corrupt
-        parts.push(part);
+    try{
+      var chunkCount = cgCookieRaw(key + '.chunks');
+      if(chunkCount){
+        var n = parseInt(chunkCount, 10), parts = [];
+        for(var i=0;i<n;i++){
+          var part = cgCookieRaw(key + '.' + i);
+          if(part == null) return null;
+          parts.push(part);
+        }
+        return parts.join('');
       }
-      return parts.join('');
-    }
-    return cgCookieRaw(key);
+      return cgCookieRaw(key);
+    }catch(e){ return null; }
   },
   setItem: function(key, value){
     try{
@@ -3158,18 +3168,16 @@ var cgCookieStorage = {
   removeItem: function(key){ try{ cgCookieClear(key); }catch(e){} }
 };
 
-/* ONE-TIME MIGRATION. Everyone currently signed in has their session
-   sitting in the OLD per-hostname localStorage, which this new client
-   will not look at. Without this, shipping the fix would sign every
-   existing session out at once \u2014 including yours mid-testing. This
-   copies an old session into the new cookie once, if one exists and
-   the cookie doesn't yet, so nobody loses their login over the switch
-   itself. Safe to leave in permanently; it does nothing once migrated. */
+/* ONE-TIME MIGRATION, also hardened. Copies an existing per-hostname
+   localStorage session into the new cookie once, so shipping this
+   doesn't sign anyone out on its own. If ANY part of this fails for
+   any reason, it does nothing rather than breaking the page. */
 (function cgMigrateOldSession(){
   try{
     if(cgCookieStorage.getItem(CG_COOKIE_KEY)) return;
     var oldKey = 'sb-nlaqvfplecacbbdbmhxd-auth-token';
-    var old = localStorage.getItem(oldKey);
+    var old = null;
+    try{ old = localStorage.getItem(oldKey); }catch(e){ old = null; }
     if(old) cgCookieStorage.setItem(CG_COOKIE_KEY, old);
   }catch(e){}
 })();
