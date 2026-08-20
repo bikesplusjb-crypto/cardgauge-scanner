@@ -3163,6 +3163,7 @@ async function checkPro(){
     isPro = r.data === true;
   }catch(e){
     console.warn('[pro] check failed, allowing:', e.message);
+    logEvent('pro_check_failed', (e && e.message ? e.message : 'unknown').slice(0,120));
     isPro = true;
   }
   return isPro;
