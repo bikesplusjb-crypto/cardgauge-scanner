@@ -796,10 +796,10 @@ input[type=file]{display:none;}
 
     <div id="authStepCode" style="display:none">
       <p style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">
-        Sent a 6-digit code to <b id="authEmailShown" style="color:var(--text)"></b>. Enter it below.
+        Sent a code to <b id="authEmailShown" style="color:var(--text)"></b>. Enter it below.
       </p>
-      <input class="auth-input" id="authCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
-        placeholder="6-digit code" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')verifyAuthCode()"/>
+      <input class="auth-input" id="authCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="8"
+        placeholder="code from your email" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')verifyAuthCode()"/>
       <button class="auth-submit" id="authVerifyBtn" onclick="verifyAuthCode()">Confirm code</button>
       <div class="auth-switch"><a onclick="backToEmailStep()">Use a different email</a>
         <span style="margin:0 6px">&middot;</span>
