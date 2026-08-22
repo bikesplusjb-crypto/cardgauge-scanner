@@ -3485,6 +3485,9 @@ if(document.readyState === 'loading'){
 benchLoad();
 benchRender();   // a reload mid-session keeps the bench
 logEvent('visit');
+/* page_view — added per the Aug 22 funnel audit. Additive, alongside
+   'visit', not replacing it. */
+logEvent('page_view', 'scan', false);
 renderCta(null, null, null);   // default panel until there's a result to react to
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
 </script>
