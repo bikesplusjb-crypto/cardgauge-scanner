@@ -773,8 +773,7 @@ input[type=file]{display:none;}
 
 <div class="topbar">
   <a href="https://www.cardgauge.com" target="_top" class="tb-brand">
-    <div class="tb-logo">CARD<span>GAUGE</span></div>
-    <div class="tb-badge">SCANNER</div>
+    <div class="tb-logo">CARDGAUGE <span style="color:var(--green);font-size:.82em;">SCAN</span></div>
   </a>
   <div class="tb-right" id="tbAuth">
     <span class="tb-free">Scanning is free</span>
@@ -809,7 +808,7 @@ input[type=file]{display:none;}
 </div>
 
 <div class="hero" id="top">
-  <div class="hero-eyebrow">AI Card Scanner</div>
+  <div class="hero-eyebrow">CardGauge Scan &middot; Fast card pricing at the table</div>
   <h1>Reads both sides. <span>Says when it isn't sure.</span></h1>
   <p>The year, the set and the card number are printed on the back &mdash; the front is
   artwork. And when the sales it finds are mixing versions, it tells you rather than
@@ -1237,10 +1236,18 @@ function trySample(q){
   if(!el) return;
   el.value = q;
   if(window.ttq) ttq.track('Search',{content_name:q,content_type:'sample_card'});
-  doSearch();
+  doSearch(true);
 }
 
-async function doSearch(){
+/* isSample distinguishes a genuine typed search from a tap on one of the
+   "try one of these" chips. Both hit the same endpoint and render the
+   same result — the person gets an identical experience either way —
+   but they mean different things for "Most looked up," which is
+   supposed to answer what collectors actually search for. Four sample
+   chips tapped by a fraction of every session were drowning out real
+   query diversity, so the event name is what lets the stats query tell
+   them apart later without changing anything the user sees. */
+async function doSearch(isSample){
   var q=(document.getElementById('searchInput').value||'').trim();
   if(!q){setStatus('Enter a card name first','error');return;}
   setStatusStages([
@@ -1257,7 +1264,7 @@ async function doSearch(){
     d.searchQuery=d.searchQuery||q;
     renderResult(d);setStatus('','');
     cgBumpCount();
-    logEvent('search', d.cardName, false);
+    logEvent(isSample ? 'search_sample' : 'search', d.cardName, false);
   }catch(e){setStatus('❌ '+e.message,'error');}
 }
 
@@ -2396,8 +2403,8 @@ function keepHtml(){
 
 function ctaDefault(){
   return {
-    eyebrow:'THE REST OF THE TOOLKIT',
-    title:'The scanner is one tool.<br/>CardGauge is the rest.',
+    eyebrow:'THIS WAS A LOOK-UP. THE REST IS A COLLECTION.',
+    title:'CardGauge Scan gets you a price.<br/>CardGauge keeps the collection.',
     body:'A binder you can share, a tracker that works out what you\'d actually clear after '
         +'fees, set checklists that name the cards you\'re missing, and a show log that keeps '
         +'working when the hall\'s wifi doesn\'t.',
@@ -2411,7 +2418,7 @@ function ctaDefault(){
        same URL and say the same thing twice. Naming it here costs
        nothing and is the only place the feature is mentioned at all. */
     chips:['Grade pre-screen','Binder & set checklists','Profit tracker','Portfolio','Card show log'],
-    btn:'Open CardGauge',
+    btn:'Open full CardGauge',
     href:'https://www.cardgauge.com',
     tag:'cta_default_to_cardgauge',
     foot:'Free to start.'
