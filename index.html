@@ -1214,9 +1214,16 @@ async function doScan(){
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Scan failed');
+    if(!currentUser) bumpAnonScanCount();
     renderResult(d);setStatus('','');
     cgBumpCount();
     logEvent('scan', d.cardName, !!backFile);
+    if(!currentUser){
+      var anonN = 0;
+      try{ anonN = parseInt(sessionStorage.getItem(ANON_SCAN_KEY) || '0', 10) || 0; }catch(e){}
+      var bucket = anonN <= 3 ? String(anonN) : '4plus';
+      logEvent('anonymous_scan_' + bucket, null, false);
+    }
     if(window.ttq)ttq.track('ViewContent',{content_name:d.cardName,content_type:'scan_result'});
   }catch(e){setStatus('❌ '+e.message,'error');}
   scanning=false;btn.disabled=false;updateScanBtn();
@@ -2045,6 +2052,45 @@ function onSellClick(){
    updates under them mid-session — losing six lookups to either would
    be worse than the feature is good. It dies with the tab, which is
    what "this session" means and what the panel says. */
+/* ═══ ANONYMOUS SCAN COUNTER ═══════════════════════════════════
+   Measurement before any restriction. Logged-out visitors currently
+   scan for free, unlimited — this only WATCHES how many photo scans
+   somebody runs before signing up, and shows one soft nudge at the
+   third. It never blocks a scan.
+
+   Tracks scans specifically, not typed searches — the cost pressure
+   this is meant to eventually inform is the OpenAI vision call
+   /api/scan-card makes, not the cheaper /api/card-market text lookup.
+
+   sessionStorage, same as the bench: dies with the tab, which is
+   correct — this counts scans in ONE VISIT, not a lifetime total. A
+   returning anonymous visitor a week later starts back at zero, which
+   is honest about what a session-scoped signal can actually promise.
+
+   Events fired: anonymous_scan_1, anonymous_scan_2, anonymous_scan_3,
+   then anonymous_scan_4plus for every scan after that (bucketed rather
+   than logging anonymous_scan_47 — the exact count past 3 isn't the
+   question, "did they blow past the milestone anyway" is).
+   signup_prompt_shown fires once, the moment the milestone nudge is
+   actually shown — not the same as signup_started, which existing code
+   already logs only once someone taps toward creating an account. */
+var ANON_SCAN_KEY = 'cg_anon_scan_count';
+var ANON_PROMPT_SHOWN_KEY = 'cg_anon_prompt_shown';
+
+function bumpAnonScanCount(){
+  var n = 0;
+  try{ n = parseInt(sessionStorage.getItem(ANON_SCAN_KEY) || '0', 10) || 0; }catch(e){}
+  n += 1;
+  try{ sessionStorage.setItem(ANON_SCAN_KEY, String(n)); }catch(e){}
+  return n;
+}
+function anonPromptAlreadyShown(){
+  try{ return sessionStorage.getItem(ANON_PROMPT_SHOWN_KEY) === '1'; }catch(e){ return false; }
+}
+function markAnonPromptShown(){
+  try{ sessionStorage.setItem(ANON_PROMPT_SHOWN_KEY, '1'); }catch(e){}
+}
+
 var BENCH_KEY = 'cg_bench';
 var bench = [];
 var benchSaved = false;
@@ -2779,11 +2825,45 @@ function renderResult(d){
   if(hasData){
     /* Stated before the button, not after the disappointment. */
     if(!currentUser){
-      html+='<div class="notin" style="background:rgba(34,197,94,.07);border-top-color:rgba(34,197,94,.28);color:var(--text2)">'
-        +'<span class="ico" style="filter:grayscale(1) brightness(1.4)">\ud83d\udcce</span>'
-        +'<span><a onclick="openAuth()" style="color:var(--green);font-weight:800;cursor:pointer;text-decoration:underline">Save this card</a> \u2014 '
-        +'takes one email and a code, no password. First 25 cards are free.</span>'
-      +'</div>';
+      var anonCountNow = 0;
+      try{ anonCountNow = parseInt(sessionStorage.getItem(ANON_SCAN_KEY) || '0', 10) || 0; }catch(e){}
+
+      /* THE MILESTONE PROMPT — shown once, at the third anonymous scan.
+         Never blocks the result above it. Logged once via
+         signup_prompt_shown so we can measure what fraction of people
+         who reach this point actually convert, before any real limit
+         is ever imposed. */
+      if(anonCountNow === 3 && !anonPromptAlreadyShown()){
+        markAnonPromptShown();
+        logEvent('signup_prompt_shown', null, false);
+        html+='<div style="margin:0;padding:20px 16px;background:linear-gradient(160deg,rgba(245,158,11,.14),rgba(17,24,39,.5));'
+          +'border-top:1px solid rgba(245,158,11,.35);border-bottom:1px solid rgba(245,158,11,.35);text-align:center;">'
+          +'<div style="font-family:var(--f);font-size:15px;font-weight:800;color:var(--text);line-height:1.4;margin-bottom:10px;max-width:32ch;margin-left:auto;margin-right:auto;">'
+          +'You\u2019re getting serious about your cards. Create your free account to keep scanning and start tracking your collection.</div>'
+          +'<div style="text-align:left;max-width:280px;margin:0 auto 14px;font-size:12.5px;color:var(--text2);line-height:1.9;">'
+          +'<div>\u2713 Unlimited card scans</div>'
+          +'<div>\u2713 Save your cards</div>'
+          +'<div>\u2713 Watch card values</div>'
+          +'<div>\u2713 Get price-change alerts</div>'
+          +'<div>\u2713 Build your collection</div>'
+          +'</div>'
+          +'<button onclick="openAuth()" style="background:var(--gold-warm);color:#1a1206;border:none;border-radius:10px;'
+          +'padding:13px 26px;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;">Create free account \u2192</button>'
+          +'<div style="font-size:10.5px;color:var(--text3);margin-top:10px;">It\u2019s free. No credit card required.</div>'
+        +'</div>';
+      } else {
+        html+='<div style="margin:0;padding:18px 16px;background:linear-gradient(160deg,rgba(34,197,94,.13),rgba(17,24,39,.5));'
+          +'border-top:1px solid rgba(34,197,94,.32);border-bottom:1px solid rgba(34,197,94,.32);text-align:center;">'
+          +'<div style="font-size:24px;margin-bottom:6px;">\ud83d\udd14</div>'
+          +'<div style="font-family:var(--f);font-size:15px;font-weight:800;color:var(--text);line-height:1.35;margin-bottom:5px;">'
+          +'Get an email when this card\u2019s price moves</div>'
+          +'<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:13px;max-width:34ch;margin-left:auto;margin-right:auto;">'
+          +'Save it free and we\u2019ll watch the price for you \u2014 no more checking back manually.</div>'
+          +'<button onclick="openAuth()" style="background:var(--green);color:#052e16;border:none;border-radius:10px;'
+          +'padding:13px 26px;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;">Save &amp; watch this card \u2192</button>'
+          +'<div style="font-size:10.5px;color:var(--text3);margin-top:10px;">One email + a code, no password \u00b7 first 25 cards free</div>'
+        +'</div>';
+      }
     }
 
     /* ONE SAVE ACTION, NOT TWO.
