@@ -856,7 +856,7 @@ input[type=file]{display:none;}
     <button onclick="submitListingToEbay()" style="width:100%;padding:14px;border-radius:10px;border:none;background:var(--gold-warm);color:#1a1206;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;margin-bottom:6px;">
       List on eBay &rarr;
     </button>
-    <div style="font-size:10px;color:var(--text3);text-align:center;margin-bottom:14px;">Opens eBay with the title carried over &mdash; paste the description once you're there</div>
+    <div style="font-size:10px;color:var(--text3);text-align:center;margin-bottom:14px;">Opens eBay search &mdash; find a matching listing, then tap eBay's own "Sell one like this"</div>
     <button onclick="copyListingDescription()" id="copyDescBtn" style="width:100%;padding:13px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:var(--f);font-weight:700;font-size:13px;cursor:pointer;">
       Copy description
     </button>
@@ -2159,11 +2159,28 @@ function buildAskVsSold(d){
    No campid. EPN pays on purchases, not listings, so tagging a sell
    link would earn nothing and imply an interest we do not have. Saying
    that on the block is worth more than the tag would be. */
-const EBAY_SELL_URL = 'https://www.ebay.com/sl/sell';
 
+/* EBAY_SELL_URL used to point at ebay.com/sl/sell with sellFlow=PRELIST,
+   eBay's private, undocumented listing-prefill page. It broke silently —
+   the same URL now redirects to eBay's generic "Selling on eBay"
+   marketing page instead of a prefilled form, with no notice from eBay
+   that anything changed. That is the real risk of depending on a
+   private URL: it can be rewritten at any time, and there is no
+   changelog to catch it.
+
+   Fixed by pointing at eBay's stable, PUBLIC search results page
+   instead — the same endpoint "Shop this card on eBay" already uses
+   reliably. From a matching listing, eBay's own "Sell one like this"
+   button starts a new listing prefilled from that real item — title,
+   category, and item specifics all inherited from an actual matching
+   product, which is genuinely richer than a bare keyword prefill ever
+   was. Deliberately NOT reusing ebayLink() as-is: that function tags
+   every URL with our affiliate campaign ID, and the promise on this
+   button has always been "we take no cut and never see the sale" — so
+   this needs its own untagged version of the same stable search URL. */
 function sellLink(query){
   var q = String(query || '').replace(/(^|\s)-\S+/g, '').replace(/\s+/g, ' ').trim();
-  return EBAY_SELL_URL + '?sellFlow=PRELIST&keyword=' + encodeURIComponent(q);
+  return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q);
 }
 
 /* Only offered when the sold number is one we are willing to stand
