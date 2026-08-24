@@ -17,6 +17,7 @@
 <!-- Deferred on purpose: the scanner has to be usable before the account
      code exists. Somebody who only wants a price never waits for this. -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 !function (w, d, t) {
   w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
@@ -807,6 +808,33 @@ input[type=file]{display:none;}
   </div>
 </div>
 
+<!-- PSA BARCODE SCANNER -->
+<div class="auth-modal" id="psaModal">
+  <div class="auth-inner" style="max-width:340px;">
+    <button class="auth-close" onclick="closePsaScanner()">&times;</button>
+    <h3>Scan PSA barcode</h3>
+    <p style="margin-bottom:14px;">Line up the barcode on the label. We'll pull the card, grade and cert straight from PSA.</p>
+    <div id="psaReaderBox" style="border-radius:10px;overflow:hidden;background:#000;min-height:220px;position:relative;">
+      <div id="psaReader" style="width:100%;"></div>
+    </div>
+    <div id="psaStatus" style="margin-top:12px;font-family:var(--fm);font-size:11.5px;color:var(--text3);text-align:center;">
+      Point your camera at the barcode
+    </div>
+    <p style="margin-top:14px;font-size:11px;color:var(--text3);">
+      Cert number printed under the barcode? <a onclick="switchToManualCert()" style="color:var(--gold-warm);cursor:pointer;text-decoration:underline;">Type it instead</a>
+    </p>
+    <div id="psaManualEntry" style="display:none;margin-top:10px;">
+      <input id="psaManualCert" type="text" inputmode="numeric" placeholder="e.g. 84739201"
+        style="width:100%;padding:11px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--f);font-size:13px;margin-bottom:8px;"
+        onkeydown="if(event.key==='Enter')lookupPsaCert(document.getElementById('psaManualCert').value)"/>
+      <button onclick="lookupPsaCert(document.getElementById('psaManualCert').value)"
+        style="width:100%;padding:11px;border-radius:8px;border:none;background:var(--gold-warm);color:#1a1206;font-family:var(--f);font-weight:800;font-size:13px;cursor:pointer;">
+        Look up cert
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="hero" id="top">
   <div class="hero-eyebrow">CardGauge Scan &middot; Fast card pricing at the table</div>
   <h1>Reads both sides. <span>Says when it isn't sure.</span></h1>
@@ -888,6 +916,12 @@ input[type=file]{display:none;}
       <button onclick="doSearch()">Search</button>
     </div>
     <div class="search-hint">✏️ Year + brand + player gets the best match</div>
+
+    <button id="psaBtn" onclick="openPsaScanner()" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;
+      border:1px solid rgba(251,191,36,.35);background:rgba(251,191,36,.08);color:var(--gold-warm);
+      font-family:var(--f);font-weight:800;font-size:13px;cursor:pointer;">
+      📇 Already graded? Scan the PSA barcode
+    </button>
 
     <!-- For somebody who arrived from a video and has no card in their
          hand. Two empty photo boxes are useless to them; one tap on a
@@ -1268,7 +1302,113 @@ async function doSearch(isSample){
   }catch(e){setStatus('❌ '+e.message,'error');}
 }
 
-/* ===== ADD THE BACK OF THE CARD =====
+/* ===== PSA BARCODE SCANNER =====
+   PSA already knows exactly what's in the holder — player, year, set,
+   card number, grade. Skip AI identification entirely and go straight
+   from cert number to pricing, the same pipeline /api/scan-card uses,
+   just fed PSA's own ground truth instead of a photo guess.
+
+   Uses html5-qrcode (ZXing-based under the hood) rather than the
+   native BarcodeDetector API — BarcodeDetector isn't available on iOS
+   Safari, which is a large share of this site's mobile traffic. */
+var psaScanner = null;
+var psaLookupInFlight = false;
+
+function openPsaScanner(){
+  var m = document.getElementById('psaModal');
+  if(m) m.classList.add('show');
+  document.getElementById('psaManualEntry').style.display = 'none';
+  setPsaStatus('Point your camera at the barcode', false);
+
+  if(typeof Html5Qrcode === 'undefined'){
+    setPsaStatus('Camera scanning isn\u2019t available right now \u2014 type the cert number below instead.', true);
+    switchToManualCert();
+    return;
+  }
+
+  try{
+    psaScanner = new Html5Qrcode('psaReader');
+    psaScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 240, height: 80 },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13
+        ] },
+      function(decodedText){ onPsaBarcodeDecoded(decodedText); },
+      function(){ /* per-frame no-match — expected constantly while scanning, not an error */ }
+    ).catch(function(err){
+      setPsaStatus('Couldn\u2019t open the camera \u2014 check camera permissions, or type the cert number below.', true);
+      switchToManualCert();
+    });
+  }catch(e){
+    setPsaStatus('Camera scanning isn\u2019t available \u2014 type the cert number below instead.', true);
+    switchToManualCert();
+  }
+}
+
+function closePsaScanner(){
+  var m = document.getElementById('psaModal');
+  if(m) m.classList.remove('show');
+  if(psaScanner){
+    try{ psaScanner.stop().then(function(){ psaScanner.clear(); }).catch(function(){}); }catch(e){}
+    psaScanner = null;
+  }
+}
+
+function switchToManualCert(){
+  document.getElementById('psaManualEntry').style.display = '';
+  var f = document.getElementById('psaManualCert');
+  if(f) f.focus();
+}
+
+function setPsaStatus(msg, isWarn){
+  var el = document.getElementById('psaStatus');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.color = isWarn ? 'var(--gold-warm)' : 'var(--text3)';
+}
+
+function onPsaBarcodeDecoded(decodedText){
+  // A QR code might encode a full PSA URL (psacard.com/cert/12345678) or
+  // just the raw number — pull digits out either way.
+  var digits = String(decodedText || '').replace(/[^0-9]/g, '');
+  if(digits.length < 6){
+    setPsaStatus('That doesn\u2019t look like a PSA cert \u2014 try again or type it below.', true);
+    return;
+  }
+  lookupPsaCert(digits);
+}
+
+async function lookupPsaCert(certNumber){
+  var clean = String(certNumber || '').replace(/[^0-9]/g, '');
+  if(!clean){ setPsaStatus('Enter a cert number first.', true); return; }
+  if(psaLookupInFlight) return;
+  psaLookupInFlight = true;
+
+  setPsaStatus('Looking up cert ' + clean + '\u2026', false);
+  setStatusStages([{ msg:'Looking up PSA cert ' + clean + '\u2026', after:0 }]);
+
+  try{
+    var r = await fetch(API + '/api/psa-cert?cert=' + encodeURIComponent(clean));
+    var d = await r.json();
+    if(!d.success) throw new Error(d.error || 'Could not find that cert');
+
+    closePsaScanner();
+    renderResult(d);
+    setStatus('','');
+    cgBumpCount();
+    logEvent('psa_cert_lookup', d.cardName, false);
+    if(window.ttq) ttq.track('Search',{content_name:d.cardName,content_type:'psa_cert_scan'});
+  }catch(e){
+    setPsaStatus('\u274c ' + e.message, true);
+  }
+  psaLookupInFlight = false;
+}
+
+
    Offered AFTER the result, and only when a PHOTO scan looks shaky: low
    confidence, an unknown card number, a parallel it couldn't name, or too
    few listings to trust.
