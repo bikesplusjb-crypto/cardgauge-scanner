@@ -835,6 +835,34 @@ input[type=file]{display:none;}
   </div>
 </div>
 
+<!-- REVIEW LISTING -->
+<div class="auth-modal" id="reviewModal">
+  <div class="auth-inner" style="max-width:380px;">
+    <button class="auth-close" onclick="closeReviewListing()">&times;</button>
+    <h3>Review your listing</h3>
+    <p style="margin-bottom:16px;">Title and description are editable. Copy the description into eBay, or edit before you go.</p>
+
+    <div style="font-family:var(--fm);font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">Title</div>
+    <input id="reviewTitle" type="text" style="width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--f);font-weight:700;font-size:13px;margin-bottom:16px;"/>
+
+    <div style="font-family:var(--fm);font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">Description</div>
+    <textarea id="reviewDesc" rows="4" style="width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:#cbd5e1;font-family:var(--f);font-size:12.5px;line-height:1.5;margin-bottom:16px;resize:vertical;"></textarea>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(160deg,rgba(34,197,94,.14),rgba(17,24,39,.5));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px 16px;margin-bottom:20px;">
+      <span style="font-size:12.5px;color:var(--text2);">Suggested price</span>
+      <span id="reviewPrice" style="font-family:var(--fbig);font-size:22px;color:var(--green);"></span>
+    </div>
+
+    <button onclick="submitListingToEbay()" style="width:100%;padding:14px;border-radius:10px;border:none;background:var(--gold-warm);color:#1a1206;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;margin-bottom:6px;">
+      List on eBay \u2192
+    </button>
+    <div style="font-size:10px;color:var(--text3);text-align:center;margin-bottom:14px;">Opens eBay with the title carried over \u2014 paste the description once you're there</div>
+    <button onclick="copyListingDescription()" id="copyDescBtn" style="width:100%;padding:13px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:var(--f);font-weight:700;font-size:13px;cursor:pointer;">
+      Copy description
+    </button>
+  </div>
+</div>
+
 <div class="hero" id="top">
   <div class="hero-eyebrow">CardGauge Scan &middot; Fast card pricing at the table</div>
   <h1>Reads both sides. <span>Says when it isn't sure.</span></h1>
@@ -2141,20 +2169,104 @@ function buildSell(d){
       + 'Narrow the search and it comes back.</div>';
   }
 
-  var med = safeNum(d.sold.soldMedian);
+  /* Fall back to the ask median rather than silently vanishing. The old
+     code returned '' whenever soldMedian happened to be falsy even
+     though soldCount was real — a silent, unexplained disappearance
+     of the button with no message at all. A number that's slightly
+     softer (asking price instead of sold price) beats no button and
+     no explanation. */
+  var med = safeNum(d.sold.soldMedian) || safeNum(d.avgPrice);
   if(!med) return '';
 
-  return '<a class="sell" href="' + esc(sellLink(currentQuery)) + '" '
-    + 'target="_blank" rel="noopener" '
-    + 'onclick="onSellClick()">'
+  var basis = safeNum(d.sold.soldMedian) ? 'list around' : 'sellers are asking around';
+
+  /* Opens the review screen rather than jumping straight to eBay.
+     Nothing about the eBay handoff itself changed — sellLink() still
+     only carries a title through as a search keyword, which is a real
+     limit of eBay's simple listing-form URL, not something this screen
+     can work around. What changed is giving the seller a place to see
+     and edit the title and a generated description ON CardGauge first,
+     with an honest "paste this once you're there" for the description
+     rather than pretending it flows through automatically. */
+  return '<button type="button" class="sell" onclick="openReviewListing()" style="width:100%;text-align:left;border:none;cursor:pointer;">'
     + '<span class="sell-row">'
-      + '<span class="sell-main">\ud83d\udcb0 Sell one like this \u2014 list around '
+      + '<span class="sell-main">\ud83d\udcb0 Sell one like this \u2014 ' + basis + ' '
       + fmtMoney(med) + '</span>'
       + '<span class="sell-go">\u2197</span>'
     + '</span>'
-    + '<span class="sell-sub">Opens eBay\'s listing form with the card details filled in. '
+    + '<span class="sell-sub">Review the title and description on CardGauge first. '
     + '<b>We take no cut and never see the sale.</b></span>'
-  + '</a>';
+  + '</button>';
+}
+
+/* ===== REVIEW YOUR LISTING =====
+   The on-site step between "here's a price" and "here's eBay's form".
+   Title and a generated description live here, editable, before
+   anything opens in a new tab — the sticky, CardGauge-branded version
+   of listing a card, short of a real eBay API integration (OAuth,
+   image hosting, the Sell API) which is a materially bigger, riskier
+   build than this. */
+function generateListingDescription(d){
+  var bits = [];
+  if(d.cardName) bits.push(d.cardName + '.');
+
+  var soldN = d.sold && d.sold.soldCount;
+  var soldMed = d.sold && safeNum(d.sold.soldMedian);
+  var lookback = (d.sold && d.sold.lookbackDays) || 14;
+  if(soldN && soldMed){
+    bits.push('Priced with CardGauge against ' + soldN + ' recent sold comp'
+      + (soldN===1?'':'s') + ' \u2014 median sale ' + fmtMoney(soldMed)
+      + ' over the last ' + lookback + ' days.');
+  } else if(safeNum(d.avgPrice)){
+    bits.push('Priced with CardGauge against current asking prices \u2014 typical ask '
+      + fmtMoney(d.avgPrice) + '.');
+  }
+
+  if(d.gradeValue && d.gradeCompany){
+    bits.push(d.gradeCompany + ' ' + d.gradeValue + '.');
+  }
+
+  bits.push('Ships securely in a top loader.');
+  return bits.join(' ');
+}
+
+function openReviewListing(){
+  if(!lastResult) return;
+  var d = lastResult;
+  var med = safeNum(d.sold && d.sold.soldMedian) || safeNum(d.avgPrice) || 0;
+
+  document.getElementById('reviewTitle').value = d.cardName || currentQuery || '';
+  document.getElementById('reviewDesc').value = generateListingDescription(d);
+  document.getElementById('reviewPrice').textContent = med ? fmtMoney(med) : '\u2014';
+
+  var m = document.getElementById('reviewModal');
+  if(m) m.classList.add('show');
+  logEvent('review_listing_opened', d.cardName || null, false);
+}
+
+function closeReviewListing(){
+  var m = document.getElementById('reviewModal');
+  if(m) m.classList.remove('show');
+}
+
+async function copyListingDescription(){
+  var text = document.getElementById('reviewDesc').value;
+  var btn = document.getElementById('copyDescBtn');
+  try{
+    await navigator.clipboard.writeText(text);
+    if(btn){ var orig = btn.textContent; btn.textContent = '\u2713 Copied'; setTimeout(function(){ btn.textContent = orig; }, 1800); }
+  }catch(e){
+    if(btn) btn.textContent = 'Select the text above and copy manually';
+  }
+  logEvent('listing_description_copied', (lastResult && lastResult.cardName) || null, false);
+}
+
+function submitListingToEbay(){
+  var title = document.getElementById('reviewTitle').value.trim() || currentQuery;
+  onSellClick();
+  logEvent('review_listing_to_ebay', title, false);
+  window.open(sellLink(title), '_blank', 'noopener');
+  closeReviewListing();
 }
 
 /* Logged from day one. A feature nobody can measure is a feature
