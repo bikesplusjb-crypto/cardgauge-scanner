@@ -1279,6 +1279,16 @@ async function doScan(){
     renderResult(d);setStatus('','');
     cgBumpCount();
     logEvent('scan', d.cardName, !!backFile);
+    /* Confidence tracking — added after a real case surfaced only by
+       luck (a user reported the same physical card giving inconsistent
+       results across three scans, and it took manually cross-checking
+       timestamps to find it). Confidence was never logged anywhere
+       before this, so a pattern like that was invisible unless someone
+       happened to report it. Now queryable directly: how often is the
+       model itself flagging uncertainty, and on which cards. */
+    if(d.confidence === 'Low'){
+      logEvent('scan_confidence_low', d.cardName, !!backFile);
+    }
     if(!currentUser){
       var anonN = 0;
       try{ anonN = parseInt(sessionStorage.getItem(ANON_SCAN_KEY) || '0', 10) || 0; }catch(e){}
