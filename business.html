@@ -29,12 +29,36 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 @media(max-width:760px){.cards{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:repeat(2,1fr)}.formgrid .wide{grid-column:span 2}table{font-size:11px}}
 @media(max-width:520px){.app{padding:10px 11px 40px}.panel{padding:13px}.grid{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:26px}.spotgrid{grid-template-columns:1fr 1fr}.label-sheet{grid-template-columns:1fr 1fr}}
 </style>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="app">
   <div class="top">
     <div class="logo">CARD<span>GAUGE</span> <small>BUSINESS</small><span class="badge">ISOLATED V1</span></div>
     <a href="https://www.cardgauge.com" style="color:var(--muted);font-size:11px">CardGauge.com</a>
+  </div>
+
+  <!-- SHOP SIGN-IN -- this is what makes everything below actually
+       shared instead of local. Nothing renders or saves against real
+       shop_inventory until a shop is resolved: signed in, and either
+       already staff of a shop or one just created. -->
+  <div class="panel" id="authPanel" style="padding:14px 18px;margin-bottom:14px"></div>
+
+  <div class="modal" id="authModal" style="display:none;position:fixed;inset:0;background:#000a;z-index:999;align-items:center;justify-content:center">
+    <div class="panel" style="max-width:360px;width:90%;padding:20px">
+      <h2 style="margin-top:0">Sign in</h2>
+      <div id="authStepEmail">
+        <input id="authEmail" type="email" placeholder="your@email.com" style="width:100%;margin-bottom:8px">
+        <button class="btn blue" style="width:100%" onclick="sendAuthCode()">Email me a code</button>
+      </div>
+      <div id="authStepCode" style="display:none">
+        <div class="sub" style="margin-bottom:8px">Code sent to <b id="authEmailShown"></b></div>
+        <input id="authCode" type="text" inputmode="numeric" placeholder="6-digit code" style="width:100%;margin-bottom:8px">
+        <button class="btn blue" style="width:100%" onclick="verifyAuthCode()">Confirm</button>
+      </div>
+      <div id="authErr" class="sub" style="color:var(--red);margin-top:8px;display:none"></div>
+      <button class="btn" style="width:100%;margin-top:10px" onclick="closeAuth()">Cancel</button>
+    </div>
   </div>
 
   <nav id="nav">
@@ -162,10 +186,178 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 <script>
 const API='https://stock-card-api.onrender.com';
-const LS_INV='cg_business_v1_inventory';
 const LS_BREAK='cg_business_v1_break';
 const LS_STAFF='cg_business_v1_staffname';
 let sourceFile=null, backSourceFile=null, detectedCards=[], backCards=[], results=[], activeBreak=load(LS_BREAK,null);
+
+// ══════════════════════════════════════════════════════════════
+// SHOP AUTH + SHARED STORAGE
+//
+// This is what replaces localStorage. Reuses the same Supabase
+// project and the same email-code sign-in CardGauge's main site
+// already uses -- one login, not a second account system.
+//
+// Everything below is a real network call, not an instant local
+// read, so every write is deliberately explicit about success or
+// failure rather than assuming it worked. No silent localStorage
+// fallback if a save fails -- a card that looks saved but isn't
+// is worse than a save that visibly failed and can be retried.
+// ══════════════════════════════════════════════════════════════
+const SB_URL='https://nlaqvfplecacbbdbmhxd.supabase.co';
+const SB_KEY='sb_publishable_9e5zQmOwtT6aJM1t-xSEyQ_jA2tDY5N';
+let SB=null;
+function sbReady(){
+  if(SB) return SB;
+  try{
+    if(window.supabase && window.supabase.createClient){
+      SB=window.supabase.createClient(SB_URL,SB_KEY);
+    }
+  }catch(e){SB=null}
+  return SB;
+}
+
+let currentUser=null, currentShopId=null, currentShopName=null;
+// In-memory mirror of the shop_inventory table. Every read call site
+// in the app (renderInventory, the break assigner, the dashboard
+// totals, label printing, CSV export) reads THIS, synchronously --
+// only refreshShopInventory() talks to the network. That keeps the
+// async/await boundary in exactly one place instead of rewriting
+// every function in the file to be async.
+let shopInventory=[];
+let authEmailPending='';
+
+function openAuth(){
+  document.getElementById('authModal').style.display='flex';
+  document.getElementById('authStepEmail').style.display='';
+  document.getElementById('authStepCode').style.display='none';
+  document.getElementById('authErr').style.display='none';
+}
+function closeAuth(){document.getElementById('authModal').style.display='none'}
+function setAuthErr(msg){
+  const el=document.getElementById('authErr');
+  el.textContent=msg;el.style.display='block';
+}
+
+async function sendAuthCode(){
+  if(!sbReady()){setAuthErr('Accounts unavailable right now -- try again in a moment.');return}
+  const email=(document.getElementById('authEmail').value||'').trim();
+  if(!email||email.indexOf('@')<0){setAuthErr('Enter a valid email.');return}
+  try{
+    const r=await SB.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+    if(r.error) throw r.error;
+    authEmailPending=email;
+    document.getElementById('authEmailShown').textContent=email;
+    document.getElementById('authStepEmail').style.display='none';
+    document.getElementById('authStepCode').style.display='';
+  }catch(e){setAuthErr(e.message||'Could not send code.')}
+}
+async function verifyAuthCode(){
+  if(!sbReady())return;
+  const code=(document.getElementById('authCode').value||'').trim();
+  if(!code){setAuthErr('Enter the code from your email.');return}
+  try{
+    const r=await SB.auth.verifyOtp({email:authEmailPending,token:code,type:'email'});
+    if(r.error) throw r.error;
+    currentUser=r.data.user||(r.data.session&&r.data.session.user);
+    closeAuth();
+    await resolveShop();
+  }catch(e){setAuthErr(e.message||'That code did not work.')}
+}
+
+// One shop per person for now, matching the decision that shop
+// inventory is shared, not per-staff. Finds the shop this user is
+// already staff of; if none, the panel below offers to create one.
+async function resolveShop(){
+  if(!sbReady()||!currentUser){renderAuthPanel();return}
+  try{
+    const {data,error}=await SB.from('shop_staff')
+      .select('shop_id, shops(id,name)')
+      .eq('user_id',currentUser.id)
+      .limit(1);
+    if(error) throw error;
+    if(data&&data.length&&data[0].shops){
+      currentShopId=data[0].shops.id;
+      currentShopName=data[0].shops.name;
+      await refreshShopInventory();
+    }
+  }catch(e){console.warn('[shop] resolve failed:',e.message)}
+  renderAuthPanel();
+}
+
+async function createShop(){
+  if(!sbReady()||!currentUser)return;
+  const name=(prompt('Name your shop:')||'').trim();
+  if(!name)return;
+  try{
+    const {data,error}=await SB.from('shops').insert({name,owner_user_id:currentUser.id}).select().single();
+    if(error) throw error;
+    currentShopId=data.id;currentShopName=data.name;
+    await refreshShopInventory();
+    renderAuthPanel();
+  }catch(e){alert('Could not create shop: '+e.message)}
+}
+
+async function logOutShop(){
+  if(sbReady()) await SB.auth.signOut();
+  currentUser=null;currentShopId=null;currentShopName=null;shopInventory=[];
+  renderAuthPanel();renderAll();
+}
+
+function renderAuthPanel(){
+  const el=document.getElementById('authPanel');
+  if(!el)return;
+  if(!currentUser){
+    el.innerHTML=`<b>Not signed in.</b> <span class="sub">Sign in to save to a real, shared shop inventory instead of just this browser.</span> <button class="btn blue" onclick="openAuth()">Sign in</button>`;
+  }else if(!currentShopId){
+    el.innerHTML=`<b>Signed in as ${esc(currentUser.email)}.</b> <span class="sub">No shop yet.</span> <button class="btn gold" onclick="createShop()">Create a shop</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
+  }else{
+    el.innerHTML=`<b>${esc(currentShopName)}</b> <span class="sub">· ${esc(currentUser.email)} · shared inventory</span> <button class="btn" onclick="logOutShop()">Sign out</button>`;
+  }
+}
+
+// Pulls the real table into the local cache and re-renders everything
+// that depends on it -- the one place the DB row shape gets translated
+// into the field names the rest of the app already expects, so nothing
+// downstream (renderInventory, autoAssign, buildLabels...) has to know
+// or care that the source changed from localStorage to Supabase.
+async function refreshShopInventory(){
+  if(!sbReady()||!currentShopId){shopInventory=[];return}
+  try{
+    const {data,error}=await SB.from('shop_inventory')
+      .select('*')
+      .eq('shop_id',currentShopId)
+      .order('created_at',{ascending:false});
+    if(error) throw error;
+    shopInventory=(data||[]).map(row=>({
+      id:row.id,
+      name:row.card_name,year:row.year,brand:row.brand,set:row.set_name,
+      number:row.card_number,team:row.team,parallel:row.parallel,serial:row.serial_number,
+      isAuto:row.is_auto,isPatch:row.is_patch,
+      needsReview:row.needs_review,reviewReasons:row.review_reasons||[],
+      market:row.market_price,priceBasis:row.price_basis,
+      cost:Number(row.cost||0),ask:Number(row.ask||0),
+      status:row.status,image:row.image_url,source:row.source,
+      created:row.created_at,addedBy:row.added_by
+    }));
+  }catch(e){console.warn('[inventory] refresh failed:',e.message)}
+  renderInventory();renderDashboard();
+}
+
+// Restores a session already in progress (a page reload) without
+// making the person sign in again -- same retry-until-loaded pattern
+// as the main scanner, since the Supabase library is deferred and may
+// not have finished loading the instant this runs.
+(async function initShopAuth(){
+  let tries=0;
+  while(!sbReady()&&tries<25){await new Promise(r=>setTimeout(r,200));tries++}
+  if(!sbReady()){renderAuthPanel();return}
+  try{
+    const {data}=await SB.auth.getSession();
+    currentUser=data.session?data.session.user:null;
+  }catch(e){currentUser=null}
+  if(currentUser) await resolveShop();
+  else renderAuthPanel();
+})();
 
 function load(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
@@ -438,38 +630,56 @@ document.getElementById('scanBtn').onclick=async()=>{
   setStatus('Batch scan finished. Review the results before adding inventory.','ok');
 };
 
-document.getElementById('addAllBtn').onclick=()=>{
-  let inv=load(LS_INV,[]), added=0;
+document.getElementById('addAllBtn').onclick=async ()=>{
+  // Signed out, or signed in with no shop resolved yet: refuse rather
+  // than silently falling back to a local save nobody else could see.
+  // See the panel at the top of the page.
+  if(!currentShopId){
+    setStatus('Sign in and create or join a shop first -- see the panel at the top of the page.','err');
+    return;
+  }
+  const rows=[];
   results.filter(r=>r.data).forEach(r=>{
     const d=r.data;const card=d.card||d;
     const variant=getCardVariant(d);
     const reviewFlag=getReviewFlag(d);
-    inv.push({
-      id:'inv-'+Date.now()+'-'+Math.random().toString(36).slice(2),
-      name:d.cardName||card.cardName||card.name||'Scanned card',
-      year:d.year||card.year||'',brand:d.brand||card.brand||'',set:d.set||card.set||'',
-      number:d.cardNumber||card.cardNumber||'',team:getTeam(d),
+    const yr=parseInt(d.year||card.year,10);
+    rows.push({
+      shop_id:currentShopId,
+      card_name:d.cardName||card.cardName||card.name||'Scanned card',
+      year:(yr>=1860&&yr<=2100)?yr:null,
+      brand:d.brand||card.brand||null,set_name:d.set||card.set||null,
+      card_number:d.cardNumber||card.cardNumber||null,team:getTeam(d)||null,
       // Carried through so inventory and labels can show what the scan
       // grid already shows -- an auto/patch/parallel is a different
       // card than its base version, not a display detail to drop here.
-      parallel:variant.parallel,serial:variant.serial,
-      isAuto:variant.isAuto,isPatch:variant.isPatch,
+      parallel:variant.parallel||null,serial_number:variant.serial||null,
+      is_auto:variant.isAuto,is_patch:variant.isPatch,
       // Not blocking the add -- same principle as everything else here,
       // the flag is for a human to weigh, not for the app to decide for
       // them -- but it has to survive into inventory or a flagged scan
       // becomes an unflagged, unreviewable row the moment it's added.
-      needsReview:reviewFlag.needsReview,reviewReasons:reviewFlag.reasons,
-      market:getMarketPrice(d),priceBasis:getPriceBasis(d),
-      cost:0,ask:getMarketPrice(d),
-      status:'Available',image:r.url||'',source:'Multi-Scan',created:new Date().toISOString(),
-      // See the staffName note near the top of the Scan panel -- this
-      // does nothing functional yet (local storage has no sharing to
-      // attribute across), but every record is stamped from day one so
-      // nothing needs a backfill once shared storage actually exists.
-      addedBy:load(LS_STAFF,'')||null
-    });added++;
+      needs_review:reviewFlag.needsReview,review_reasons:reviewFlag.reasons,
+      market_price:getMarketPrice(d)||null,price_basis:getPriceBasis(d)||null,
+      cost:0,ask:getMarketPrice(d)||null,
+      status:'Available',image_url:r.url||null,source:'Multi-Scan',
+      // The staffName field from earlier tonight was forward-compatible
+      // plumbing with nothing real behind it -- this is the real shared
+      // storage it was always waiting on.
+      added_by:load(LS_STAFF,'')||null
+    });
   });
-  save(LS_INV,inv);document.getElementById('added').textContent=added;renderInventory();renderDashboard();setStatus(`${added} cards added to TEST inventory.`,'ok');
+  if(!rows.length)return;
+  setStatus('Saving to shop inventory…','loading');
+  try{
+    const {error}=await SB.from('shop_inventory').insert(rows);
+    if(error) throw error;
+    document.getElementById('added').textContent=rows.length;
+    await refreshShopInventory();
+    setStatus(`${rows.length} card(s) added to ${esc(currentShopName)}'s shared inventory.`,'ok');
+  }catch(e){
+    setStatus('Could not save to shop inventory: '+e.message,'err');
+  }
 };
 
 async function detectCards(file){
@@ -907,19 +1117,43 @@ function toggleDebug(id){
   if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
 function renderInventory(){
-  const inv=load(LS_INV,[]);document.getElementById('invCount').textContent=inv.length+' test cards';
+  const inv=shopInventory;document.getElementById('invCount').textContent=inv.length+' test cards';
   if(!inv.length){document.getElementById('inventoryTable').innerHTML='<div class="empty">No test inventory yet. Run a Multi-Scan batch and add the results.</div>';return}
   document.getElementById('inventoryTable').innerHTML=`<table><thead><tr><th>Card</th><th>Market</th><th>Cost</th><th>Ask</th><th>Profit</th><th>Status</th></tr></thead><tbody>${inv.map((x,i)=>{
     const variantMeta=[x.parallel,x.serial].filter(Boolean).join(' · ');
     const variantBadges=(x.isAuto?'<span class="pill bad">AUTO</span> ':'')+(x.isPatch?'<span class="pill warn">PATCH</span> ':'');
     const reviewBadge=x.needsReview?`<br><span class="pill bad" title="${esc((x.reviewReasons||[]).join('; '))}">⚠ Needs review</span>`:'';
     const addedByLine=x.addedBy?`<br><span class="sub" style="opacity:.7">Added by ${esc(x.addedBy)}</span>`:'';
-    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${x.cost}" onchange="editInv(${i},'cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv(${i},'ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="editInv(${i},'status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td></tr>`;
+    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td></tr>`;
   }).join('')}</tbody></table>`
 }
-function editInv(i,k,v){let a=load(LS_INV,[]);a[i][k]=k==='cost'||k==='ask'?Number(v):v;save(LS_INV,a);renderDashboard()}
-function clearInventory(){if(confirm('Clear only the TEST inventory?')){localStorage.removeItem(LS_INV);renderAll()}}
-function exportInventory(){const a=load(LS_INV,[]),rows=[['Card','Year','Set','Number','Team','Market','Cost','Ask','Profit','Status'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.market,x.cost,x.ask,x.ask-x.cost,x.status])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-test-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
+// Takes the row's real id (a Supabase uuid), not an array index --
+// an index breaks the moment another staff member's scan reorders
+// the list underneath you, a real risk once this is genuinely shared.
+async function editInv(id,k,v){
+  if(!sbReady()||!currentShopId)return;
+  const value=k==='cost'||k==='ask'?Number(v):v;
+  const dbField=k;   // 'cost' / 'ask' / 'status' all match the column name directly
+  try{
+    const {error}=await SB.from('shop_inventory')
+      .update({[dbField]:value,updated_at:new Date().toISOString()})
+      .eq('id',id);
+    if(error) throw error;
+    const row=shopInventory.find(x=>x.id===id);
+    if(row) row[k]=value;
+    renderDashboard();
+  }catch(e){alert('Could not save that change: '+e.message)}
+}
+async function clearInventory(){
+  if(!currentShopId){alert('No shop selected.');return}
+  if(!confirm(`Clear ALL of ${currentShopName}'s inventory? This deletes it for every staff member and cannot be undone.`))return;
+  try{
+    const {error}=await SB.from('shop_inventory').delete().eq('shop_id',currentShopId);
+    if(error) throw error;
+    await refreshShopInventory();
+  }catch(e){alert('Could not clear inventory: '+e.message)}
+}
+function exportInventory(){const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Market','Cost','Ask','Profit','Status'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.market,x.cost,x.ask,x.ask-x.cost,x.status])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-test-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
 
 function createBreak(){
   const n=Math.max(1,Math.min(100,Number(document.getElementById('spotCount').value)||10));
@@ -935,12 +1169,12 @@ function renderBreaks(){
 function editSpot(i,k,v){activeBreak.spots[i][k]=v;save(LS_BREAK,activeBreak)}
 function renderAssignments(){
   const el=document.getElementById('breakAssignments');if(!activeBreak){el.innerHTML='';return}
-  const inv=load(LS_INV,[]);const scanCards=results.filter(r=>r.data);
+  const inv=shopInventory;const scanCards=results.filter(r=>r.data);
   el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${activeBreak.spots.map(s=>`<div class="panel" style="margin:10px 0"><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}</b><div class="sub">${s.cards.length} assigned card(s)</div>${s.cards.length?'<ul>'+s.cards.map(id=>{const x=inv.find(z=>z.id===id);return `<li>${esc(x?x.name:id)}</li>`}).join('')+'</ul>':'<div class="sub" style="margin-top:5px">Nothing assigned yet.</div>'}</div>`).join('')}`;
 }
 function autoAssign(){
   if(!activeBreak)return;
-  const inv=load(LS_INV,[]), available=inv.filter(x=>x.status!=='Sold');
+  const inv=shopInventory, available=inv.filter(x=>x.status!=='Sold');
   let assigned=0, noTeam=0;
 
   results.filter(r=>r.data).forEach(r=>{
@@ -968,10 +1202,10 @@ function autoAssign(){
   }
 }
 function renderDashboard(){
-  const inv=load(LS_INV,[]);document.getElementById('mCards').textContent=inv.length;document.getElementById('mValue').textContent=money(inv.reduce((a,x)=>a+Number(x.market||0),0));document.getElementById('mProfit').textContent=money(inv.reduce((a,x)=>a+Number(x.ask||0)-Number(x.cost||0),0));document.getElementById('mSpots').textContent=activeBreak?activeBreak.spots.length:0;
+  const inv=shopInventory;document.getElementById('mCards').textContent=inv.length;document.getElementById('mValue').textContent=money(inv.reduce((a,x)=>a+Number(x.market||0),0));document.getElementById('mProfit').textContent=money(inv.reduce((a,x)=>a+Number(x.ask||0)-Number(x.cost||0),0));document.getElementById('mSpots').textContent=activeBreak?activeBreak.spots.length:0;
 }
 function buildLabels(){
-  const inv=load(LS_INV,[]);const el=document.getElementById('labelArea');el.style.display='block';el.innerHTML='<div class="label-sheet">'+inv.slice(0,60).map(x=>`<div class="label"><b>${esc(x.name)}</b><small>${esc([x.year,x.set,x.number].filter(Boolean).join(' · '))}</small><small>Market ${money(x.market)} · Ask ${money(x.ask)}</small></div>`).join('')+'</div>';
+  const inv=shopInventory;const el=document.getElementById('labelArea');el.style.display='block';el.innerHTML='<div class="label-sheet">'+inv.slice(0,60).map(x=>`<div class="label"><b>${esc(x.name)}</b><small>${esc([x.year,x.set,x.number].filter(Boolean).join(' · '))}</small><small>Market ${money(x.market)} · Ask ${money(x.ask)}</small></div>`).join('')+'</div>';
 }
 function renderAll(){renderInventory();renderBreaks();renderDashboard()}
 renderAll();
