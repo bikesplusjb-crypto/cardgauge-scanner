@@ -18,13 +18,44 @@ nav button.active{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.45
 input[type=file]{display:none}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.actions{margin-top:12px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:11px 14px;border-radius:10px;font-weight:800}.btn.primary{background:var(--green);color:#042b13;border-color:var(--green)}.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}.btn.gold{background:var(--gold);border-color:var(--gold);color:#211300}.btn.danger{border-color:#6b2525;color:#ff9b9b}.btn:disabled{opacity:.45;cursor:not-allowed}
 .status{margin-top:12px;color:var(--muted);font-size:12px}.status.ok{color:var(--green)}.status.err{color:#ff9b9b}.progress{height:8px;background:#0b1220;border-radius:99px;overflow:hidden;margin-top:10px}.bar{height:100%;width:0;background:var(--green);transition:width .2s}
 .preview{display:none;max-width:100%;max-height:520px;margin:14px auto 0;border-radius:10px}.stats{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px}.stat b{font-size:20px;display:block}.stat span{font-size:10px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}.item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden}.item img{width:100%;aspect-ratio:5/7;object-fit:contain;background:#02060c}.item .body{padding:10px}.name{font-size:12px;font-weight:850;line-height:1.3}.meta{font-size:10px;color:var(--muted);margin-top:4px}.pill{display:inline-block;font-size:9px;border:1px solid var(--line);padding:3px 6px;border-radius:99px;color:var(--muted);margin-top:7px}.ok{color:var(--green)}.warn{color:var(--gold)}.bad{color:#ff9b9b}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}.grid2 label{display:block;margin-bottom:3px}.grid2 input{width:100%}.item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden}.item img{width:100%;aspect-ratio:5/7;object-fit:contain;background:#02060c}.item .body{padding:10px}.name{font-size:12px;font-weight:850;line-height:1.3}.meta{font-size:10px;color:var(--muted);margin-top:4px}.pill{display:inline-block;font-size:9px;border:1px solid var(--line);padding:3px 6px;border-radius:99px;color:var(--muted);margin-top:7px}.ok{color:var(--green)}.warn{color:var(--gold)}.bad{color:#ff9b9b}
 table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
 input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px 11px;outline:none;width:100%}input:focus,select:focus{border-color:var(--green)}label.small{font-size:10px;color:var(--muted);display:block;margin-bottom:4px}
 .formgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.formgrid .wide{grid-column:span 2}
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}.metric .v{font-size:25px;font-weight:900;margin-top:4px}.metric .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .spotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:12px}.spot{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}.spot strong{font-size:13px}.spot small{color:var(--muted);display:block;margin-top:4px}.empty{padding:25px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;margin-top:12px}
 #labelArea{display:none}.label-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.label{border:1px solid #000;background:#fff;color:#000;border-radius:4px;padding:8px;min-height:90px;font-family:Arial}.label b{font-size:12px}.label small{display:block;font-size:9px;margin-top:4px}.right{margin-left:auto}
+/* PRINT -- the whole point of this page is a sheet somebody cuts apart
+   and sticks on cards. Printing it with no print stylesheet at all
+   meant the entire dark app chrome (nav, heading, instructions, the
+   buttons themselves) went to the printer along with it -- most of a
+   page of ink on things nobody wanted printed, with the actual labels
+   left small and few-per-page as a result. This hides everything
+   except the label sheet itself when printing, drops the dark
+   background (real ink cost on a real printer), and shrinks each
+   label toward an actual sticker/tag size instead of a near-full-width
+   box, so more fit per page. */
+@media print{
+  body{background:#fff !important}
+  /* #labelArea is nested three levels deep (.app > section#labels >
+     .panel > #labelArea) -- discovered by actually checking the real
+     markup rather than assuming a flat structure. Hiding .app's
+     children also hides everything inside them, including a
+     display:block on a buried grandchild, since a hidden ancestor
+     hides its whole subtree regardless of the child's own display
+     rule. So visibility gets unwound one level at a time: hide
+     everything, then re-show only the one path down to labelArea. */
+  .app > *{display:none !important}
+  .app > #labels{display:block !important}
+  #labels > *{display:none !important}
+  #labels > .panel{display:block !important}
+  #labels > .panel > *{display:none !important}
+  #labels > .panel > #labelArea{display:block !important}
+  .label-sheet{grid-template-columns:repeat(4,1fr);gap:4px}
+  .label{min-height:auto;padding:6px;break-inside:avoid;page-break-inside:avoid}
+  .label b{font-size:10px}
+  .label small{font-size:8px;margin-top:2px}
+}
 .notice{padding:11px 13px;border-radius:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:#f8c66a;font-size:11px;line-height:1.5;margin-top:10px}
 @media(max-width:760px){.cards{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:repeat(2,1fr)}.formgrid .wide{grid-column:span 2}table{font-size:11px}}
 @media(max-width:520px){.app{padding:10px 11px 40px}.panel{padding:13px}.grid{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:26px}.spotgrid{grid-template-columns:1fr 1fr}.label-sheet{grid-template-columns:1fr 1fr}}
@@ -139,6 +170,37 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 
   <section id="inventory" class="view">
     <div class="hero"><h1>Business Inventory</h1><p>Test inventory for cards coming from Multi-Scan. Cost, asking price, profit and status are editable.</p></div>
+
+    <!-- MANUAL ADD -- not every card gets photographed. A card already
+         sold, one from a batch scanned earlier before this existed, or
+         staff just wanting to log something quickly without a camera --
+         all real reasons to type a card in directly rather than force
+         everything through Multi-Scan. Writes to the exact same
+         shop_inventory table addAllBtn does, so nothing downstream
+         (Inventory table, Dashboard, Labels, Break Manager) needs to
+         know or care how a given card got added. -->
+    <div class="panel">
+      <h2>Add a card manually</h2>
+      <div class="sub" style="margin-bottom:10px">For anything not scanned -- typed in goes straight into the same shared inventory.</div>
+      <div class="grid2">
+        <div><label class="small">Card name *</label><input id="manName" placeholder="2025 Topps Finest Shohei Ohtani"></div>
+        <div><label class="small">Year</label><input id="manYear" type="number" placeholder="2025"></div>
+        <div><label class="small">Brand</label><input id="manBrand" placeholder="Topps"></div>
+        <div><label class="small">Set</label><input id="manSet" placeholder="Finest"></div>
+        <div><label class="small">Card #</label><input id="manNumber" placeholder="50"></div>
+        <div><label class="small">Team</label><input id="manTeam" placeholder="Dodgers"></div>
+        <div><label class="small">Parallel</label><input id="manParallel" placeholder="Gold Refractor"></div>
+        <div><label class="small">Serial #</label><input id="manSerial" placeholder="12/25"></div>
+        <div><label class="small">Cost</label><input id="manCost" type="number" step=".01" value="0"></div>
+        <div><label class="small">Ask</label><input id="manAsk" type="number" step=".01" value="0"></div>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <label class="small" style="display:flex;align-items:center;gap:5px"><input id="manAuto" type="checkbox"> Autograph</label>
+        <label class="small" style="display:flex;align-items:center;gap:5px"><input id="manPatch" type="checkbox"> Patch</label>
+      </div>
+      <button class="btn primary" style="margin-top:10px" onclick="addManualCard()">Add to inventory</button>
+    </div>
+
     <div class="panel">
       <div class="row"><button class="btn danger" onclick="clearInventory()">Clear test inventory</button><button class="btn" onclick="exportInventory()">Export CSV</button><span class="right sub" id="invCount"></span></div>
       <div id="inventoryTable"></div>
@@ -663,6 +725,66 @@ document.getElementById('scanBtn').onclick=async()=>{
   document.getElementById('addAllBtn').disabled=!results.some(r=>r.data);
   setStatus('Batch scan finished. Review the results before adding inventory.','ok');
 };
+
+// Same shop_inventory row shape addAllBtn writes -- see that handler's
+// comments for why each field is null-coalesced the way it is. Nothing
+// downstream can tell a manually typed card apart from a scanned one,
+// which is the point: Inventory, Dashboard, Labels and Break Manager
+// all already work off shop_inventory regardless of source.
+async function addManualCard(){
+  if(!currentShopId){
+    alert('Sign in and create or join a shop first -- see the panel at the top of the page.');
+    return;
+  }
+  const name=(document.getElementById('manName').value||'').trim();
+  if(!name){ alert('Card name is required.'); return; }
+
+  const yr=parseInt(document.getElementById('manYear').value,10);
+  const cost=Number(document.getElementById('manCost').value)||0;
+  const ask=Number(document.getElementById('manAsk').value)||0;
+
+  const row={
+    shop_id:currentShopId,
+    card_name:name,
+    year:(yr>=1860&&yr<=2100)?yr:null,
+    brand:document.getElementById('manBrand').value.trim()||null,
+    set_name:document.getElementById('manSet').value.trim()||null,
+    card_number:document.getElementById('manNumber').value.trim()||null,
+    team:document.getElementById('manTeam').value.trim()||null,
+    parallel:document.getElementById('manParallel').value.trim()||null,
+    serial_number:document.getElementById('manSerial').value.trim()||null,
+    is_auto:document.getElementById('manAuto').checked,
+    is_patch:document.getElementById('manPatch').checked,
+    // There's no real sold-comps data behind a hand-typed card the way
+    // there is for a scan, so it can't honestly claim "Sold" the way
+    // a scanned card sometimes can. But leaving market_price genuinely
+    // null would render as a bare $0.00 in the inventory table with no
+    // explanation -- worse than saying plainly what this number is.
+    // Matching the same "Ask only" labeling already used for scanned
+    // cards with no sold data is the honest, consistent choice: the
+    // market figure IS the typed ask price, clearly marked as such.
+    market_price:ask||null,price_basis:ask?'ask':null,
+    cost,ask,
+    status:'Available',image_url:null,source:'Manual',
+    added_by:load(LS_STAFF,'')||null
+  };
+
+  try{
+    const {error}=await SB.from('shop_inventory').insert(row);
+    if(error) throw error;
+    // Clear the form so it's obviously ready for the next card, same
+    // spirit as the scan flow resetting between batches.
+    ['manName','manYear','manBrand','manSet','manNumber','manTeam','manParallel','manSerial']
+      .forEach(id=>document.getElementById(id).value='');
+    document.getElementById('manCost').value='0';
+    document.getElementById('manAsk').value='0';
+    document.getElementById('manAuto').checked=false;
+    document.getElementById('manPatch').checked=false;
+    await refreshShopInventory();
+  }catch(e){
+    alert('Could not add card: '+e.message);
+  }
+}
 
 document.getElementById('addAllBtn').onclick=async ()=>{
   // Signed out, or signed in with no shop resolved yet: refuse rather
