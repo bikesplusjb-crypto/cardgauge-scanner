@@ -549,8 +549,21 @@ async function detectCards(file){
 
     // Deliberately broad candidate gate. We use size + aspect ratio rather
     // than contour fill because glossy card borders can be broken.
+    //
+    // The upper bound was .30 -- tuned entirely against multi-card batch
+    // photos, where several cards spread on a table meant no single card
+    // ever filled much of the frame. A single card photographed up close
+    // (a real, legitimate case -- checking one auto or patch card) can
+    // easily exceed 30% of the frame and get rejected outright, which is
+    // exactly what happened: "No card-shaped regions found" on a shot
+    // with exactly one real card in it. Raised to .85 -- the aspect-ratio
+    // gate below (1.22-1.72) is still doing the real work of rejecting
+    // non-card shapes, so this mainly stops throwing away a legitimate
+    // close-up of a single card. Only a candidate at or near 100% of the
+    // frame (almost certainly the table/background itself, not a card)
+    // still gets rejected.
     if(area > imageArea*.010 &&
-       area < imageArea*.30 &&
+       area < imageArea*.85 &&
        ar > 1.22 && ar < 1.72 &&
        rect.width > 105 && rect.height > 150){
 
