@@ -186,9 +186,8 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 <script>
 const API='https://stock-card-api.onrender.com';
-const LS_BREAK='cg_business_v1_break';
 const LS_STAFF='cg_business_v1_staffname';
-let sourceFile=null, backSourceFile=null, detectedCards=[], backCards=[], results=[], activeBreak=load(LS_BREAK,null);
+let sourceFile=null, backSourceFile=null, detectedCards=[], backCards=[], results=[], activeBreak=null;
 
 // ══════════════════════════════════════════════════════════════
 // SHOP AUTH + SHARED STORAGE
@@ -279,9 +278,34 @@ async function resolveShop(){
       currentShopId=data[0].shops.id;
       currentShopName=data[0].shops.name;
       await refreshShopInventory();
+      await refreshShopBreak();
     }
   }catch(e){console.warn('[shop] resolve failed:',e.message)}
   renderAuthPanel();
+}
+
+// Same pattern as refreshShopInventory() -- pulls the shop's break out
+// of Supabase into the local activeBreak var everything else in this
+// file already reads from, so nothing downstream (renderBreaks,
+// renderAssignments, autoAssign) needs to know or care that the source
+// changed from localStorage. Just the most recent break for the shop --
+// this app only ever edits one break at a time, matching what the UI
+// already offered before this migration; older breaks aren't lost,
+// they're just not the one loaded here.
+async function refreshShopBreak(){
+  if(!sbReady()||!currentShopId){activeBreak=null;renderBreaks();return}
+  try{
+    const {data,error}=await SB.from('shop_breaks')
+      .select('*')
+      .eq('shop_id',currentShopId)
+      .order('created_at',{ascending:false})
+      .limit(1);
+    if(error) throw error;
+    activeBreak=(data&&data[0])
+      ? {id:data[0].id, name:data[0].name, rule:data[0].rule, spots:data[0].spots||[]}
+      : null;
+  }catch(e){console.warn('[break] refresh failed:',e.message)}
+  renderBreaks();
 }
 
 async function createShop(){
@@ -1307,10 +1331,18 @@ async function clearInventory(){
 }
 function exportInventory(){const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Market','Cost','Ask','Profit','Status'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.market,x.cost,x.ask,x.ask-x.cost,x.status])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-test-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
 
-function createBreak(){
+async function createBreak(){
+  if(!currentShopId){alert('Sign in and create or join a shop first -- see the panel at the top of the page.');return}
   const n=Math.max(1,Math.min(100,Number(document.getElementById('spotCount').value)||10));
-  activeBreak={id:'break-'+Date.now(),name:document.getElementById('breakName').value||'Test Break',rule:document.getElementById('breakRule').value,spots:Array.from({length:n},(_,i)=>({spot:i+1,customer:'',team:'',cards:[]}))};
-  save(LS_BREAK,activeBreak);renderBreaks();
+  const name=document.getElementById('breakName').value||'Test Break';
+  const rule=document.getElementById('breakRule').value;
+  const spots=Array.from({length:n},(_,i)=>({spot:i+1,customer:'',team:'',cards:[]}));
+  try{
+    const {data,error}=await SB.from('shop_breaks').insert({shop_id:currentShopId,name,rule,spots}).select().single();
+    if(error) throw error;
+    activeBreak={id:data.id,name:data.name,rule:data.rule,spots:data.spots};
+    renderBreaks();
+  }catch(e){alert('Could not create break: '+e.message)}
 }
 function renderBreaks(){
   const ed=document.getElementById('breakEditor'), br=activeBreak;
@@ -1318,13 +1350,22 @@ function renderBreaks(){
   ed.innerHTML=`<div class="notice"><b>${esc(br.name)}</b> · ${esc(br.rule)} · ${br.spots.length} spots</div><div class="spotgrid">${br.spots.map((s,i)=>`<div class="spot"><strong>Spot ${s.spot}</strong><label class="small" style="margin-top:9px">Customer</label><input value="${esc(s.customer)}" onchange="editSpot(${i},'customer',this.value)" placeholder="Customer name"><label class="small" style="margin-top:7px">Team / Player</label><input value="${esc(s.team)}" onchange="editSpot(${i},'team',this.value)" placeholder="Dodgers"></div>`).join('')}</div>`;
   renderAssignments();
 }
-function editSpot(i,k,v){activeBreak.spots[i][k]=v;save(LS_BREAK,activeBreak)}
+async function editSpot(i,k,v){
+  if(!activeBreak)return;
+  activeBreak.spots[i][k]=v;
+  try{
+    const {error}=await SB.from('shop_breaks')
+      .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
+      .eq('id',activeBreak.id);
+    if(error) throw error;
+  }catch(e){alert('Could not save that change: '+e.message)}
+}
 function renderAssignments(){
   const el=document.getElementById('breakAssignments');if(!activeBreak){el.innerHTML='';return}
   const inv=shopInventory;const scanCards=results.filter(r=>r.data);
   el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${activeBreak.spots.map(s=>`<div class="panel" style="margin:10px 0"><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}</b><div class="sub">${s.cards.length} assigned card(s)</div>${s.cards.length?'<ul>'+s.cards.map(id=>{const x=inv.find(z=>z.id===id);return `<li>${esc(x?x.name:id)}</li>`}).join('')+'</ul>':'<div class="sub" style="margin-top:5px">Nothing assigned yet.</div>'}</div>`).join('')}`;
 }
-function autoAssign(){
+async function autoAssign(){
   // Wrapped end-to-end: every normal path here already ends in an
   // alert, which means "tapped the button, saw nothing at all" can
   // only mean one thing -- something threw partway through and never
@@ -1348,7 +1389,12 @@ function autoAssign(){
       if(x){spot.cards.push(x.id);assigned++}
     });
 
-    save(LS_BREAK,activeBreak);
+    if(assigned){
+      const {error}=await SB.from('shop_breaks')
+        .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
+        .eq('id',activeBreak.id);
+      if(error){ alert('Assigned locally, but could not save to the shared break: '+error.message); }
+    }
     renderAssignments();
 
     if(assigned){
