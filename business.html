@@ -66,6 +66,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <h2>1. Capture the batch</h2>
       <div class="sub">Best results: 3–10 cards, flat, not overlapping, camera roughly overhead, even lighting. After the fronts are detected, you can flip the cards in the same positions and capture the backs.</div>
       <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Shiny/refractor/prizm cards are harder to detect reliably than plain cards — direct glare can cause one to be missed or cropped wrong. Angling the card slightly to avoid a bright reflection, or using softer/indirect light, helps. Set the expected card count below so a miss gets flagged instead of slipping through.</div>
+      <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Don't fill the whole frame with one card — leave a visible margin of background around every edge, even scanning just one. A card pressed up to the edge of the photo can get cropped wrong, since the detector needs to see all four edges to find the card.</div>
       <label class="drop" for="photo"><strong>📷 Take photo / choose image</strong><br><span class="sub">On a phone, this opens the camera or photo picker.</span></label>
       <input id="photo" type="file" accept="image/*" capture="environment">
       <input id="backPhoto" type="file" accept="image/*" capture="environment" style="display:none">
@@ -680,13 +681,29 @@ async function detectCards(file){
     const area=b.width*b.height;
     const sizeOutlier=medianArea>0 && area < medianArea*0.4;
 
+    // A candidate whose box touches the very edge of the photo almost
+    // certainly isn't showing the card's true outer boundary -- a
+    // closed rectangle can't be found for a shape that exits the frame,
+    // so what got selected here is very likely a smaller shape INSIDE
+    // the real card (an insert panel, a memorabilia swatch) standing in
+    // for it. Real case: a patch card photographed edge-to-edge cropped
+    // to just the swatch panel instead of the whole card. Threshold
+    // tuning can't fix this -- the true edge genuinely isn't in the
+    // photo -- so this flags it instead of silently returning a wrong
+    // crop. EDGE_MARGIN in source-canvas pixels, not normalized, so it
+    // scales sensibly whether the working image is 900px or 2200px.
+    const EDGE_MARGIN=6;
+    const touchesEdge = b.x<=EDGE_MARGIN || b.y<=EDGE_MARGIN
+      || (b.x+b.width)>=c.width-EDGE_MARGIN || (b.y+b.height)>=c.height-EDGE_MARGIN;
+
     return {
       index:i+1,
       url:data,
       file:dataURLtoFile(data,'card-'+(i+1)+'.jpg'),
       nx:(b.x+b.width/2)/c.width,
       ny:(b.y+b.height/2)/c.height,
-      sizeOutlier
+      sizeOutlier,
+      touchesEdge
     };
   });
 
@@ -846,6 +863,14 @@ function renderResults(){
     // card itself -- see the sizeOutlier check in detectCards(). Flag
     // it visibly rather than silently scanning a bad crop.
     const outlierWarning=r.sizeOutlier?'<div class="pill bad" style="margin-top:6px">⚠ Crop looks too small — re-detect this one</div>':'';
+    // See touchesEdge in detectCards() -- a box touching the frame edge
+    // means the real card's boundary likely wasn't fully in the photo,
+    // so this crop may be a fragment (an insert panel, a swatch) rather
+    // than the whole card. Distinct warning from sizeOutlier: that one
+    // fires when a fragment is small relative to its batch-mates; this
+    // one fires from the box's own position, so it also catches a
+    // single-card scan where there's nothing to compare against.
+    const edgeWarning=r.touchesEdge?'<div class="pill bad" style="margin-top:6px">⚠ Card touched the edge of the photo — this crop may be incomplete. Leave a margin around it and re-detect.</div>':'';
     const variant=getCardVariant(d);
     const reviewFlag=getReviewFlag(d);
     const metaParts=[d.year||card.year,d.set||card.set,d.cardNumber||card.cardNumber,getTeam(d)];
@@ -873,7 +898,7 @@ function renderResults(){
         <div style="flex:1"><div style="font-size:10px;opacity:.6;margin-bottom:3px">FRONT (sent)</div><img src="${r.url}" alt="" style="width:100%;border-radius:8px;border:1px solid var(--surface3,#212d42)"></div>
         <div style="flex:1"><div style="font-size:10px;opacity:.6;margin-bottom:3px">BACK (sent)</div><img src="${r.back.url}" alt="" style="width:100%;border-radius:8px;border:1px solid var(--surface3,#212d42)"></div>
       </div>`:'';
-    return `<div class="item"><img src="${r.url}" alt=""><div class="body"><div class="name">${esc(name)}${variantBadgesHtml(variant)}</div><div class="meta">${esc(metaParts.filter(Boolean).join(' · '))}</div><div class="pill ${r.status==='Scanned'?'ok':r.status.startsWith('Failed')?'bad':'warn'}">${esc(r.status)}</div>${outlierWarning}${reviewBadgeHtml(reviewFlag)}${price?`<div style="margin-top:7px;font-weight:900;color:var(--green)">${money(price)}${basisLabel}</div>`:''}
+    return `<div class="item"><img src="${r.url}" alt=""><div class="body"><div class="name">${esc(name)}${variantBadgesHtml(variant)}</div><div class="meta">${esc(metaParts.filter(Boolean).join(' · '))}</div><div class="pill ${r.status==='Scanned'?'ok':r.status.startsWith('Failed')?'bad':'warn'}">${esc(r.status)}</div>${outlierWarning}${edgeWarning}${reviewBadgeHtml(reviewFlag)}${price?`<div style="margin-top:7px;font-weight:900;color:var(--green)">${money(price)}${basisLabel}</div>`:''}
       ${backToggle}${debugToggle}</div></div>`
   }).join('');
 }
