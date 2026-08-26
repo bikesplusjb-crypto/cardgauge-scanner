@@ -18,7 +18,7 @@ nav button.active{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.45
 input[type=file]{display:none}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.actions{margin-top:12px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:11px 14px;border-radius:10px;font-weight:800}.btn.primary{background:var(--green);color:#042b13;border-color:var(--green)}.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}.btn.gold{background:var(--gold);border-color:var(--gold);color:#211300}.btn.danger{border-color:#6b2525;color:#ff9b9b}.btn:disabled{opacity:.45;cursor:not-allowed}
 .status{margin-top:12px;color:var(--muted);font-size:12px}.status.ok{color:var(--green)}.status.err{color:#ff9b9b}.progress{height:8px;background:#0b1220;border-radius:99px;overflow:hidden;margin-top:10px}.bar{height:100%;width:0;background:var(--green);transition:width .2s}
 .preview{display:none;max-width:100%;max-height:520px;margin:14px auto 0;border-radius:10px}.stats{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px}.stat b{font-size:20px;display:block}.stat span{font-size:10px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}.item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden}.item img{width:100%;aspect-ratio:5/7;object-fit:cover;background:#02060c}.item .body{padding:10px}.name{font-size:12px;font-weight:850;line-height:1.3}.meta{font-size:10px;color:var(--muted);margin-top:4px}.pill{display:inline-block;font-size:9px;border:1px solid var(--line);padding:3px 6px;border-radius:99px;color:var(--muted);margin-top:7px}.ok{color:var(--green)}.warn{color:var(--gold)}.bad{color:#ff9b9b}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}.item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden}.item img{width:100%;aspect-ratio:5/7;object-fit:contain;background:#02060c}.item .body{padding:10px}.name{font-size:12px;font-weight:850;line-height:1.3}.meta{font-size:10px;color:var(--muted);margin-top:4px}.pill{display:inline-block;font-size:9px;border:1px solid var(--line);padding:3px 6px;border-radius:99px;color:var(--muted);margin-top:7px}.ok{color:var(--green)}.warn{color:var(--gold)}.bad{color:#ff9b9b}
 table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
 input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px 11px;outline:none;width:100%}input:focus,select:focus{border-color:var(--green)}label.small{font-size:10px;color:var(--muted);display:block;margin-bottom:4px}
 .formgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.formgrid .wide{grid-column:span 2}
@@ -877,6 +877,10 @@ async function detectCards(file){
   const medianArea=boxAreas[Math.floor(boxAreas.length/2)]||0;
 
   const sourceCanvas=sourceCanvasForCrop(src);
+  // Computed once per photo, not per candidate -- the background doesn't
+  // change between cards in the same shot, and this is real per-pixel
+  // work across four corner patches.
+  const bgSat=backgroundSaturationProfile(sourceCanvas);
   const output=finalBoxes.map((b,i)=>{
     const pad=Math.max(3,Math.round(Math.min(b.width,b.height)*.015));
     const x=Math.max(0,Math.floor(b.x-pad));
@@ -885,14 +889,24 @@ async function detectCards(file){
     const bottom=Math.min(c.height,Math.ceil(b.y+b.height+pad));
     const w=Math.max(1,right-x), h=Math.max(1,bottom-y);
 
-    let canvas;
-    if(b.quad && b.points && b.points.length===4){
-      canvas=warpCard(src,b.points);
-    }else{
-      canvas=document.createElement('canvas');
-      canvas.width=w; canvas.height=h;
-      canvas.getContext('2d').drawImage(sourceCanvas,x,y,w,h,0,0,w,h);
-    }
+    // Try to recover any part of the real card this contour missed --
+    // see backgroundSaturationProfile()/growBoxToBackground() above.
+    const grown=growBoxToBackground(sourceCanvas,{x,y,width:w,height:h},bgSat.mean,bgSat.std);
+
+    // Perspective warp deliberately NOT used, even when the contour
+    // offered a clean 4-point quad. The quad and the bounding box come
+    // from the SAME contour -- if that contour is actually an internal
+    // panel boundary rather than the card's true outer edge, warping
+    // to its 4 points would permanently discard everything outside
+    // them, with no way to recover it afterward. A plain rectangular
+    // crop of the GROWN box can still be corrected; a warp already
+    // committed to the wrong 4 points cannot. This is the second half
+    // of the fix -- growth alone recovers the missing pixels, but a
+    // warp running on the original wrong quad would have thrown them
+    // away before growth ever got a chance to run.
+    const canvas=document.createElement('canvas');
+    canvas.width=grown.width; canvas.height=grown.height;
+    canvas.getContext('2d').drawImage(sourceCanvas,grown.x,grown.y,grown.width,grown.height,0,0,grown.width,grown.height);
     const data=canvas.toDataURL('image/jpeg',.94);
 
     // Normalized (0..1) center position within THIS photo. Used later to
@@ -985,6 +999,134 @@ function warpCard(source, pts){
   return canvas;
 }
 
+/* BOUNDARY GROWTH -- a real failure mode, verified against an actual
+   failing photo, not theoretical. A candidate's bounding box can be
+   geometrically valid (right aspect ratio, right size) while still
+   being the WRONG box: an internal color-block boundary inside the
+   card, not the card's true outer edge. A two-tone memorabilia card
+   (a black/white text panel next to a gold foil panel) produced a
+   clean, confident-looking 4-sided contour AT THE SEAM BETWEEN THE
+   TWO PANELS -- the crop stopped there and the gold panel was cut
+   off entirely, well within a normal, well-framed photo.
+
+   Two earlier attempts at fixing this, both tested against that same
+   real photo, both failed:
+     - comparing raw pixel colour to the background stopped growing
+       immediately, because the gold foil's brightness happened to be
+       close enough to the grey table's;
+     - comparing local texture (Laplacian variance) never stopped at
+       all, because the table's own scratches and speckling are busy
+       enough to look "still card" by that measure alone.
+   Saturation is what actually worked when tested: a gold foil panel
+   is genuinely more colourful than a plain grey table even when their
+   brightness is similar, and table texture doesn't fool a saturation
+   check the way it fooled the texture check. Requiring TWO consecutive
+   background-reading bands before stopping (not one) is what kept it
+   from stopping on a single noisy band mid-card.
+
+   This is validated against one real case, not proven universally --
+   different lighting or a genuinely saturated table surface could
+   still fool it. It is a real improvement over trusting the raw
+   contour, not a guaranteed fix for every card design. */
+/* Real bug found testing this against the actual failing photo: pooling
+   all four corners' pixels into one array and taking a single mean/std
+   looked reasonable, but one corner (bottom-left, in the test photo) had
+   a meaningfully different baseline than the other three -- ordinary
+   uneven lighting/shadow across a real photo, not a broken corner. Pooled
+   together, that mismatch alone inflated the overall std from ~2 (what
+   any single clean corner actually looks like) to 14, which pushed the
+   threshold high enough that the gold foil panel read as "already
+   background" and growth never ran at all -- confirmed directly: the
+   grown box came back identical to the input box, zero growth.
+
+   Fixed by using the MEDIAN of the four corners' own means, and the
+   AVERAGE of their own internal stds -- median because it ignores
+   whichever single corner is the outlier, average-of-internal-stds
+   because it measures pixel noise WITHIN a patch of real background,
+   not the lighting difference BETWEEN corners, which is a different
+   thing entirely and was what broke the pooled version. */
+function backgroundSaturationProfile(canvas){
+  const ctx=canvas.getContext('2d');
+  const cw=canvas.width, ch=canvas.height;
+  const size=Math.max(20,Math.round(Math.min(cw,ch)*.03));
+  const corners=[[0,0],[cw-size*2,0],[0,ch-size*2],[cw-size*2,ch-size*2]];
+  const stats=[];
+  for(const [cx,cy] of corners){
+    const x0=Math.max(0,cx),y0=Math.max(0,cy);
+    const x1=Math.min(cw,x0+size*2),y1=Math.min(ch,y0+size*2);
+    if(x1<=x0||y1<=y0) continue;
+    const data=ctx.getImageData(x0,y0,x1-x0,y1-y0).data;
+    const sats=[];
+    for(let i=0;i<data.length;i+=4){
+      const r=data[i],g=data[i+1],b=data[i+2];
+      const max=Math.max(r,g,b), min=Math.min(r,g,b);
+      sats.push(max===0?0:(max-min)/max*255);
+    }
+    if(!sats.length) continue;
+    const mean=sats.reduce((a,b)=>a+b,0)/sats.length;
+    const variance=sats.reduce((a,b)=>a+(b-mean)**2,0)/sats.length;
+    stats.push({mean, std:Math.sqrt(variance)});
+  }
+  if(!stats.length) return {mean:0,std:30};
+  const means=stats.map(s=>s.mean).sort((a,b)=>a-b);
+  const medianMean=means[Math.floor(means.length/2)];
+  const avgStd=stats.reduce((a,s)=>a+s.std,0)/stats.length;
+  return {mean:medianMean, std:avgStd};
+}
+function growBoxToBackground(canvas, box, bgMean, bgStd){
+  const ctx=canvas.getContext('2d');
+  const cw=canvas.width, ch=canvas.height;
+  const step=Math.max(8,Math.round(Math.min(box.width,box.height)*.02));
+  const maxSteps=40;
+  const threshold=bgMean+bgStd*1.5;
+
+  function bandSaturation(x0,y0,x1,y1){
+    x0=Math.max(0,Math.round(x0));y0=Math.max(0,Math.round(y0));
+    x1=Math.min(cw,Math.round(x1));y1=Math.min(ch,Math.round(y1));
+    if(x1<=x0||y1<=y0) return null;
+    const data=ctx.getImageData(x0,y0,x1-x0,y1-y0).data;
+    let sum=0,n=0;
+    for(let i=0;i<data.length;i+=4){
+      const r=data[i],g=data[i+1],b=data[i+2];
+      const max=Math.max(r,g,b), min=Math.min(r,g,b);
+      sum+=(max===0?0:(max-min)/max*255);n++;
+    }
+    return n?sum/n:null;
+  }
+
+  let {x,y,width,height}=box;
+
+  let consec=0;
+  for(let i=0;i<maxSteps;i++){
+    const s=bandSaturation(x+width,y,x+width+step,y+height);
+    if(s===null)break;
+    if(s<threshold){consec++;if(consec>=2)break}
+    else{consec=0;width+=step}
+  }
+  consec=0;
+  for(let i=0;i<maxSteps;i++){
+    const s=bandSaturation(x-step,y,x,y+height);
+    if(s===null)break;
+    if(s<threshold){consec++;if(consec>=2)break}
+    else{consec=0;x-=step;width+=step}
+  }
+  consec=0;
+  for(let i=0;i<maxSteps;i++){
+    const s=bandSaturation(x,y+height,x+width,y+height+step);
+    if(s===null)break;
+    if(s<threshold){consec++;if(consec>=2)break}
+    else{consec=0;height+=step}
+  }
+  consec=0;
+  for(let i=0;i<maxSteps;i++){
+    const s=bandSaturation(x,y-step,x+width,y);
+    if(s===null)break;
+    if(s<threshold){consec++;if(consec>=2)break}
+    else{consec=0;y-=step;height+=step}
+  }
+
+  return {x:Math.max(0,x), y:Math.max(0,y), width, height};
+}
 function sourceCanvasForCrop(mat){
   const canvas=document.createElement('canvas');
   canvas.width=mat.cols; canvas.height=mat.rows;
