@@ -1325,32 +1325,43 @@ function renderAssignments(){
   el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${activeBreak.spots.map(s=>`<div class="panel" style="margin:10px 0"><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}</b><div class="sub">${s.cards.length} assigned card(s)</div>${s.cards.length?'<ul>'+s.cards.map(id=>{const x=inv.find(z=>z.id===id);return `<li>${esc(x?x.name:id)}</li>`}).join('')+'</ul>':'<div class="sub" style="margin-top:5px">Nothing assigned yet.</div>'}</div>`).join('')}`;
 }
 function autoAssign(){
-  if(!activeBreak)return;
-  const inv=shopInventory, available=inv.filter(x=>x.status!=='Sold');
-  let assigned=0, noTeam=0;
+  // Wrapped end-to-end: every normal path here already ends in an
+  // alert, which means "tapped the button, saw nothing at all" can
+  // only mean one thing -- something threw partway through and never
+  // reached any of them. A phone has no visible console for that, so
+  // surface it here instead of leaving it silent.
+  try{
+    if(!activeBreak){ alert('No active break -- create one first.'); return; }
+    const inv=shopInventory, available=inv.filter(x=>x.status!=='Sold');
+    let assigned=0, noTeam=0;
 
-  results.filter(r=>r.data).forEach(r=>{
-    const d=r.data, team=getTeam(d).toLowerCase();
-    if(!team){noTeam++;return;}
-    const spot=activeBreak.spots.find(s=>s.team&&s.team.toLowerCase()===team);
-    if(!spot)return;
-    const card=getScanCard(d);
-    const x=available.find(z=>
-      z.name===(d.cardName||card.cardName||card.name||'') &&
-      !spot.cards.includes(z.id)
-    );
-    if(x){spot.cards.push(x.id);assigned++}
-  });
+    results.filter(r=>r.data).forEach(r=>{
+      const d=r.data, team=getTeam(d).toLowerCase();
+      if(!team){noTeam++;return;}
+      const spot=activeBreak.spots.find(s=>s.team&&s.team.toLowerCase()===team);
+      if(!spot)return;
+      const card=getScanCard(d);
+      const x=available.find(z=>
+        z.name===(d.cardName||card.cardName||card.name||'') &&
+        !spot.cards.includes(z.id)
+      );
+      if(x){spot.cards.push(x.id);assigned++}
+    });
 
-  save(LS_BREAK,activeBreak);
-  renderAssignments();
+    save(LS_BREAK,activeBreak);
+    renderAssignments();
 
-  if(assigned){
-    alert(`Assigned ${assigned} card(s).${noTeam?` ${noTeam} scanned card(s) had no team data.`:''}`);
-  }else if(noTeam){
-    alert('The scan results do not contain team data, so automatic team assignment cannot run yet. Manual assignment is still supported.');
-  }else{
-    alert('No team matches were available. Manual assignment is still supported.');
+    if(assigned){
+      alert(`Assigned ${assigned} card(s).${noTeam?` ${noTeam} scanned card(s) had no team data.`:''}`);
+    }else if(noTeam){
+      alert('The scan results do not contain team data, so automatic team assignment cannot run yet. Manual assignment is still supported.');
+    }else if(!results.filter(r=>r.data).length){
+      alert('No scanned cards in this session yet -- scan and add cards on Multi-Scan first, then come back here without reloading.');
+    }else{
+      alert('No team matches were available. Manual assignment is still supported.');
+    }
+  }catch(e){
+    alert('Auto-assign hit an error: '+(e && e.message ? e.message : e));
   }
 }
 function renderDashboard(){
