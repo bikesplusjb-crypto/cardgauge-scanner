@@ -289,12 +289,22 @@ async function createShop(){
   const name=(prompt('Name your shop:')||'').trim();
   if(!name)return;
   try{
+    // Log exactly what's about to be sent, before the request goes out.
+    // If owner_user_id and the RLS check disagree about who's signed
+    // in, this is the only way to catch that from a phone with no
+    // console -- an alert showing just e.message hides the Postgres
+    // error code/details/hint that actually explains an RLS failure.
+    console.log('[createShop] currentUser.id =',currentUser.id,'session=',await SB.auth.getSession());
     const {data,error}=await SB.from('shops').insert({name,owner_user_id:currentUser.id}).select().single();
     if(error) throw error;
     currentShopId=data.id;currentShopName=data.name;
     await refreshShopInventory();
     renderAuthPanel();
-  }catch(e){alert('Could not create shop: '+e.message)}
+  }catch(e){
+    const detail=[e.message,e.code?`code: ${e.code}`:'',e.details?`details: ${e.details}`:'',e.hint?`hint: ${e.hint}`:'']
+      .filter(Boolean).join('\n');
+    alert('Could not create shop:\n\n'+detail);
+  }
 }
 
 async function logOutShop(){
