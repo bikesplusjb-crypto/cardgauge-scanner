@@ -861,8 +861,15 @@ function renderResults(){
     const debugId='dbg-'+r.id;
     const debugToggle=r.data?`<div class="pill" style="margin-top:6px;cursor:pointer;opacity:.6" onclick="toggleDebug('${debugId}')">🔍 Raw response</div>
       <pre id="${debugId}" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.4;background:#0008;padding:10px;border-radius:8px;margin-top:6px">${esc(JSON.stringify(r.data,null,2))}</pre>`:'';
+    // Same reveal pattern as the raw-response toggle -- off by default so
+    // the grid stays scannable, one tap to check the actual back crop
+    // that got matched and sent, e.g. to confirm the position-matcher
+    // paired the right physical back to this front.
+    const backId='back-'+r.id;
+    const backToggle=r.back?.url?`<div class="pill ok" style="cursor:pointer" onclick="toggleDebug('${backId}')">Front + Back matched — tap to view back</div>
+      <img id="${backId}" src="${r.back.url}" alt="" style="display:none;margin-top:6px;max-width:100%;border-radius:8px;border:1px solid var(--surface3,#212d42)">`:'';
     return `<div class="item"><img src="${r.url}" alt=""><div class="body"><div class="name">${esc(name)}${variantBadgesHtml(variant)}</div><div class="meta">${esc(metaParts.filter(Boolean).join(' · '))}</div><div class="pill ${r.status==='Scanned'?'ok':r.status.startsWith('Failed')?'bad':'warn'}">${esc(r.status)}</div>${outlierWarning}${reviewBadgeHtml(reviewFlag)}${price?`<div style="margin-top:7px;font-weight:900;color:var(--green)">${money(price)}${basisLabel}</div>`:''}
-      ${r.back?`<div class="pill ok">Front + Back matched</div>`:''}${debugToggle}</div></div>`
+      ${backToggle}${debugToggle}</div></div>`
   }).join('');
 }
 function toggleDebug(id){
