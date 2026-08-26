@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CardGauge Business V1 — Isolated Test</title>
+<style>
+:root{--bg:#080d17;--panel:#101827;--panel2:#162236;--line:#293b57;--text:#f5f7fb;--muted:#94a3b8;--green:#22c55e;--blue:#3b82f6;--gold:#f59e0b;--red:#ef4444}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}
+.app{max-width:1180px;margin:auto;padding:14px 16px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 16px}
+.logo{font-weight:950;letter-spacing:.4px}.logo span{color:var(--green)}.badge{font-size:10px;color:var(--gold);border:1px solid #6b4a14;padding:4px 8px;border-radius:99px;margin-left:8px}
+nav{display:flex;gap:7px;overflow:auto;padding-bottom:8px}nav button{white-space:nowrap;background:var(--panel);color:var(--muted);border:1px solid var(--line);padding:10px 14px;border-radius:10px;font-weight:800}
+nav button.active{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.45);color:var(--green)}
+.view{display:none}.view.active{display:block}.hero{padding:20px 2px 12px}.hero h1{margin:0 0 8px;font-size:clamp(25px,5vw,38px)}.hero p{margin:0;color:var(--muted);line-height:1.5;max-width:720px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}.panel h2{font-size:18px;margin:0 0 5px}.sub{color:var(--muted);font-size:12px;line-height:1.5}
+.drop{border:2px dashed var(--line);background:var(--panel2);border-radius:14px;padding:28px 16px;text-align:center;display:block;cursor:pointer;margin-top:14px}.drop:hover{border-color:var(--green)}
+input[type=file]{display:none}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.actions{margin-top:12px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:11px 14px;border-radius:10px;font-weight:800}.btn.primary{background:var(--green);color:#042b13;border-color:var(--green)}.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}.btn.gold{background:var(--gold);border-color:var(--gold);color:#211300}.btn.danger{border-color:#6b2525;color:#ff9b9b}.btn:disabled{opacity:.45;cursor:not-allowed}
+.status{margin-top:12px;color:var(--muted);font-size:12px}.status.ok{color:var(--green)}.status.err{color:#ff9b9b}.progress{height:8px;background:#0b1220;border-radius:99px;overflow:hidden;margin-top:10px}.bar{height:100%;width:0;background:var(--green);transition:width .2s}
+.preview{display:none;max-width:100%;max-height:520px;margin:14px auto 0;border-radius:10px}.stats{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px}.stat b{font-size:20px;display:block}.stat span{font-size:10px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}.item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden}.item img{width:100%;aspect-ratio:5/7;object-fit:cover;background:#02060c}.item .body{padding:10px}.name{font-size:12px;font-weight:850;line-height:1.3}.meta{font-size:10px;color:var(--muted);margin-top:4px}.pill{display:inline-block;font-size:9px;border:1px solid var(--line);padding:3px 6px;border-radius:99px;color:var(--muted);margin-top:7px}.ok{color:var(--green)}.warn{color:var(--gold)}.bad{color:#ff9b9b}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px 11px;outline:none;width:100%}input:focus,select:focus{border-color:var(--green)}label.small{font-size:10px;color:var(--muted);display:block;margin-bottom:4px}
+.formgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.formgrid .wide{grid-column:span 2}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}.metric .v{font-size:25px;font-weight:900;margin-top:4px}.metric .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.spotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:12px}.spot{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}.spot strong{font-size:13px}.spot small{color:var(--muted);display:block;margin-top:4px}.empty{padding:25px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;margin-top:12px}
+#labelArea{display:none}.label-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.label{border:1px solid #000;background:#fff;color:#000;border-radius:4px;padding:8px;min-height:90px;font-family:Arial}.label b{font-size:12px}.label small{display:block;font-size:9px;margin-top:4px}.right{margin-left:auto}
+.notice{padding:11px 13px;border-radius:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:#f8c66a;font-size:11px;line-height:1.5;margin-top:10px}
+@media(max-width:760px){.cards{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:repeat(2,1fr)}.formgrid .wide{grid-column:span 2}table{font-size:11px}}
+@media(max-width:520px){.app{padding:10px 11px 40px}.panel{padding:13px}.grid{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:26px}.spotgrid{grid-template-columns:1fr 1fr}.label-sheet{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="logo">CARD<span>GAUGE</span> <small>BUSINESS</small><span class="badge">ISOLATED V1</span></div>
+    <a href="https://www.cardgauge.com" style="color:var(--muted);font-size:11px">CardGauge.com</a>
+  </div>
+
+  <nav id="nav">
+    <button class="active" data-view="scan">📸 Multi-Scan</button>
+    <button data-view="inventory">📦 Inventory</button>
+    <button data-view="breaks">🎥 Break Manager</button>
+    <button data-view="dashboard">📊 Dashboard</button>
+    <button data-view="labels">🏷️ Labels</button>
+  </nav>
+
+  <section id="scan" class="view active">
+    <div class="hero"><h1>Scan a whole table at once.</h1><p>Take one photo of several separated cards. This isolated V1 detects card-shaped regions, sends each crop through your existing CardGauge scanner API, and can add the results to test inventory.</p></div>
+    <!-- STAFF NAME -- FORWARD-COMPATIBLE PLUMBING, NOT A REAL ACCOUNT.
+
+         Inventory is local-storage-only right now, one browser, no
+         shared backend -- so this name does not do anything functional
+         yet; Alex's phone and Jordan's phone are already two separate
+         datasets whether or not either of them types a name in here.
+         What it DOES do is get every inventory record stamped with who
+         added it from day one, so when real shared storage exists later
+         (see /areas/cardgauge-business-tool.md), attribution already
+         works without a second pass through every record that predates
+         it. Optional and remembered locally -- never blocks scanning. -->
+    <div class="panel" style="padding:14px 18px">
+      <div class="sub">Your name (optional) — tags cards you add to inventory. Separate shop logins are a paid upgrade once this is fully deployed.</div>
+      <input id="staffName" type="text" placeholder="e.g. Alex" style="width:200px;margin-top:4px" value="">
+    </div>
+    <div class="panel">
+      <h2>1. Capture the batch</h2>
+      <div class="sub">Best results: 3–10 cards, flat, not overlapping, camera roughly overhead, even lighting. After the fronts are detected, you can flip the cards in the same positions and capture the backs.</div>
+      <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Shiny/refractor/prizm cards are harder to detect reliably than plain cards — direct glare can cause one to be missed or cropped wrong. Angling the card slightly to avoid a bright reflection, or using softer/indirect light, helps. Set the expected card count below so a miss gets flagged instead of slipping through.</div>
+      <label class="drop" for="photo"><strong>📷 Take photo / choose image</strong><br><span class="sub">On a phone, this opens the camera or photo picker.</span></label>
+      <input id="photo" type="file" accept="image/*" capture="environment">
+      <input id="backPhoto" type="file" accept="image/*" capture="environment" style="display:none">
+      <div id="sourceWrap" style="position:relative;display:inline-block">
+        <img id="source" class="preview" alt="">
+        <canvas id="trayOverlay" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
+      </div>
+      <!-- EXPECTED-COUNT SAFETY NET.
+
+           Detection on shiny/refractor cards is glare-sensitive in a way
+           no fixed blur/dilate setting fully eliminates -- confirmed
+           directly: the same 5 real cards detected 5/5 clean in one
+           photo, then a genuinely missed card AND a small false
+           fragment in another, purely from a harsher lighting angle.
+           The fragment case is already caught by the size-outlier
+           check elsewhere in this file, but a card that is missed
+           ENTIRELY produces nothing to flag -- there is no wrong box
+           to compare against, just an absent one. The app has no way
+           to know a 5th card should exist unless told.
+
+           This tells it. Optional on purpose -- forcing a count before
+           every batch would be friction for the common case where
+           detection just works, and an unset field is silently
+           skipped, never treated as "expected 0". */ -->
+      <div class="sub" style="margin-top:8px">Optional: how many cards are in this photo? Lets detection warn you if it finds fewer.</div>
+      <input id="expectedCount" type="number" min="1" max="30" placeholder="e.g. 5" style="width:100px;margin-top:4px">
+      <div class="stats">
+        <div class="stat"><b id="detected">0</b><span>Cards detected</span></div>
+        <div class="stat"><b id="backsDetected">0</b><span>Backs captured</span></div>
+        <div class="stat"><b id="scanned">0</b><span>Cards scanned</span></div>
+        <div class="stat"><b id="added">0</b><span>Added to inventory</span></div>
+      </div>
+      <div class="actions row">
+        <button id="detectBtn" class="btn primary" disabled>Detect cards</button>
+        <button id="scanBtn" class="btn blue" disabled>Scan all detected</button>
+        <button id="backBtn" class="btn" disabled>Capture backs</button>
+        <button id="addAllBtn" class="btn gold" disabled>Add all to inventory</button>
+      </div>
+      <div class="sub" style="margin-top:10px">Recommended workflow: <b>Detect fronts → Capture backs → Scan all</b>. Back scanning is optional.</div>
+      <div id="scanStatus" class="status"></div>
+      <div class="progress"><div id="bar" class="bar"></div></div>
+      <div id="results" class="grid"></div>
+      <div class="notice">This test does not write to Supabase and does not modify your production scanner. Inventory and Break Manager data are stored only in this browser's local storage until we build the production database integration.</div>
+    </div>
+  </section>
+
+  <section id="inventory" class="view">
+    <div class="hero"><h1>Business Inventory</h1><p>Test inventory for cards coming from Multi-Scan. Cost, asking price, profit and status are editable.</p></div>
+    <div class="panel">
+      <div class="row"><button class="btn danger" onclick="clearInventory()">Clear test inventory</button><button class="btn" onclick="exportInventory()">Export CSV</button><span class="right sub" id="invCount"></span></div>
+      <div id="inventoryTable"></div>
+    </div>
+  </section>
+
+  <section id="breaks" class="view">
+    <div class="hero"><h1>Break Manager</h1><p>Create a break, define the spots, then use the scanned card results to assign cards to customers by team.</p></div>
+    <div class="panel">
+      <h2>Create / edit break</h2>
+      <div class="formgrid">
+        <div class="wide"><label class="small">Break name</label><input id="breakName" placeholder="2026 Topps Chrome Hobby #1042"></div>
+        <div><label class="small">Spots</label><input id="spotCount" type="number" min="1" max="100" value="10"></div>
+        <div><label class="small">Rule</label><select id="breakRule"><option>Team</option><option>Random</option><option>Player</option></select></div>
+      </div>
+      <div class="actions"><button class="btn primary" onclick="createBreak()">Create break</button></div>
+      <div id="breakEditor"></div>
+    </div>
+    <div class="panel">
+      <h2>Assign scanned cards</h2><div class="sub">This V1 uses the team's text in a scan result. If the API result has no team, you can assign manually.</div>
+      <div id="breakAssignments"></div>
+    </div>
+  </section>
+
+  <section id="dashboard" class="view">
+    <div class="hero"><h1>Business Dashboard</h1><p>A test dashboard built around the workflow we're planning for CardGauge Business.</p></div>
+    <div class="cards">
+      <div class="metric"><div class="k">Inventory cards</div><div class="v" id="mCards">0</div></div>
+      <div class="metric"><div class="k">Inventory value</div><div class="v" id="mValue">$0</div></div>
+      <div class="metric"><div class="k">Potential profit</div><div class="v" id="mProfit">$0</div></div>
+      <div class="metric"><div class="k">Break spots</div><div class="v" id="mSpots">0</div></div>
+    </div>
+    <div class="panel"><h2>Workflow</h2><div class="sub">PHOTO → DETECT → IDENTIFY → PRICE → INVENTORY → BREAK ASSIGNMENT → LABEL</div></div>
+  </section>
+
+  <section id="labels" class="view">
+    <div class="hero"><h1>Print Labels</h1><p>Select inventory cards and generate a printer-friendly sheet. No printer connection is required for this test.</p></div>
+    <div class="panel">
+      <div class="row"><button class="btn primary" onclick="buildLabels()">Build labels from inventory</button><button class="btn" onclick="window.print()">Print</button></div>
+      <div id="labelArea"></div>
+    </div>
+  </section>
+</div>
+
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<script>
+const API='https://stock-card-api.onrender.com';
+const LS_INV='cg_business_v1_inventory';
+const LS_BREAK='cg_business_v1_break';
+const LS_STAFF='cg_business_v1_staffname';
+let sourceFile=null, backSourceFile=null, detectedCards=[], backCards=[], results=[], activeBreak=load(LS_BREAK,null);
+
+function load(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function money(n){return '$'+Number(n||0).toFixed(2)}
+function getScanCard(d){
+  return d?.card || d || {};
+}
+/* SOLD DATA FIRST, ASKING PRICE ONLY AS A FALLBACK.
+
+   avgSoldPrice is a misleading field name on the backend -- despite the
+   name, it is market.avgPrice, the median of ACTIVE eBay LISTINGS
+   (asking prices), not anything sold. The real sold data lives nested
+   at sold.soldMedian. The old version of this function checked the
+   misleadingly-named field first, so a shop owner would have been shown
+   an asking-price average labeled as market value on almost every card,
+   even when real sold comps existed right next to it in the same
+   response.
+
+   Sold data is checked first now. Asking price is still used as a
+   fallback when there is genuinely no sold data -- a rough number beats
+   none -- but getPriceBasis() below tells the UI which kind of number
+   it actually got, so the shop owner is never shown an asking price
+   silently mislabeled as a sold price. */
+/* ONE RESOLVER, NOT TWO FUNCTIONS THAT HAVE TO AGREE.
+
+   The first version of this fix had getMarketPrice() and getPriceBasis()
+   as two SEPARATE functions, each re-deciding the fallback order on its
+   own. Caught immediately by testing rather than assuming: on
+   contaminated sold data with a valid ask price available,
+   getMarketPrice() correctly fell back to the ask price, but
+   getPriceBasis() independently saw a non-zero sold.soldMedian first
+   and labeled it 'sold_mixed' -- producing "$400 [Mixed comps]" in the
+   UI when $400 was actually the ASK price, not any sold figure at all.
+   Two numbers that must always describe the same fact will eventually
+   drift if computed separately; this was proof of that within minutes
+   of writing it.
+
+   So there is now exactly one place this decision gets made.
+   getMarketPrice() and getPriceBasis() are both thin wrappers that read
+   from the same resolved {price, basis} pair, so they cannot disagree
+   about which one produced the number on screen. */
+function is_contaminated(d, card){
+  return !!(d?.sold?.soldContaminated ?? card?.sold?.soldContaminated);
+}
+function resolvePriceAndBasis(d){
+  const card=getScanCard(d);
+  const contaminated=is_contaminated(d, card);
+  const soldVal=Number(d?.sold?.soldMedian ?? card?.sold?.soldMedian);
+  const askVal=Number(d?.avgSoldPrice ?? d?.avgPrice ?? card?.avgSoldPrice ?? card?.avgPrice);
+  const soldAskVal=Number(d?.sold?.avgSoldPrice ?? d?.sold?.avgPrice ?? card?.sold?.avgSoldPrice ?? card?.sold?.avgPrice);
+
+  // Clean sold data wins outright -- the best fact available.
+  if(Number.isFinite(soldVal) && soldVal>0 && !contaminated){
+    return {price:soldVal, basis:'sold'};
+  }
+  // No clean sold data (missing, or contaminated). An asking price is
+  // a different KIND of fact, but still a real one and worth showing.
+  if(Number.isFinite(askVal) && askVal>0){
+    return {price:askVal, basis:'ask'};
+  }
+  if(Number.isFinite(soldAskVal) && soldAskVal>0){
+    return {price:soldAskVal, basis:'ask'};
+  }
+  // Nothing clean anywhere. A contaminated median beats no number at
+  // all, but the UI must never call this 'sold' the way clean data is.
+  if(Number.isFinite(soldVal) && soldVal>0 && contaminated){
+    return {price:soldVal, basis:'sold_mixed'};
+  }
+  return {price:0, basis:'none'};
+}
+function getMarketPrice(d){ return resolvePriceAndBasis(d).price; }
+/* 'sold' = a clean, non-contaminated sold-comps median. 'sold_mixed' =
+   no clean sold data or ask price existed anywhere, so the contaminated
+   median is shown as a last resort -- flagged, not hidden. 'ask' = an
+   asking price was used, whether because there was no sold data at all
+   OR because the only sold data available was contaminated. 'none' = no
+   usable price at all. */
+function getPriceBasis(d){ return resolvePriceAndBasis(d).basis; }
+/* THE BACKEND DOES NOT RETURN A TEAM FIELD AT ALL.
+
+   /api/scan-card returns player, year, set, brand, cardNumber, sport,
+   parallel -- never a team. Every one of the candidate fields below
+   checks a name the API genuinely might use, but as of this build none
+   of them exist, so this always fell through to ''.
+
+   Rather than have the AI guess a team from the card image (an extra,
+   fallible vision call for something that's public, static knowledge
+   for well-known players), this falls back to a small hand-maintained
+   player -> team table. It only covers well-known current players, and
+   it WILL go stale -- rosters change with trades and free agency, and
+   this table is not re-verified against any live source. Treat it as a
+   convenience for common cases in Break Manager, not an authority. A
+   player not in the table returns '' (honestly unknown) rather than a
+   guess, same principle as everywhere else in this app: no team is
+   better than the wrong team, since a wrong auto-assign silently
+   drops a card into the wrong customer's spot. */
+const PLAYER_TEAM_MAP={
+  // MLB
+  'shohei ohtani':'Dodgers','aaron judge':'Yankees','mike trout':'Angels',
+  'ronald acuna jr':'Braves','ronald acuna jr.':'Braves','juan soto':'Mets',
+  'bobby witt jr':'Royals','bobby witt jr.':'Royals','elly de la cruz':'Reds',
+  'julio rodriguez':'Mariners','corbin carroll':'Diamondbacks',
+  'gunnar henderson':'Orioles','yordan alvarez':'Astros',
+  'freddie freeman':'Dodgers','mookie betts':'Dodgers',
+  'fernando tatis jr':'Padres','fernando tatis jr.':'Padres',
+  'vladimir guerrero jr':'Blue Jays','vladimir guerrero jr.':'Blue Jays',
+  'bryce harper':'Phillies','paul skenes':'Pirates',
+  // NBA
+  'lebron james':'Lakers','stephen curry':'Warriors','steph curry':'Warriors',
+  'nikola jokic':'Nuggets','giannis antetokounmpo':'Bucks',
+  'joel embiid':'76ers','victor wembanyama':'Spurs',
+  'anthony edwards':'Timberwolves','jayson tatum':'Celtics',
+  'shai gilgeous-alexander':'Thunder','zion williamson':'Pelicans',
+  'ja morant':'Grizzlies',
+  // NFL
+  'patrick mahomes':'Chiefs','josh allen':'Bills',
+  'jayden daniels':'Commanders','caleb williams':'Bears',
+  'c.j. stroud':'Texans','cj stroud':'Texans',
+  'justin jefferson':'Vikings',"ja'marr chase":'Bengals','jamarr chase':'Bengals',
+  'christian mccaffrey':'49ers','travis kelce':'Chiefs'
+};
+function lookupPlayerTeam(name){
+  const key=String(name||'').trim().toLowerCase();
+  return key && PLAYER_TEAM_MAP[key] || '';
+}
+function getTeam(d){
+  const card=getScanCard(d);
+  const candidates=[
+    d?.team,d?.cardTeam,d?.playerTeam,d?.teamName,
+    card?.team,card?.cardTeam,card?.playerTeam,card?.teamName,
+    d?.metadata?.team,d?.details?.team,card?.metadata?.team,card?.details?.team
+  ];
+  for(const v of candidates){
+    const s=String(v??'').trim();
+    if(s) return s;
+  }
+  const player=d?.player||card?.player||'';
+  return lookupPlayerTeam(player);
+}
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(b.dataset.view).classList.add('active');renderAll()});
+
+document.getElementById('photo').onchange=async e=>{
+  sourceFile=e.target.files[0]; if(!sourceFile)return;
+  const src=document.getElementById('source');src.src=URL.createObjectURL(sourceFile);src.style.display='block';
+  document.getElementById('detectBtn').disabled=false;document.getElementById('scanBtn').disabled=true;document.getElementById('addAllBtn').disabled=true;
+  document.getElementById('scanStatus').textContent='Photo loaded. Tap Detect cards.';
+};
+
+document.getElementById('backBtn').onclick=()=>document.getElementById('backPhoto').click();
+
+/* GREEDY NEAREST-NEIGHBOR MATCHING BY ACTUAL POSITION.
+
+   The old version paired front[i] with back[i] purely by array index --
+   it assumed OpenCV's reading-order sort would land in the identical
+   order on two SEPARATE detection runs against two separate photos.
+   That is not guaranteed: a slightly different card gap, one missed
+   detection, or a card nudged while flipping it over is enough to
+   silently attach the wrong back to the wrong front, with nothing in
+   the UI to reveal it happened.
+
+   This instead uses each card's normalized (nx,ny) center -- captured
+   in detectCards() -- and greedily pairs the closest front/back centers
+   first, one-to-one. It still relies on the user keeping cards roughly
+   in place while flipping them (the UI already asks for that), but it
+   verifies proximity instead of assuming index order, and it degrades
+   honestly: a front or back that has no good match just doesn't get
+   paired, rather than being forced onto whatever index happened to be
+   next. */
+function matchBacksToFronts(fronts, backs){
+  const pairs=[];
+  fronts.forEach((f,fi)=>{
+    backs.forEach((b,bi)=>{
+      const d=Math.hypot((f.nx??0)-(b.nx??0),(f.ny??0)-(b.ny??0));
+      pairs.push({fi,bi,d});
+    });
+  });
+  pairs.sort((a,b)=>a.d-b.d);
+  const usedFront=new Set(), usedBack=new Set();
+  const matches=new Array(fronts.length).fill(null);
+  for(const p of pairs){
+    if(usedFront.has(p.fi)||usedBack.has(p.bi)) continue;
+    matches[p.fi]=p.bi;
+    usedFront.add(p.fi); usedBack.add(p.bi);
+  }
+  return matches;
+}
+
+document.getElementById('backPhoto').onchange=async e=>{
+  backSourceFile=e.target.files[0]; if(!backSourceFile)return;
+  setStatus('Detecting backs…');
+  try{
+    backCards=await detectCards(backSourceFile);
+    document.getElementById('backsDetected').textContent=backCards.length;
+    results.forEach(r=>delete r.back);
+    const matches=matchBacksToFronts(results,backCards);
+    let matched=0;
+    matches.forEach((bi,fi)=>{
+      if(bi!=null){ results[fi].back=backCards[bi]; matched++; }
+    });
+    const unmatchedBacks=backCards.length-matched;
+    if(matched===results.length && matched===backCards.length){
+      setStatus(`Matched ${matched} back card(s) by position. They will be sent with their fronts.`,'ok');
+    }else{
+      setStatus(`Matched ${matched} of ${results.length} front(s) to a back by position.`
+        +(results.length-matched?` ${results.length-matched} front(s) will scan front-only.`:'')
+        +(unmatchedBacks>0?` ${unmatchedBacks} detected back(s) did not match any front.`:''),'warn');
+    }
+    renderResults();
+  }catch(e){setStatus('Back detection error: '+e.message,'err')}
+};
+
+
+document.getElementById('detectBtn').onclick=async()=>{
+  if(!sourceFile)return;
+  setStatus('Detecting card-shaped regions…');
+  try{
+    detectedCards=await detectCards(sourceFile);
+    document.getElementById('detected').textContent=detectedCards.length;
+    // A fresh front detection starts a new batch -- any backs counted
+    // from a previous photo no longer apply to these fronts.
+    backCards=[]; document.getElementById('backsDetected').textContent=0;
+    results=detectedCards.map((x,i)=>({id:'scan-'+Date.now()+'-'+i,...x,status:'Detected'}));
+    renderResults();
+    document.getElementById('scanBtn').disabled=!results.length;
+    document.getElementById('backBtn').disabled=!results.length;
+
+    // Compare against what the person said to expect, if they said
+    // anything. A card that is fully missed (not just badly cropped)
+    // produces nothing else to flag it -- this is the only check that
+    // catches that case, so it takes priority over the plain count
+    // message when a mismatch exists.
+    const expectedRaw=document.getElementById('expectedCount').value;
+    const expected=expectedRaw?parseInt(expectedRaw,10):null;
+
+    if(!results.length){
+      setStatus('No reliable card regions found. Try more spacing/light.','err');
+    }else if(expected && results.length<expected){
+      const missing=expected-results.length;
+      setStatus(`Detected ${results.length} of the ${expected} card${expected===1?'':'s'} you expected — `
+        +`${missing} may not have been found (often glare on a shiny card). Check the photo before scanning, `
+        +`or retake with less direct light on any card that's missing.`,'warn');
+    }else if(expected && results.length>expected){
+      setStatus(`Detected ${results.length} regions, more than the ${expected} you expected — `
+        +`something other than a card may have been picked up. Review the crops below before scanning.`,'warn');
+    }else{
+      setStatus(`Detected ${results.length} card region${results.length===1?'':'s'}.`
+        +(expected?' Matches what you expected.':''),'ok');
+    }
+  }catch(e){setStatus('Detection error: '+e.message,'err')}
+};
+
+document.getElementById('scanBtn').onclick=async()=>{
+  let done=0;document.getElementById('scanBtn').disabled=true;document.getElementById('addAllBtn').disabled=true;
+  for(const r of results){
+    r.status='Scanning…';renderResults();
+    try{
+      const fd=new FormData();fd.append('front',r.file,'card-'+done+'.jpg');
+      if(r.back?.file) fd.append('back',r.back.file,'card-'+done+'-back.jpg');
+      const resp=await fetch(API+'/api/scan-card',{method:'POST',body:fd});
+      if(!resp.ok)throw new Error('Server '+resp.status);
+      const d=await resp.json();if(!d.success)throw new Error(d.error||'Scan failed');
+      r.data=d;r.status='Scanned';
+    }catch(e){r.status='Failed: '+e.message}
+    done++;document.getElementById('scanned').textContent=done;document.getElementById('bar').style.width=(done/results.length*100)+'%';renderResults();
+  }
+  document.getElementById('addAllBtn').disabled=!results.some(r=>r.data);
+  setStatus('Batch scan finished. Review the results before adding inventory.','ok');
+};
+
+document.getElementById('addAllBtn').onclick=()=>{
+  let inv=load(LS_INV,[]), added=0;
+  results.filter(r=>r.data).forEach(r=>{
+    const d=r.data;const card=d.card||d;
+    const variant=getCardVariant(d);
+    const reviewFlag=getReviewFlag(d);
+    inv.push({
+      id:'inv-'+Date.now()+'-'+Math.random().toString(36).slice(2),
+      name:d.cardName||card.cardName||card.name||'Scanned card',
+      year:d.year||card.year||'',brand:d.brand||card.brand||'',set:d.set||card.set||'',
+      number:d.cardNumber||card.cardNumber||'',team:getTeam(d),
+      // Carried through so inventory and labels can show what the scan
+      // grid already shows -- an auto/patch/parallel is a different
+      // card than its base version, not a display detail to drop here.
+      parallel:variant.parallel,serial:variant.serial,
+      isAuto:variant.isAuto,isPatch:variant.isPatch,
+      // Not blocking the add -- same principle as everything else here,
+      // the flag is for a human to weigh, not for the app to decide for
+      // them -- but it has to survive into inventory or a flagged scan
+      // becomes an unflagged, unreviewable row the moment it's added.
+      needsReview:reviewFlag.needsReview,reviewReasons:reviewFlag.reasons,
+      market:getMarketPrice(d),priceBasis:getPriceBasis(d),
+      cost:0,ask:getMarketPrice(d),
+      status:'Available',image:r.url||'',source:'Multi-Scan',created:new Date().toISOString(),
+      // See the staffName note near the top of the Scan panel -- this
+      // does nothing functional yet (local storage has no sharing to
+      // attribute across), but every record is stamped from day one so
+      // nothing needs a backfill once shared storage actually exists.
+      addedBy:load(LS_STAFF,'')||null
+    });added++;
+  });
+  save(LS_INV,inv);document.getElementById('added').textContent=added;renderInventory();renderDashboard();setStatus(`${added} cards added to TEST inventory.`,'ok');
+};
+
+async function detectCards(file){
+  await waitForCV();
+
+  const img=await imageFromFile(file);
+  const c=document.createElement('canvas');
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  const max=2200, scale=Math.min(1,max/Math.max(img.width,img.height));
+  c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
+  ctx.drawImage(img,0,0,c.width,c.height);
+
+  const src=cv.imread(c);
+  const gray=new cv.Mat(), blur=new cv.Mat(), edge=new cv.Mat();
+  cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+  /* STRONGER BLUR + EDGE-CLOSING DILATE.
+
+     Confirmed directly against a real batch photo: with a light (5,5)
+     blur, shiny/refractor cards (Bowman/Topps Finest, chrome parallels)
+     produced ZERO valid card candidates -- not a wrong crop, no
+     candidate at all. Their foil/prism pattern generates so much fine
+     internal edge noise under Canny that the card's own true outer
+     border either never closes into one contour or gets lost among
+     hundreds of smaller internal ones. Two plain matte cards in the
+     same photo, at the same distance and lighting, detected perfectly.
+
+     Fix verified empirically (not guessed) against that exact photo:
+     a stronger (11,11) blur suppresses the fine foil texture while
+     leaving the card's true outer edge intact, and dilating the edge
+     map afterward bridges any small remaining gaps in that border so
+     it closes into one contour. Same photo, same five real cards,
+     went from 2-of-5 detected to 5-of-5.
+
+     Trade-off, stated plainly: dilation rounds the corners enough that
+     approxPolyDP finds a clean 4-point quad on fewer cards, so more
+     cards fall back to a plain axis-aligned crop instead of the
+     perspective-corrected warp. For cards laid flat and shot roughly
+     overhead -- which this tool already asks for -- that fallback crop
+     is nearly indistinguishable from a corrected one. Actually finding
+     the card is the bigger win. */
+  /* PARAMETERS RE-TUNED AFTER A REAL RESOLUTION MISMATCH.
+
+     The first pass at this fix ((11,11) blur, 3x3 dilate x2) was
+     verified against a screenshot-derived test image at ~1000-1300px --
+     but the app's real working canvas runs at up to 2200px (see the
+     resize two lines above). At that higher resolution the same fixed
+     blur kernel no longer smoothed the foil/refractor texture enough,
+     and testing also caught a SECOND failure mode that a simple
+     detected-count check would have missed: at some parameter
+     combinations, all 5 cards were "found," but one box was a small
+     internal fragment (a graphic element inside a busy-but-matte card),
+     not the actual card. Area size, not just count, had to be checked.
+
+     This configuration was grid-searched and verified against the
+     actual working resolution range (900px-2200px) AND against two
+     independently taken real photos, checking both correct count AND
+     that every selected box falls in a consistent card-sized range
+     (no box under half the median size of the others) -- catching
+     exactly the false-small-box failure mode above. */
+  cv.GaussianBlur(gray,blur,new cv.Size(9,9),0);
+  cv.Canny(blur,edge,25,120,3);
+  const edgeCloseKernel=cv.Mat.ones(5,5,cv.CV_8U);
+  cv.dilate(edge,edge,edgeCloseKernel,new cv.Point(-1,-1),2);
+  edgeCloseKernel.delete();
+
+  const contours=new cv.MatVector(), hierarchy=new cv.Mat();
+  cv.findContours(edge,contours,hierarchy,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
+
+  const imageArea=c.width*c.height;
+  const candidates=[];
+
+  for(let i=0;i<contours.size();i++){
+    const cnt=contours.get(i);
+    const rect=cv.boundingRect(cnt);
+    const area=rect.width*rect.height;
+    const ratio=rect.width/rect.height;
+    const ar=Math.max(ratio,1/ratio);
+
+    // Deliberately broad candidate gate. We use size + aspect ratio rather
+    // than contour fill because glossy card borders can be broken.
+    if(area > imageArea*.010 &&
+       area < imageArea*.30 &&
+       ar > 1.22 && ar < 1.72 &&
+       rect.width > 105 && rect.height > 150){
+
+      const peri=cv.arcLength(cnt,true);
+      const approx=new cv.Mat();
+      cv.approxPolyDP(cnt,approx,Math.max(2,.025*peri),true);
+
+      let quad=false;
+      if(approx.rows===4 && cv.isContourConvex(approx)){
+        const qa=Math.abs(cv.contourArea(approx));
+        if(qa > area*.45) quad=true;
+      }
+
+      // Prefer larger candidates and true quads, but do not require either.
+      const sizeScore=Math.min(1,area/(imageArea*.055));
+      const aspectScore=Math.max(0,1-Math.abs(ar-1.40)/.30);
+      const score=.62*sizeScore+.18*aspectScore+(quad?.20:0);
+
+      let points=null;
+      if(quad){
+        points=[];
+        for(let j=0;j<4;j++){
+          const q=approx.intPtr(j,0);
+          points.push({x:q[0],y:q[1]});
+        }
+        points=orderCorners(points);
+      }
+      candidates.push({
+        x:rect.x,y:rect.y,width:rect.width,height:rect.height,
+        area,score,quad,points
+      });
+      approx.delete();
+    }
+    cnt.delete();
+  }
+
+  // Sort strongest first and suppress only candidates that are truly
+  // duplicates of the same physical card.
+  candidates.sort((a,b)=>b.score-a.score || b.area-a.area);
+  const selected=[];
+
+  for(const b of candidates){
+    let duplicate=false;
+    for(const o of selected){
+      const ix=Math.max(0,Math.min(b.x+b.width,o.x+o.width)-Math.max(b.x,o.x));
+      const iy=Math.max(0,Math.min(b.y+b.height,o.y+o.height)-Math.max(b.y,o.y));
+      const inter=ix*iy;
+      const smaller=Math.min(b.area,o.area);
+      const overlap=smaller ? inter/smaller : 0;
+
+      const bc={x:b.x+b.width/2,y:b.y+b.height/2};
+      const oc={x:o.x+o.width/2,y:o.y+o.height/2};
+      const centerDist=Math.hypot(bc.x-oc.x,bc.y-oc.y);
+
+      if(overlap>.55 || centerDist<Math.sqrt(smaller)*.30){
+        duplicate=true;
+        break;
+      }
+    }
+    if(!duplicate) selected.push(b);
+  }
+
+  // Reading order.
+  selected.sort((a,b)=>{
+    const ay=a.y+a.height/2, by=b.y+b.height/2;
+    const rowTolerance=Math.min(a.height,b.height)*.50;
+    if(Math.abs(ay-by)>rowTolerance) return ay-by;
+    return (a.x+a.width/2)-(b.x+b.width/2);
+  });
+
+  const finalBoxes=selected.slice(0,20);
+
+  if(!finalBoxes.length){
+    [src,gray,blur,edge,contours,hierarchy].forEach(x=>x.delete());
+    throw new Error('No card-shaped regions found. Try moving the cards farther apart.');
+  }
+
+  /* SIZE-OUTLIER CHECK.
+
+     A real failure mode found in testing: the count of detected boxes
+     can be exactly right (5 found, 5 cards on the table) while one box
+     is actually a small fragment INSIDE a busy card's artwork, not the
+     card itself -- a wrong result that a simple "did we find enough
+     boxes" check cannot catch, only comparing box sizes to each other
+     can. Cards in one batch are the same physical size, so a real
+     outlier here means a bad crop, not a smaller card. Flagged, not
+     dropped -- the crop still gets used, but the UI can warn the person
+     to double check that one before scanning. */
+  const boxAreas=finalBoxes.map(b=>b.width*b.height).sort((a,b)=>a-b);
+  const medianArea=boxAreas[Math.floor(boxAreas.length/2)]||0;
+
+  const sourceCanvas=sourceCanvasForCrop(src);
+  const output=finalBoxes.map((b,i)=>{
+    const pad=Math.max(3,Math.round(Math.min(b.width,b.height)*.015));
+    const x=Math.max(0,Math.floor(b.x-pad));
+    const y=Math.max(0,Math.floor(b.y-pad));
+    const right=Math.min(c.width,Math.ceil(b.x+b.width+pad));
+    const bottom=Math.min(c.height,Math.ceil(b.y+b.height+pad));
+    const w=Math.max(1,right-x), h=Math.max(1,bottom-y);
+
+    let canvas;
+    if(b.quad && b.points && b.points.length===4){
+      canvas=warpCard(src,b.points);
+    }else{
+      canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(sourceCanvas,x,y,w,h,0,0,w,h);
+    }
+    const data=canvas.toDataURL('image/jpeg',.94);
+
+    // Normalized (0..1) center position within THIS photo. Used later to
+    // match this card's back to the same physical card in a separately
+    // detected back photo -- see matchBacksToFronts().
+    const area=b.width*b.height;
+    const sizeOutlier=medianArea>0 && area < medianArea*0.4;
+
+    return {
+      index:i+1,
+      url:data,
+      file:dataURLtoFile(data,'card-'+(i+1)+'.jpg'),
+      nx:(b.x+b.width/2)/c.width,
+      ny:(b.y+b.height/2)/c.height,
+      sizeOutlier
+    };
+  });
+
+  [src,gray,blur,edge,contours,hierarchy].forEach(x=>x.delete());
+  return output;
+}
+
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+
+function orderCorners(pts){
+  const sums=pts.map(p=>p.x+p.y), diffs=pts.map(p=>p.x-p.y);
+  return [
+    pts[sums.indexOf(Math.min(...sums))],
+    pts[diffs.indexOf(Math.max(...diffs))],
+    pts[sums.indexOf(Math.max(...sums))],
+    pts[diffs.indexOf(Math.min(...diffs))]
+  ];
+}
+
+function nonOverlappingCandidates(list){
+  const out=[];
+  for(const c of list){
+    const cx=c.pts.reduce((s,p)=>s+p.x,0)/4, cy=c.pts.reduce((s,p)=>s+p.y,0)/4;
+    let overlaps=false;
+    for(const o of out){
+      const ox=o.pts.reduce((s,p)=>s+p.x,0)/4, oy=o.pts.reduce((s,p)=>s+p.y,0)/4;
+      const centerDist=Math.hypot(cx-ox,cy-oy);
+      const scale=Math.sqrt(Math.min(c.area,o.area));
+      if(centerDist < scale*.62){overlaps=true;break}
+    }
+    if(!overlaps) out.push(c);
+  }
+  return out;
+}
+
+function warpCard(source, pts){
+  const tl=pts[0],tr=pts[1],br=pts[2],bl=pts[3];
+  const width=Math.max(dist(tl,tr),dist(bl,br));
+  const height=Math.max(dist(tl,bl),dist(tr,br));
+  const outW=420;
+  const outH=Math.max(588,Math.round(outW*(height/width)));
+
+  const srcPts=cv.matFromArray(4,1,cv.CV_32FC2,[
+    tl.x,tl.y,tr.x,tr.y,br.x,br.y,bl.x,bl.y
+  ]);
+  const dstPts=cv.matFromArray(4,1,cv.CV_32FC2,[
+    0,0,outW-1,0,outW-1,outH-1,0,outH-1
+  ]);
+  const M=cv.getPerspectiveTransform(srcPts,dstPts);
+  const warped=new cv.Mat();
+
+  cv.warpPerspective(
+    source,warped,M,new cv.Size(outW,outH),
+    cv.INTER_LINEAR,cv.BORDER_REPLICATE
+  );
+
+  const canvas=sourceCanvasForCrop(warped);
+  srcPts.delete();dstPts.delete();M.delete();warped.delete();
+  return canvas;
+}
+
+function sourceCanvasForCrop(mat){
+  const canvas=document.createElement('canvas');
+  canvas.width=mat.cols; canvas.height=mat.rows;
+  const ctx=canvas.getContext('2d');
+  const rgba=new Uint8ClampedArray(mat.data);
+  ctx.putImageData(new ImageData(rgba,mat.cols,mat.rows),0,0);
+  return canvas;
+}
+function mergeBoxes(bs){
+  const out=[];
+  for(const b of bs){let merged=false;for(const o of out){const ix=Math.max(0,Math.min(b.x+b.width,o.x+o.width)-Math.max(b.x,o.x));const iy=Math.max(0,Math.min(b.y+b.height,o.y+o.height)-Math.max(b.y,o.y));if(ix*iy>Math.min(b.width*b.height,o.width*o.height)*.35){const x=Math.min(b.x,o.x),y=Math.min(b.y,o.y),r=Math.max(b.x+b.width,o.x+o.width),bot=Math.max(b.y+b.height,o.y+o.height);o.x=x;o.y=y;o.width=r-x;o.height=bot-y;merged=true;break}}if(!merged)out.push({...b})}return out}
+function waitForCV(){
+  return new Promise((res,rej)=>{
+    let n=0;
+    (function f(){
+      if(window.cv && typeof cv.Mat==='function') return res();
+      if(n++>300) return rej(new Error('OpenCV did not load. Refresh the page and try again.'));
+      setTimeout(f,100);
+    })();
+  });
+}
+function imageFromFile(file){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file)})}
+function dataURLtoFile(u,name){const [h,b]=u.split(',');const mime=h.match(/:(.*?);/)[1];const bin=atob(b);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new File([a],name,{type:mime})}
+function setStatus(t,c=''){const el=document.getElementById('scanStatus');el.textContent=t;el.className='status '+c}
+/* FIELDS THE FIELD AUDIT FOUND WERE NEVER READ.
+
+   The backend returns parallel, isAutograph, isPatch, and serialNumber
+   on every scan -- none of them were ever displayed. That's not
+   cosmetic for a shop tool: an autograph or patch is not the same
+   card as its base version and can be worth 10-100x more, and a
+   parallel name or serial number is often the single biggest driver
+   of a card's actual price. Pricing and labeling a patch/auto exactly
+   like its base version because the flag was sitting in the response
+   unused is a real correctness gap, the same category as everything
+   else fixed tonight -- just in fields nobody had wired up yet. */
+function getCardVariant(d){
+  const card=getScanCard(d);
+  const isAuto=!!(d?.isAutograph ?? card?.isAutograph);
+  const isPatch=!!(d?.isPatch ?? card?.isPatch);
+  const parallel=String(d?.parallel ?? card?.parallel ?? '').trim();
+  const serial=String(d?.serialNumber ?? card?.serialNumber ?? '').trim();
+  return { isAuto, isPatch, parallel, serial };
+}
+function variantBadgesHtml(v){
+  let out='';
+  if(v.isAuto) out+='<span class="pill bad" style="margin-left:6px">AUTO</span>';
+  if(v.isPatch) out+='<span class="pill warn" style="margin-left:6px">PATCH</span>';
+  return out;
+}
+/* CONFIDENCE + CATALOG VERIFICATION, NEVER SURFACED UNTIL NOW.
+
+   The backend already does real work to flag a likely misread before
+   this app ever sees the result: confidence ('Low' means the AI itself
+   was unsure), and verified (a catalog cross-check -- exists===false
+   means the card number the AI read does not exist in that set at all,
+   the clearest possible sign of a misread; exists===true with a low
+   verification confidence means the catalog found a DIFFERENT player
+   on that card number than the AI reported).
+
+   None of that reached the UI. A misread card was being priced and
+   added to inventory exactly like a clean one, with the very signal
+   that could have caught it sitting unused in the response. This
+   surfaces it as a review flag -- visible, not blocking, matching
+   every other honesty check in this file: the person decides, the
+   app's job is making sure they're not deciding blind. */
+function getReviewFlag(d){
+  const card=getScanCard(d);
+  const confidence=String(d?.confidence ?? card?.confidence ?? '').trim().toLowerCase();
+  const verified=d?.verified ?? card?.verified ?? null;
+  const reasons=[];
+  if(confidence==='low') reasons.push('AI identification confidence was Low');
+  if(verified && verified.checked){
+    if(verified.exists===false){
+      reasons.push(verified.note || 'This card number could not be found in the catalog for this set');
+    }else if(verified.exists===true && String(verified.confidence||'').toLowerCase()==='low'){
+      reasons.push(verified.note || 'The catalog lists a different player for this card number');
+    }
+  }
+  return { needsReview: reasons.length>0, reasons };
+}
+function reviewBadgeHtml(rf){
+  if(!rf.needsReview) return '';
+  return '<div class="pill bad" style="margin-top:6px" title="'+esc(rf.reasons.join('; '))+'">⚠ Needs review — '+esc(rf.reasons[0])+'</div>';
+}
+function renderResults(){
+  const el=document.getElementById('results');el.innerHTML=results.map((r,i)=>{
+    const d=r.data||{};const card=getScanCard(d);const name=d.cardName||card.cardName||card.name||'Unidentified';const price=getMarketPrice(d);const basis=getPriceBasis(d);
+    // Label WHICH kind of number this is -- a real sold median, or an
+    // asking-price fallback -- rather than showing one bare figure that
+    // could silently be either. See getMarketPrice()/getPriceBasis().
+    const basisLabel=basis==='sold'?'<span class="pill ok" style="margin-left:6px">Sold</span>'
+      :basis==='sold_mixed'?'<span class="pill warn" style="margin-left:6px">Mixed comps</span>'
+      :basis==='ask'?'<span class="pill warn" style="margin-left:6px">Ask only</span>':'';
+    // A box that came back much smaller than the others in the same
+    // batch is very likely a fragment of a card's artwork, not the
+    // card itself -- see the sizeOutlier check in detectCards(). Flag
+    // it visibly rather than silently scanning a bad crop.
+    const outlierWarning=r.sizeOutlier?'<div class="pill bad" style="margin-top:6px">⚠ Crop looks too small — re-detect this one</div>':'';
+    const variant=getCardVariant(d);
+    const reviewFlag=getReviewFlag(d);
+    const metaParts=[d.year||card.year,d.set||card.set,d.cardNumber||card.cardNumber,getTeam(d)];
+    if(variant.parallel) metaParts.push(variant.parallel);
+    if(variant.serial) metaParts.push(variant.serial);
+    // DIAGNOSTIC: shows exactly what /api/scan-card actually returned for
+    // this card, with no dev tools needed. This is how "Unknown" fields get
+    // told apart -- either the raw JSON already says "Unknown" (a backend/AI
+    // read problem) or it has real values the display is failing to pick up
+    // (a frontend field-mapping bug, the same class of issue as the
+    // avgSoldPrice mislabeling fixed earlier). Off by default, one tap to
+    // see, easy to screenshot and send back.
+    const debugId='dbg-'+r.id;
+    const debugToggle=r.data?`<div class="pill" style="margin-top:6px;cursor:pointer;opacity:.6" onclick="toggleDebug('${debugId}')">🔍 Raw response</div>
+      <pre id="${debugId}" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.4;background:#0008;padding:10px;border-radius:8px;margin-top:6px">${esc(JSON.stringify(r.data,null,2))}</pre>`:'';
+    return `<div class="item"><img src="${r.url}" alt=""><div class="body"><div class="name">${esc(name)}${variantBadgesHtml(variant)}</div><div class="meta">${esc(metaParts.filter(Boolean).join(' · '))}</div><div class="pill ${r.status==='Scanned'?'ok':r.status.startsWith('Failed')?'bad':'warn'}">${esc(r.status)}</div>${outlierWarning}${reviewBadgeHtml(reviewFlag)}${price?`<div style="margin-top:7px;font-weight:900;color:var(--green)">${money(price)}${basisLabel}</div>`:''}
+      ${r.back?`<div class="pill ok">Front + Back matched</div>`:''}${debugToggle}</div></div>`
+  }).join('');
+}
+function toggleDebug(id){
+  const el=document.getElementById(id);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+function renderInventory(){
+  const inv=load(LS_INV,[]);document.getElementById('invCount').textContent=inv.length+' test cards';
+  if(!inv.length){document.getElementById('inventoryTable').innerHTML='<div class="empty">No test inventory yet. Run a Multi-Scan batch and add the results.</div>';return}
+  document.getElementById('inventoryTable').innerHTML=`<table><thead><tr><th>Card</th><th>Market</th><th>Cost</th><th>Ask</th><th>Profit</th><th>Status</th></tr></thead><tbody>${inv.map((x,i)=>{
+    const variantMeta=[x.parallel,x.serial].filter(Boolean).join(' · ');
+    const variantBadges=(x.isAuto?'<span class="pill bad">AUTO</span> ':'')+(x.isPatch?'<span class="pill warn">PATCH</span> ':'');
+    const reviewBadge=x.needsReview?`<br><span class="pill bad" title="${esc((x.reviewReasons||[]).join('; '))}">⚠ Needs review</span>`:'';
+    const addedByLine=x.addedBy?`<br><span class="sub" style="opacity:.7">Added by ${esc(x.addedBy)}</span>`:'';
+    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${x.cost}" onchange="editInv(${i},'cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv(${i},'ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="editInv(${i},'status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td></tr>`;
+  }).join('')}</tbody></table>`
+}
+function editInv(i,k,v){let a=load(LS_INV,[]);a[i][k]=k==='cost'||k==='ask'?Number(v):v;save(LS_INV,a);renderDashboard()}
+function clearInventory(){if(confirm('Clear only the TEST inventory?')){localStorage.removeItem(LS_INV);renderAll()}}
+function exportInventory(){const a=load(LS_INV,[]),rows=[['Card','Year','Set','Number','Team','Market','Cost','Ask','Profit','Status'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.market,x.cost,x.ask,x.ask-x.cost,x.status])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-test-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
+
+function createBreak(){
+  const n=Math.max(1,Math.min(100,Number(document.getElementById('spotCount').value)||10));
+  activeBreak={id:'break-'+Date.now(),name:document.getElementById('breakName').value||'Test Break',rule:document.getElementById('breakRule').value,spots:Array.from({length:n},(_,i)=>({spot:i+1,customer:'',team:'',cards:[]}))};
+  save(LS_BREAK,activeBreak);renderBreaks();
+}
+function renderBreaks(){
+  const ed=document.getElementById('breakEditor'), br=activeBreak;
+  if(!br){ed.innerHTML='<div class="empty">No break created yet.</div>';document.getElementById('breakAssignments').innerHTML='<div class="empty">Create a break first.</div>';return}
+  ed.innerHTML=`<div class="notice"><b>${esc(br.name)}</b> · ${esc(br.rule)} · ${br.spots.length} spots</div><div class="spotgrid">${br.spots.map((s,i)=>`<div class="spot"><strong>Spot ${s.spot}</strong><label class="small" style="margin-top:9px">Customer</label><input value="${esc(s.customer)}" onchange="editSpot(${i},'customer',this.value)" placeholder="Customer name"><label class="small" style="margin-top:7px">Team / Player</label><input value="${esc(s.team)}" onchange="editSpot(${i},'team',this.value)" placeholder="Dodgers"></div>`).join('')}</div>`;
+  renderAssignments();
+}
+function editSpot(i,k,v){activeBreak.spots[i][k]=v;save(LS_BREAK,activeBreak)}
+function renderAssignments(){
+  const el=document.getElementById('breakAssignments');if(!activeBreak){el.innerHTML='';return}
+  const inv=load(LS_INV,[]);const scanCards=results.filter(r=>r.data);
+  el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${activeBreak.spots.map(s=>`<div class="panel" style="margin:10px 0"><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}</b><div class="sub">${s.cards.length} assigned card(s)</div>${s.cards.length?'<ul>'+s.cards.map(id=>{const x=inv.find(z=>z.id===id);return `<li>${esc(x?x.name:id)}</li>`}).join('')+'</ul>':'<div class="sub" style="margin-top:5px">Nothing assigned yet.</div>'}</div>`).join('')}`;
+}
+function autoAssign(){
+  if(!activeBreak)return;
+  const inv=load(LS_INV,[]), available=inv.filter(x=>x.status!=='Sold');
+  let assigned=0, noTeam=0;
+
+  results.filter(r=>r.data).forEach(r=>{
+    const d=r.data, team=getTeam(d).toLowerCase();
+    if(!team){noTeam++;return;}
+    const spot=activeBreak.spots.find(s=>s.team&&s.team.toLowerCase()===team);
+    if(!spot)return;
+    const card=getScanCard(d);
+    const x=available.find(z=>
+      z.name===(d.cardName||card.cardName||card.name||'') &&
+      !spot.cards.includes(z.id)
+    );
+    if(x){spot.cards.push(x.id);assigned++}
+  });
+
+  save(LS_BREAK,activeBreak);
+  renderAssignments();
+
+  if(assigned){
+    alert(`Assigned ${assigned} card(s).${noTeam?` ${noTeam} scanned card(s) had no team data.`:''}`);
+  }else if(noTeam){
+    alert('The scan results do not contain team data, so automatic team assignment cannot run yet. Manual assignment is still supported.');
+  }else{
+    alert('No team matches were available. Manual assignment is still supported.');
+  }
+}
+function renderDashboard(){
+  const inv=load(LS_INV,[]);document.getElementById('mCards').textContent=inv.length;document.getElementById('mValue').textContent=money(inv.reduce((a,x)=>a+Number(x.market||0),0));document.getElementById('mProfit').textContent=money(inv.reduce((a,x)=>a+Number(x.ask||0)-Number(x.cost||0),0));document.getElementById('mSpots').textContent=activeBreak?activeBreak.spots.length:0;
+}
+function buildLabels(){
+  const inv=load(LS_INV,[]);const el=document.getElementById('labelArea');el.style.display='block';el.innerHTML='<div class="label-sheet">'+inv.slice(0,60).map(x=>`<div class="label"><b>${esc(x.name)}</b><small>${esc([x.year,x.set,x.number].filter(Boolean).join(' · '))}</small><small>Market ${money(x.market)} · Ask ${money(x.ask)}</small></div>`).join('')+'</div>';
+}
+function renderAll(){renderInventory();renderBreaks();renderDashboard()}
+renderAll();
+
+// Restore the remembered name, and save it as it's typed -- no submit
+// button, no friction, just persists like everything else in this app.
+document.getElementById('staffName').value=load(LS_STAFF,'');
+document.getElementById('staffName').oninput=e=>save(LS_STAFF,e.target.value.trim().slice(0,60));
+</script>
+</body>
+</html>
