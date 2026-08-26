@@ -389,6 +389,13 @@ input[type=file]{display:none;}
 .avs-note.over{color:var(--gold-warm);} .avs-note.under{color:var(--green);} .avs-note.fair{color:var(--text2);}
 
 .sold-check{display:block;text-decoration:none;background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(59,130,246,.04));border-top:1px solid rgba(59,130,246,.28);border-bottom:1px solid rgba(59,130,246,.28);padding:14px 16px;text-align:center;transition:all .2s;}
+/* REAL LISTING THUMBNAILS -- see buildListingThumbs() for why. */
+.lthumbs-label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-warm,#fbbf24);margin:14px 0 8px;padding:0 2px;}
+.lthumbs{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 6px;-webkit-overflow-scrolling:touch;}
+.lthumb{flex:0 0 92px;text-decoration:none;position:relative;display:block;}
+.lthumb img{width:92px;height:122px;object-fit:cover;border-radius:10px;background:var(--surface2,#1a2235);border:0.5px solid var(--surface3,#212d42);display:block;}
+.lthumb-price{display:block;margin-top:6px;font-size:14px;font-weight:600;color:var(--green,#22c55e);}
+.lthumb-badge{position:absolute;top:6px;left:6px;background:rgba(10,14,26,.85);color:var(--gold-warm,#fbbf24);font-size:10px;padding:2px 6px;border-radius:6px;font-weight:600;}
 .sold-check:hover{background:rgba(59,130,246,.18);}
 .sold-check-main{display:block;font-family:var(--f);font-size:14px;font-weight:800;color:var(--blue);letter-spacing:.2px;}
 .sold-check-sub{display:block;font-family:var(--fm);font-size:10px;color:var(--text3);margin-top:5px;line-height:1.5;}
@@ -1918,6 +1925,29 @@ function buildRoiRows(d, avgPrice){
    is the normal, correct case and should stay silent. */
 /* Silent unless the source told us how each sale happened, and unless
    there is more than one kind. An empty breakdown is worse than none. */
+/* REAL LISTING THUMBNAILS, NOT JUST AN OUTBOUND LINK. See the same
+   function/comment in the full-scanner file -- identical reasoning,
+   applied here since this is a genuinely separate codebase, not a
+   copy of it. */
+function buildListingThumbs(d){
+  var items = (d && d.listings) || [];
+  items = items.filter(function(x){ return x && x.image && safeNum(x.price); });
+  if(!items.length) return '';
+  items = items.slice(0, 6);
+
+  var cards = items.map(function(x){
+    return '<a class="lthumb" href="'+esc(x.url||'#')+'" target="_blank" rel="noopener nofollow sponsored" '
+      + 'onclick="affClick(\'listing_thumb\')">'
+      + '<img src="'+esc(x.image)+'" alt="" loading="lazy" onerror="this.closest(\'.lthumb\').remove()"/>'
+      + (x.graded ? '<span class="lthumb-badge">'+esc(x.gradeCompany||'GRADED')+(x.gradeValue?' '+esc(x.gradeValue):'')+'</span>' : '')
+      + '<span class="lthumb-price">'+fmtMoney(x.price)+'</span>'
+      + '</a>';
+  }).join('');
+
+  return '<div class="lthumbs-label">Actual listings for this card</div>'
+    + '<div class="lthumbs">' + cards + '</div>';
+}
+
 function buildListingMix(d){
   var m = d && d.sold && d.sold.listingMix;
   if(!m || !m.total) return '';
@@ -3040,6 +3070,10 @@ function renderResult(d){
         +'<div class="aff-note">eBay links are affiliate links — costs you nothing, and we don\'t set the prices. '
         +'The sell link carries no affiliate tag at all.</div>';
     }
+
+    // See buildListingThumbs() -- shows regardless of whether sold data
+    // exists, since it's drawn from active listings either way.
+    html+=buildListingThumbs(d);
 
     /* These two come from live listings, so they are asking prices — even
        when a sold median is on screen above them. Labelling them RAW ASK /
