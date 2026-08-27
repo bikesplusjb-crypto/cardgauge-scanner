@@ -234,6 +234,17 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <div class="row"><button class="btn primary" onclick="buildBreakProof()">Generate Break Proof</button><button class="btn" onclick="window.print()">Print</button></div>
       <div id="proofArea"></div>
     </div>
+    <div class="panel">
+      <h2>Break Costs &amp; Profitability</h2>
+      <div class="sub">Revenue is calculated automatically from each spot's price, entered above. Enter what this break actually cost to run.</div>
+      <div class="formgrid">
+        <div><label class="small">Wax cost</label><input id="waxCost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label class="small">Shipping cost</label><input id="shippingCost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label class="small">Platform fee %</label><input id="feePercent" type="number" min="0" max="100" step="0.1" placeholder="0"></div>
+      </div>
+      <div class="actions"><button class="btn primary" onclick="saveBreakCosts()">Save costs</button></div>
+      <div id="breakAnalytics"></div>
+    </div>
   </section>
 
   <section id="dashboard" class="view">
@@ -243,6 +254,27 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <div class="metric"><div class="k">Inventory value</div><div class="v" id="mValue">$0</div></div>
       <div class="metric"><div class="k">Potential profit</div><div class="v" id="mProfit">$0</div></div>
       <div class="metric"><div class="k">Break spots</div><div class="v" id="mSpots">0</div></div>
+    </div>
+    <div class="panel">
+      <h2>Business Profile</h2>
+      <div class="sub">Your shop's real defaults, saved once and reused everywhere below — the Margin Guide, and every new break's fee and shipping cost, so you're not re-typing the same numbers each time.</div>
+      <div class="formgrid">
+        <div><label class="small">Default target margin (%)</label><input id="profTargetMargin" type="number" min="0" max="95" step="1"></div>
+        <div><label class="small">Marketplace fee (%)</label><input id="profFeePercent" type="number" min="0" max="50" step="0.1"></div>
+        <div><label class="small">Typical shipping cost ($)</label><input id="profShippingCost" type="number" min="0" step="0.01"></div>
+      </div>
+      <div class="actions"><button class="btn primary" onclick="saveShopProfile()">Save defaults</button></div>
+    </div>
+    <div class="panel">
+      <h2>Break Profitability · All Breaks</h2>
+      <div class="sub">Every break this shop has run, not just the one currently open on the Break Manager tab — this is what answers "how much am I actually making from breaks."</div>
+      <div id="allBreaksHistory"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="panel">
+      <h2>Margin &amp; Discount Guide</h2>
+      <div class="sub">For each priced item, how much room exists before a discount eats into your target margin. Only shows items with both a cost and an ask price set.</div>
+      <div class="row"><label class="small">Target margin</label><input id="targetMargin" type="number" min="0" max="95" step="1" value="20" style="width:70px" onchange="this.dataset.touched='1';renderMarginGuide()">%</div>
+      <div id="marginGuide"></div>
     </div>
     <div class="panel"><h2>Workflow</h2><div class="sub">PHOTO → DETECT → IDENTIFY → PRICE → INVENTORY → BREAK ASSIGNMENT → LABEL</div></div>
   </section>
@@ -348,6 +380,11 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 const API='https://stock-card-api.onrender.com';
 const LS_STAFF='cg_business_v1_staffname';
 let sourceFile=null, backSourceFile=null, detectedCards=[], backCards=[], results=[], activeBreak=null;
+// Shop-level defaults (target margin, marketplace fee %, shipping cost)
+// so the Margin Guide and new-break costs don't reset to zero/hardcoded
+// values every time -- loaded once in resolveShop(), used everywhere
+// those numbers were previously hardcoded or blank.
+let shopProfile={targetMargin:20,feePercent:0,shippingCost:0};
 
 // ══════════════════════════════════════════════════════════════
 // SHOP AUTH + SHARED STORAGE
@@ -440,13 +477,18 @@ async function resolveShop(){
     if(inviteErr) console.warn('[invites] accept failed:',inviteErr.message);
 
     const {data,error}=await SB.from('shop_staff')
-      .select('shop_id, shops(id,name)')
+      .select('shop_id, shops(id,name,default_target_margin,default_fee_percent,default_shipping_cost)')
       .eq('user_id',currentUser.id)
       .limit(1);
     if(error) throw error;
     if(data&&data.length&&data[0].shops){
       currentShopId=data[0].shops.id;
       currentShopName=data[0].shops.name;
+      shopProfile={
+        targetMargin:Number(data[0].shops.default_target_margin??20),
+        feePercent:Number(data[0].shops.default_fee_percent??0),
+        shippingCost:Number(data[0].shops.default_shipping_cost??0)
+      };
       await refreshShopInventory();
       await refreshShopBreak();
     }
@@ -472,7 +514,9 @@ async function refreshShopBreak(){
       .limit(1);
     if(error) throw error;
     activeBreak=(data&&data[0])
-      ? {id:data[0].id, name:data[0].name, rule:data[0].rule, spots:data[0].spots||[]}
+      ? {id:data[0].id, name:data[0].name, rule:data[0].rule, spots:data[0].spots||[],
+         waxCost:Number(data[0].wax_cost||0), shippingCost:Number(data[0].shipping_cost||0),
+         feePercent:Number(data[0].platform_fee_percent||0)}
       : null;
   }catch(e){console.warn('[break] refresh failed:',e.message)}
   renderBreaks();
@@ -2003,23 +2047,33 @@ async function createBreak(){
   const n=Math.max(1,Math.min(100,Number(document.getElementById('spotCount').value)||10));
   const name=document.getElementById('breakName').value||'Test Break';
   const rule=document.getElementById('breakRule').value;
-  const spots=Array.from({length:n},(_,i)=>({spot:i+1,customer:'',team:'',cards:[]}));
+  const spots=Array.from({length:n},(_,i)=>({spot:i+1,customer:'',team:'',cards:[],price:0}));
   try{
-    const {data,error}=await SB.from('shop_breaks').insert({shop_id:currentShopId,name,rule,spots}).select().single();
+    // Seeded from the shop's own saved defaults, not zero -- a real
+    // shop's fee % and shipping cost don't change break to break, so
+    // starting blank every time was pure repeated typing for no reason.
+    const {data,error}=await SB.from('shop_breaks').insert({
+      shop_id:currentShopId,name,rule,spots,
+      shipping_cost:shopProfile.shippingCost,
+      platform_fee_percent:shopProfile.feePercent
+    }).select().single();
     if(error) throw error;
-    activeBreak={id:data.id,name:data.name,rule:data.rule,spots:data.spots};
+    activeBreak={id:data.id,name:data.name,rule:data.rule,spots:data.spots,
+      waxCost:Number(data.wax_cost||0),shippingCost:Number(data.shipping_cost||0),feePercent:Number(data.platform_fee_percent||0)};
     renderBreaks();
   }catch(e){alert('Could not create break: '+e.message)}
 }
 function renderBreaks(){
   const ed=document.getElementById('breakEditor'), br=activeBreak;
   if(!br){ed.innerHTML='<div class="empty">No break created yet.</div>';document.getElementById('breakAssignments').innerHTML='<div class="empty">Create a break first.</div>';return}
-  ed.innerHTML=`<div class="notice"><b>${esc(br.name)}</b> · ${esc(br.rule)} · ${br.spots.length} spots</div><div class="spotgrid">${br.spots.map((s,i)=>`<div class="spot"><strong>Spot ${s.spot}</strong><label class="small" style="margin-top:9px">Customer</label><input value="${esc(s.customer)}" onchange="editSpot(${i},'customer',this.value)" placeholder="Customer name"><label class="small" style="margin-top:7px">Team / Player</label><input value="${esc(s.team)}" onchange="editSpot(${i},'team',this.value)" placeholder="Dodgers"></div>`).join('')}</div>`;
+  ed.innerHTML=`<div class="notice"><b>${esc(br.name)}</b> · ${esc(br.rule)} · ${br.spots.length} spots</div><div class="spotgrid">${br.spots.map((s,i)=>`<div class="spot"><strong>Spot ${s.spot}</strong><label class="small" style="margin-top:9px">Customer</label><input value="${esc(s.customer)}" onchange="editSpot(${i},'customer',this.value)" placeholder="Customer name"><label class="small" style="margin-top:7px">Team / Player</label><input value="${esc(s.team)}" onchange="editSpot(${i},'team',this.value)" placeholder="Dodgers"><label class="small" style="margin-top:7px">Spot price</label><input type="number" min="0" step="0.01" value="${s.price||0}" onchange="editSpot(${i},'price',Number(this.value)||0)" placeholder="0.00"></div>`).join('')}</div>`;
   renderAssignments();
+  renderBreakAnalytics();
 }
 async function editSpot(i,k,v){
   if(!activeBreak)return;
   activeBreak.spots[i][k]=v;
+  if(k==='price') renderBreakAnalytics();
   try{
     const {error}=await SB.from('shop_breaks')
       .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
@@ -2139,6 +2193,62 @@ function buildBreakProof(){
     }).join('')}
   </div>`;
 }
+// BREAK PROFITABILITY -- revenue is deliberately computed, never typed
+// in directly. Summing each spot's own price means the number always
+// matches what was actually entered per spot rather than being a
+// separate figure someone has to remember to keep in sync -- the same
+// reasoning that made Break Proof use a snapshot instead of a live
+// reference, applied here to keep the two numbers from drifting apart.
+function computeBreakFinancials(br){
+  const revenue=br.spots.reduce((sum,s)=>sum+(Number(s.price)||0),0);
+  const wax=Number(br.waxCost)||0;
+  const shipping=Number(br.shippingCost)||0;
+  const feePercent=Number(br.feePercent)||0;
+  const fees=revenue*(feePercent/100);
+  const profit=revenue-wax-fees-shipping;
+  return {revenue,wax,shipping,feePercent,fees,profit};
+}
+function renderBreakAnalytics(){
+  const el=document.getElementById('breakAnalytics');
+  if(!el)return;
+  if(!activeBreak){ el.innerHTML=''; return; }
+  // Populate the cost inputs from the actual saved break -- without
+  // this, switching breaks (or a page reload) would show blank fields
+  // even though real values already exist in the database.
+  const waxInput=document.getElementById('waxCost'), shipInput=document.getElementById('shippingCost'), feeInput=document.getElementById('feePercent');
+  if(waxInput && document.activeElement!==waxInput) waxInput.value=activeBreak.waxCost||0;
+  if(shipInput && document.activeElement!==shipInput) shipInput.value=activeBreak.shippingCost||0;
+  if(feeInput && document.activeElement!==feeInput) feeInput.value=activeBreak.feePercent||0;
+
+  const f=computeBreakFinancials(activeBreak);
+  const profitColor=f.profit>=0?'var(--green,#22c55e)':'var(--red,#ef4444)';
+  el.innerHTML=`<div class="panel" style="margin-top:14px;background:var(--panel2,#162236)">
+    <div class="row" style="justify-content:space-between"><span>Revenue (sum of spot prices)</span><b>${money(f.revenue)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Wax cost</span><b>-${money(f.wax)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Platform fees (${f.feePercent}%)</span><b>-${money(f.fees)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Shipping</span><b>-${money(f.shipping)}</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--line,#293b57)"><span><b>Profit</b></span><b style="color:${profitColor}">${money(f.profit)}</b></div>
+  </div>`;
+}
+async function saveBreakCosts(){
+  if(!activeBreak){ alert('No active break.'); return; }
+  activeBreak.waxCost=Number(document.getElementById('waxCost').value)||0;
+  activeBreak.shippingCost=Number(document.getElementById('shippingCost').value)||0;
+  activeBreak.feePercent=Number(document.getElementById('feePercent').value)||0;
+  renderBreakAnalytics();
+  try{
+    const {error}=await SB.from('shop_breaks')
+      .update({
+        wax_cost:activeBreak.waxCost,
+        shipping_cost:activeBreak.shippingCost,
+        platform_fee_percent:activeBreak.feePercent,
+        updated_at:new Date().toISOString()
+      })
+      .eq('id',activeBreak.id);
+    if(error) throw error;
+    alert('Break costs saved.');
+  }catch(e){ alert('Could not save break costs: '+(e&&e.message?e.message:e)); }
+}
 async function autoAssign(){
   // Wrapped end-to-end: every normal path here already ends in an
   // alert, which means "tapped the button, saw nothing at all" can
@@ -2194,6 +2304,105 @@ async function autoAssign(){
 }
 function renderDashboard(){
   const inv=shopInventory;document.getElementById('mCards').textContent=inv.length;document.getElementById('mValue').textContent=money(inv.reduce((a,x)=>a+Number(x.market||0),0));document.getElementById('mProfit').textContent=money(inv.reduce((a,x)=>a+Number(x.ask||0)-Number(x.cost||0),0));document.getElementById('mSpots').textContent=activeBreak?activeBreak.spots.length:0;
+  const pm=document.getElementById('profTargetMargin'), pf=document.getElementById('profFeePercent'), ps=document.getElementById('profShippingCost');
+  if(pm && document.activeElement!==pm) pm.value=shopProfile.targetMargin;
+  if(pf && document.activeElement!==pf) pf.value=shopProfile.feePercent;
+  if(ps && document.activeElement!==ps) ps.value=shopProfile.shippingCost;
+  loadAllBreaksHistory();
+  renderMarginGuide();
+}
+// Saves the real defaults everything else now reads from. RLS already
+// restricts writes to the shops table to its owner -- a staff member
+// attempting this gets a real error back, not a silent no-op, since
+// the try/catch surfaces whatever Supabase actually returns.
+async function saveShopProfile(){
+  if(!currentShopId){ alert('No shop signed in.'); return; }
+  const targetMargin=Number(document.getElementById('profTargetMargin').value)||0;
+  const feePercent=Number(document.getElementById('profFeePercent').value)||0;
+  const shippingCost=Number(document.getElementById('profShippingCost').value)||0;
+  try{
+    const {error}=await SB.from('shops').update({
+      default_target_margin:targetMargin,
+      default_fee_percent:feePercent,
+      default_shipping_cost:shippingCost
+    }).eq('id',currentShopId);
+    if(error) throw error;
+    shopProfile={targetMargin,feePercent,shippingCost};
+    alert('Business defaults saved.');
+  }catch(e){ alert('Could not save business profile: '+(e&&e.message?e.message:e)); }
+}
+// ALL-BREAKS PROFITABILITY. activeBreak only ever holds the single
+// most recent break -- a real "how much am I making from breaks"
+// question needs every break this shop has run, not just the one
+// currently open. Reuses computeBreakFinancials() (already built and
+// tested for one break) rather than a second, separate calculation
+// that could drift out of sync with it.
+async function loadAllBreaksHistory(){
+  const el=document.getElementById('allBreaksHistory');
+  if(!el)return;
+  if(!sbReady()||!currentShopId){ el.innerHTML='<div class="empty">Sign in to a shop to see break history.</div>'; return; }
+  try{
+    const {data,error}=await SB.from('shop_breaks')
+      .select('id,name,spots,wax_cost,shipping_cost,platform_fee_percent,created_at')
+      .eq('shop_id',currentShopId)
+      .order('created_at',{ascending:false});
+    if(error) throw error;
+    const breaks=(data||[]).map(b=>({
+      id:b.id,name:b.name,createdAt:b.created_at,
+      ...computeBreakFinancials({spots:b.spots||[],waxCost:b.wax_cost,shippingCost:b.shipping_cost,feePercent:b.platform_fee_percent})
+    }));
+    if(!breaks.length){ el.innerHTML='<div class="empty">No breaks yet.</div>'; return; }
+    const totalProfit=breaks.reduce((a,b)=>a+b.profit,0);
+    const totalRevenue=breaks.reduce((a,b)=>a+b.revenue,0);
+    const best=breaks.reduce((a,b)=>b.profit>a.profit?b:a,breaks[0]);
+    el.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <span>${breaks.length} break(s) · ${money(totalRevenue)} total revenue</span>
+        <b style="color:${totalProfit>=0?'var(--green,#22c55e)':'var(--red,#ef4444)'}">${money(totalProfit)} total profit</b>
+      </div>
+      <div class="sub" style="margin-bottom:10px">Best: <b>${esc(best.name)}</b> at ${money(best.profit)} profit</div>
+      <table style="width:100%;border-collapse:collapse">${breaks.map(b=>`
+        <tr style="border-top:1px solid var(--line,#293b57)">
+          <td style="padding:6px 4px">${esc(b.name)}</td>
+          <td style="padding:6px 4px;text-align:right;color:${b.profit>=0?'var(--green,#22c55e)':'var(--red,#ef4444)'}">${money(b.profit)}</td>
+        </tr>`).join('')}
+      </table>`;
+  }catch(e){ el.innerHTML=`<div class="empty">Could not load break history: ${esc(e.message)}</div>`; }
+}
+// MARGIN & DISCOUNT GUIDE. For a target margin M and a known cost C,
+// the lowest price that still hits that margin is C/(1-M) -- so the
+// most an item can be discounted off its current ask while still
+// clearing the target is 1 minus that minimum price divided by the
+// current ask. An item already priced below the minimum shows 0% safe
+// discount rather than a negative number, since there's genuinely no
+// room -- it's already under the target margin as priced.
+function renderMarginGuide(){
+  const el=document.getElementById('marginGuide');
+  if(!el)return;
+  const targetInput=document.getElementById('targetMargin');
+  // Only set from the shop's saved default if the field hasn't been
+  // touched yet this session -- once someone's actively adjusting it
+  // to test a scenario, this shouldn't keep resetting underneath them.
+  if(targetInput && !targetInput.dataset.touched) targetInput.value=shopProfile.targetMargin;
+  const targetPct=Number(targetInput?.value)||20;
+  const target=targetPct/100;
+  const priced=shopInventory.filter(x=>Number(x.cost)>0 && Number(x.ask)>0);
+  if(!priced.length){ el.innerHTML='<div class="empty">No inventory has both a cost and an ask price set yet.</div>'; return; }
+  const rows=priced.map(x=>{
+    const cost=Number(x.cost), ask=Number(x.ask);
+    const currentMargin=((ask-cost)/ask)*100;
+    const minPrice=cost/(1-target);
+    const safeDiscountPct=Math.max(0,(1-(minPrice/ask))*100);
+    return {name:x.name,cost,ask,currentMargin,safeDiscountPct};
+  }).sort((a,b)=>b.safeDiscountPct-a.safeDiscountPct);
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse">
+    <tr style="font-size:11px;color:var(--muted,#94a3b8)"><td>Card</td><td style="text-align:right">Current margin</td><td style="text-align:right">Safe discount</td></tr>
+    ${rows.slice(0,30).map(r=>`
+      <tr style="border-top:1px solid var(--line,#293b57)">
+        <td style="padding:6px 4px">${esc(r.name)}</td>
+        <td style="padding:6px 4px;text-align:right">${r.currentMargin.toFixed(0)}%</td>
+        <td style="padding:6px 4px;text-align:right;color:${r.safeDiscountPct>0?'var(--green,#22c55e)':'var(--red,#ef4444)'}">${r.safeDiscountPct.toFixed(0)}%</td>
+      </tr>`).join('')}
+  </table>${rows.length>30?`<div class="sub" style="margin-top:6px">Showing top 30 of ${rows.length} priced items.</div>`:''}`;
 }
 function buildLabels(){
   const inv=shopInventory;const el=document.getElementById('labelArea');el.style.display='block';el.innerHTML='<div class="label-sheet">'+inv.slice(0,60).map(x=>`<div class="label"><b>${esc(x.name)}</b><small>${esc([x.year,x.set,x.number].filter(Boolean).join(' · '))}</small><small>Market ${money(x.market)} · Ask ${money(x.ask)}</small></div>`).join('')+'</div>';
