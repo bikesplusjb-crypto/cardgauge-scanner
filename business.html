@@ -25,6 +25,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}.metric .v{font-size:25px;font-weight:900;margin-top:4px}.metric .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .spotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:12px}.spot{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}.spot strong{font-size:13px}.spot small{color:var(--muted);display:block;margin-top:4px}.empty{padding:25px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;margin-top:12px}
 #labelArea{display:none}.label-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.label{border:1px solid #000;background:#fff;color:#000;border-radius:4px;padding:8px;min-height:90px;font-family:Arial}.label b{font-size:12px}.label small{display:block;font-size:9px;margin-top:4px}.right{margin-left:auto}
+#proofArea{display:none}.proof-spot{border:1px solid #000;background:#fff;color:#000;border-radius:6px;padding:14px;margin-bottom:12px;font-family:Arial;page-break-inside:avoid}.proof-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px}.proof-cards{display:flex;flex-wrap:wrap;gap:10px}.proof-card{width:90px;text-align:center;font-size:10px}.proof-card img{width:90px;height:126px;object-fit:contain;border:1px solid #ccc;border-radius:4px}.proof-unverified{border:1px dashed #999;color:#666;border-radius:6px;padding:12px;margin-bottom:12px;font-family:Arial;font-size:12px}
 /* PRINT -- the whole point of this page is a sheet somebody cuts apart
    and sticks on cards. Printing it with no print stylesheet at all
    meant the entire dark app chrome (nav, heading, instructions, the
@@ -226,6 +227,12 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
     <div class="panel">
       <h2>Assign scanned cards</h2><div class="sub">This V1 uses the team's text in a scan result. If the API result has no team, you can assign manually.</div>
       <div id="breakAssignments"></div>
+    </div>
+    <div class="panel">
+      <h2>Break Proof</h2>
+      <div class="sub">A permanent record of what each customer was verified as receiving — card image, name, serial number, and who confirmed it. Snapshotted at the moment a spot is verified, so it stays accurate even if that card is later edited or removed from inventory.</div>
+      <div class="row"><button class="btn primary" onclick="buildBreakProof()">Generate Break Proof</button><button class="btn" onclick="window.print()">Print</button></div>
+      <div id="proofArea"></div>
     </div>
   </section>
 
@@ -2073,9 +2080,22 @@ async function toggleSpotVerified(i){
   if(spot.verified){
     spot.verifiedBy=load(LS_STAFF,'')||'Unknown';
     spot.verifiedAt=new Date().toISOString();
+    // SNAPSHOT, not a live reference. This is the actual difference
+    // between "a checkbox" and "a permanent record" -- s.cards only
+    // holds inventory IDs, and a live ID lookup would silently change
+    // or vanish if that inventory row is later edited or deleted,
+    // which defeats the entire point of a dispute record. Copying the
+    // real values (name, image, serial, year, set) at the moment of
+    // verification means this stays accurate regardless of what
+    // happens to inventory afterward.
+    spot.verifiedSnapshot=spot.cards
+      .map(id=>shopInventory.find(z=>z.id===id))
+      .filter(Boolean)
+      .map(x=>({name:x.name,image:x.image,serial:x.serial,year:x.year,set:x.set,team:x.team}));
   }else{
     spot.verifiedBy=null;
     spot.verifiedAt=null;
+    spot.verifiedSnapshot=null;
   }
   renderAssignments();
   try{
@@ -2084,6 +2104,40 @@ async function toggleSpotVerified(i){
       .eq('id',activeBreak.id);
     if(error){ alert('Marked locally, but could not save to the shared break: '+error.message); }
   }catch(e){ alert('Could not save verification status: '+(e&&e.message?e.message:e)); }
+}
+// Real, printable dispute record -- one section per customer, using
+// ONLY the permanent snapshot captured at verification time, never a
+// live inventory lookup. A spot that hasn't been verified yet has no
+// snapshot and is shown as explicitly unverified rather than silently
+// left out, so nobody mistakes an incomplete break for a clean one.
+function buildBreakProof(){
+  if(!activeBreak){ alert('No active break.'); return; }
+  const el=document.getElementById('proofArea');
+  el.style.display='block';
+  const when=d=>d?new Date(d).toLocaleString():'';
+  el.innerHTML=`<div style="font-family:Arial;color:#000;background:#fff;padding:6px">
+    <h2 style="margin-bottom:4px">${esc(activeBreak.name)}</h2>
+    <div style="font-size:11px;color:#555;margin-bottom:16px">Break Proof · Generated ${esc(new Date().toLocaleString())}</div>
+    ${activeBreak.spots.map(s=>{
+      if(!s.verified || !s.verifiedSnapshot){
+        return `<div class="proof-unverified"><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}<br>⚠ Not yet verified. No proof record exists for this spot.</div>`;
+      }
+      return `<div class="proof-spot">
+        <div class="proof-head">
+          <div><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}</div>
+          <div style="font-size:11px;text-align:right">Verified by ${esc(s.verifiedBy||'Unknown')}<br>${esc(when(s.verifiedAt))}</div>
+        </div>
+        <div class="proof-cards">${s.verifiedSnapshot.map(x=>`
+          <div class="proof-card">
+            ${x.image?`<img src="${esc(x.image)}" alt="">`:`<div style="width:90px;height:126px;border:1px solid #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#999">no image</div>`}
+            <div style="margin-top:3px">${esc(x.name)}</div>
+            <div style="color:#777">${esc([x.year,x.set].filter(Boolean).join(' · '))}</div>
+            ${x.serial?`<div style="font-weight:700">${esc(x.serial)}</div>`:''}
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 async function autoAssign(){
   // Wrapped end-to-end: every normal path here already ends in an
