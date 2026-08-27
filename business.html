@@ -2020,10 +2020,70 @@ async function editSpot(i,k,v){
     if(error) throw error;
   }catch(e){alert('Could not save that change: '+e.message)}
 }
+// VERIFY VIEW -- lets a breaker hold the physical pile of cards next
+// to the screen and confirm it actually matches what auto-assign put
+// in each spot, before shipping. Real gap this fills: auto-assign
+// (above) can silently mis-assign a card if two players share a last
+// name, or if a card's team never resolved -- nothing before this
+// caught that except reading the raw list of names. Thumbnails plus a
+// serial number (when the card has one) make a visual/physical check
+// actually fast, and a spot only reads as done when a person has
+// looked and said so -- this never marks itself verified.
 function renderAssignments(){
   const el=document.getElementById('breakAssignments');if(!activeBreak){el.innerHTML='';return}
-  const inv=shopInventory;const scanCards=results.filter(r=>r.data);
-  el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${activeBreak.spots.map(s=>`<div class="panel" style="margin:10px 0"><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}</b><div class="sub">${s.cards.length} assigned card(s)</div>${s.cards.length?'<ul>'+s.cards.map(id=>{const x=inv.find(z=>z.id===id);return `<li>${esc(x?x.name:id)}</li>`}).join('')+'</ul>':'<div class="sub" style="margin-top:5px">Nothing assigned yet.</div>'}</div>`).join('')}`;
+  const inv=shopInventory;
+  el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${activeBreak.spots.map((s,i)=>{
+    const cards=s.cards.map(id=>inv.find(z=>z.id===id)).filter(Boolean);
+    const verified=!!s.verified;
+    // Local, readable timestamp -- an ISO string is technically correct
+    // but nobody reads "2026-08-27T18:49:52Z" at a glance while holding
+    // a stack of cards. toLocaleString() with no options picks up
+    // whatever the browser's own locale/timezone already is.
+    const verifiedWhen=s.verifiedAt?new Date(s.verifiedAt).toLocaleString():'';
+    return `<div class="panel" style="margin:10px 0;${verified?'border-color:var(--green,#22c55e)':''}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}
+          <div class="sub">${cards.length} assigned card(s)${s.cards.length!==cards.length?` (${s.cards.length-cards.length} missing from inventory)`:''}</div>
+          ${verified?`<div class="sub" style="color:var(--green,#22c55e)">✓ Verified by ${esc(s.verifiedBy||'Unknown')} · ${esc(verifiedWhen)}</div>`:''}
+        </div>
+        <button class="btn ${verified?'':'blue'}" style="flex-shrink:0" onclick="toggleSpotVerified(${i})">${verified?'Undo verify':'Mark verified'}</button>
+      </div>
+      ${cards.length?`<div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${cards.map(x=>`
+        <div style="width:72px;text-align:center">
+          ${x.image?`<img src="${esc(x.image)}" style="width:72px;height:100px;object-fit:contain;border-radius:6px;background:#0002" alt="">`:`<div style="width:72px;height:100px;border-radius:6px;background:#0002;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted,#94a3b8)">no image</div>`}
+          <div style="font-size:9px;margin-top:3px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.name)}">${esc(x.name)}</div>
+          ${x.serial?`<div style="font-size:9px;color:var(--gold,#f59e0b)">${esc(x.serial)}</div>`:''}
+        </div>`).join('')}</div>`
+      :'<div class="sub" style="margin-top:5px">Nothing assigned yet.</div>'}
+    </div>`;
+  }).join('')}`;
+}
+// Records WHO verified a spot and WHEN, not just a bare true/false --
+// the actual thing that makes this a real record for dispute
+// resolution later (Break Proof), not just a checkbox. Reuses the
+// same staff-name field already used for scanned cards (LS_STAFF)
+// rather than inventing a second identity system. Unverifying clears
+// both -- a checkbox that's been toggled off shouldn't still claim
+// someone verified it.
+async function toggleSpotVerified(i){
+  if(!activeBreak)return;
+  const spot=activeBreak.spots[i];
+  const wasVerified=!!spot.verified;
+  spot.verified=!wasVerified;
+  if(spot.verified){
+    spot.verifiedBy=load(LS_STAFF,'')||'Unknown';
+    spot.verifiedAt=new Date().toISOString();
+  }else{
+    spot.verifiedBy=null;
+    spot.verifiedAt=null;
+  }
+  renderAssignments();
+  try{
+    const {error}=await SB.from('shop_breaks')
+      .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
+      .eq('id',activeBreak.id);
+    if(error){ alert('Marked locally, but could not save to the shared break: '+error.message); }
+  }catch(e){ alert('Could not save verification status: '+(e&&e.message?e.message:e)); }
 }
 async function autoAssign(){
   // Wrapped end-to-end: every normal path here already ends in an
