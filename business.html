@@ -708,9 +708,42 @@ document.getElementById('detectBtn').onclick=async()=>{
   }catch(e){setStatus('Detection error: '+e.message,'err')}
 };
 
+// Sends a single flagged card to the scan API anyway -- for when the
+// person looks at the crop, decides the flag was a false alarm (a
+// genuinely tight but complete crop, say), and wants it scanned
+// without re-detecting the whole batch. Shares the exact same request
+// shape as the main loop below, just for one card instead of all of
+// them.
+async function scanOneCard(i){
+  const r=results[i];
+  if(!r) return;
+  r.status='Scanning…';renderResults();
+  try{
+    const fd=new FormData();fd.append('front',r.file,'card-'+i+'.jpg');
+    if(r.back?.file) fd.append('back',r.back.file,'card-'+i+'-back.jpg');
+    const resp=await fetch(API+'/api/scan-card',{method:'POST',body:fd});
+    if(!resp.ok)throw new Error('Server '+resp.status);
+    const d=await resp.json();if(!d.success)throw new Error(d.error||'Scan failed');
+    r.data=d;r.status='Scanned';
+  }catch(e){r.status='Failed: '+e.message}
+  renderResults();
+  document.getElementById('addAllBtn').disabled=!results.some(x=>x.data);
+}
+
 document.getElementById('scanBtn').onclick=async()=>{
   let done=0;document.getElementById('scanBtn').disabled=true;document.getElementById('addAllBtn').disabled=true;
   for(const r of results){
+    // A crop already flagged as likely-wrong (too small relative to its
+    // batch-mates, or touching the frame edge) skips the API call
+    // entirely rather than spending a real scan on a fragment neither
+    // of us trusts yet. The person can still send it anyway with the
+    // per-card button this status renders -- this only removes it from
+    // the AUTOMATIC batch, it doesn't block it outright.
+    if(r.sizeOutlier || r.touchesEdge){
+      r.status='Needs review';renderResults();
+      done++;document.getElementById('scanned').textContent=done;document.getElementById('bar').style.width=(done/results.length*100)+'%';
+      continue;
+    }
     r.status='Scanning…';renderResults();
     try{
       const fd=new FormData();fd.append('front',r.file,'card-'+done+'.jpg');
@@ -723,7 +756,8 @@ document.getElementById('scanBtn').onclick=async()=>{
     done++;document.getElementById('scanned').textContent=done;document.getElementById('bar').style.width=(done/results.length*100)+'%';renderResults();
   }
   document.getElementById('addAllBtn').disabled=!results.some(r=>r.data);
-  setStatus('Batch scan finished. Review the results before adding inventory.','ok');
+  const skipped=results.filter(r=>r.status==='Needs review').length;
+  setStatus('Batch scan finished.'+(skipped?` ${skipped} flagged card(s) were skipped -- review them and scan individually if they look correct.`:'')+' Review the results before adding inventory.','ok');
 };
 
 // Same shop_inventory row shape addAllBtn writes -- see that handler's
@@ -1546,7 +1580,11 @@ function renderResults(){
         <div style="flex:1"><div style="font-size:10px;opacity:.6;margin-bottom:3px">FRONT (sent)</div><img src="${r.url}" alt="" style="width:100%;border-radius:8px;border:1px solid var(--surface3,#212d42)"></div>
         <div style="flex:1"><div style="font-size:10px;opacity:.6;margin-bottom:3px">BACK (sent)</div><img src="${r.back.url}" alt="" style="width:100%;border-radius:8px;border:1px solid var(--surface3,#212d42)"></div>
       </div>`:'';
-    return `<div class="item"><img src="${r.url}" alt=""><div class="body"><div class="name">${esc(name)}${variantBadgesHtml(variant)}</div><div class="meta">${esc(metaParts.filter(Boolean).join(' · '))}</div><div class="pill ${r.status==='Scanned'?'ok':r.status.startsWith('Failed')?'bad':'warn'}">${esc(r.status)}</div>${outlierWarning}${edgeWarning}${reviewBadgeHtml(reviewFlag)}${price?`<div style="margin-top:7px;font-weight:900;color:var(--green)">${money(price)}${basisLabel}</div>`:''}
+    // Only shown for a card the batch skipped over -- the flag warnings
+    // above already explain WHY; this is the way to say "I looked, it's
+    // actually fine" without having to re-detect the whole photo.
+    const scanAnywayBtn=r.status==='Needs review'?`<button class="btn" style="margin-top:6px;font-size:11px;padding:5px 10px" onclick="scanOneCard(${i})">Scan anyway</button>`:'';
+    return `<div class="item"><img src="${r.url}" alt=""><div class="body"><div class="name">${esc(name)}${variantBadgesHtml(variant)}</div><div class="meta">${esc(metaParts.filter(Boolean).join(' · '))}</div><div class="pill ${r.status==='Scanned'?'ok':r.status.startsWith('Failed')?'bad':'warn'}">${esc(r.status)}</div>${outlierWarning}${edgeWarning}${scanAnywayBtn}${reviewBadgeHtml(reviewFlag)}${price?`<div style="margin-top:7px;font-weight:900;color:var(--green)">${money(price)}${basisLabel}</div>`:''}
       ${backToggle}${debugToggle}</div></div>`
   }).join('');
 }
