@@ -664,6 +664,15 @@ input[type=file]{display:none;}
 .show-tip-ico{flex-shrink:0;font-size:12px;line-height:1.4;}
 .show-tip-go{flex-shrink:0;color:var(--blue);font-weight:700;align-self:center;}
 @media(max-width:520px){ .show-tip{border-radius:12px;max-width:none;} }
+/* Gold variant of .show-tip for the Business tool banner -- same shape,
+   same interaction pattern, different accent color to match the
+   cross-sell already live on cardgauge.com. Reusing the pattern rather
+   than inventing a new one for consistency and because it's already
+   proven to work well in this exact spot on this exact page. */
+.show-tip.gold{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.28);}
+.show-tip.gold:hover{border-color:var(--gold);background:rgba(245,158,11,.13);}
+.show-tip.gold b{color:var(--gold);}
+.show-tip.gold .show-tip-go{color:var(--gold);}
 
 .foot-asks{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:4px 0 14px;}
 .foot-ask{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:100px;
@@ -890,6 +899,20 @@ input[type=file]{display:none;}
     <span class="show-tip-ico">&#128246;</span>
     <span><b>At a show?</b> Log your finds in the card show log — open it before you go
     and it keeps working when the hall&rsquo;s wifi doesn&rsquo;t.</span>
+    <span class="show-tip-go">&rarr;</span>
+  </a>
+
+  <!-- This is the page people actually reach for camera in hand, which
+       makes it the right place for this, not just cardgauge.com --
+       multiscan's own camera capture happens inside business.html, but
+       nobody finds that page by guessing the URL. Same honest "beta"
+       framing as the cardgauge.com cross-sell, same single real copy
+       of the tool linked from both places. -->
+  <a class="show-tip gold" href="https://scan.cardgauge.com/business.html" target="_top"
+     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'business_tip_top',content_type:'scanner_standalone'})">
+    <span class="show-tip-ico">&#127978;</span>
+    <span><b>Run a shop or breaking on stream?</b> Photograph a whole table of cards at once
+    with CardGauge Business (beta) — free while in beta.</span>
     <span class="show-tip-go">&rarr;</span>
   </a>
 
