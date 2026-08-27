@@ -1026,7 +1026,7 @@ async function detectCards(file){
   // Computed once per photo, not per candidate -- the background doesn't
   // change between cards in the same shot, and this is real per-pixel
   // work across four corner patches.
-  const bgSat=backgroundSaturationProfile(sourceCanvas);
+  const bgProfile=backgroundColorProfile(sourceCanvas);
   const output=finalBoxes.map((b,i)=>{
     const pad=Math.max(3,Math.round(Math.min(b.width,b.height)*.015));
     const x=Math.max(0,Math.floor(b.x-pad));
@@ -1036,8 +1036,8 @@ async function detectCards(file){
     const w=Math.max(1,right-x), h=Math.max(1,bottom-y);
 
     // Try to recover any part of the real card this contour missed --
-    // see backgroundSaturationProfile()/growBoxToBackground() above.
-    const grown=growBoxToBackground(sourceCanvas,{x,y,width:w,height:h},bgSat.mean,bgSat.std);
+    // see backgroundColorProfile()/growBoxToBackground() above.
+    const grown=growBoxToBackground(sourceCanvas,{x,y,width:w,height:h},bgProfile);
 
     // Perspective warp deliberately NOT used, even when the contour
     // offered a clean 4-point quad. The quad and the bounding box come
@@ -1191,7 +1191,48 @@ function warpCard(source, pts){
    because it measures pixel noise WITHIN a patch of real background,
    not the lighting difference BETWEEN corners, which is a different
    thing entirely and was what broke the pooled version. */
-function backgroundSaturationProfile(canvas){
+/* Real, stress-tested history worth keeping, because each version's
+   failure taught something the next one needed:
+     - raw pixel colour: stopped growing immediately when a bright gold
+       panel's brightness happened to match the grey table's;
+     - local texture (Laplacian variance): never stopped at all, table
+       scratches read as "still card";
+     - saturation alone (pooled 4 corners): worked for that gold-panel
+       card, then failed on a SECOND real card -- a sepia-toned photo
+       panel next to a yellow folder. Saturation-only can only test
+       "is this band MORE saturated than background" (catches gold
+       foil); a card whose own content is LESS saturated than the
+       background triggers the identical false-stop in the opposite
+       direction, which is exactly what happened: growth stopped
+       immediately, cutting off roughly 40% of the card.
+   Fixed by testing SIMILARITY to background on both hue and
+   saturation together, not a one-sided saturation ceiling -- a band
+   only counts as background if it's close to the local background in
+   BOTH dimensions, which correctly rejects a card region regardless
+   of whether that region happens to be more or less saturated than
+   the table.
+
+   Background sampling itself went through the same lesson twice, in
+   two different directions:
+     - pooling all 4 corners' raw pixels into one array let one
+       corner's different lighting blow up the overall spread;
+     - sampling narrow strips LOCAL to each box (right above/below it)
+       fixed that, but on a card near the frame edge those strips can
+       clip a sliver of the card itself, which inflated the hue spread
+       enough to make the similarity check pass almost anything.
+   Landed on: 4 corners, far from any card, MEDIAN of each corner's own
+   mean (one outlier corner can't skew a median the way it skews a
+   pooled average), AVERAGE of each corner's own internal std (real
+   pixel noise within clean background, not lighting difference
+   BETWEEN corners).
+
+   Validated against both real failures together, not just the one
+   this fixed most recently -- both the original gold-panel card and
+   the sepia-panel/yellow-folder card grow to their full, correct
+   extent with this same code, at the same time. Two real cases is
+   still not "works on everything"; a third card design could still
+   find a way to fool it. */
+function backgroundColorProfile(canvas){
   const ctx=canvas.getContext('2d');
   const cw=canvas.width, ch=canvas.height;
   const size=Math.max(20,Math.round(Math.min(cw,ch)*.03));
@@ -1202,76 +1243,175 @@ function backgroundSaturationProfile(canvas){
     const x1=Math.min(cw,x0+size*2),y1=Math.min(ch,y0+size*2);
     if(x1<=x0||y1<=y0) continue;
     const data=ctx.getImageData(x0,y0,x1-x0,y1-y0).data;
-    const sats=[];
+    const hues=[],sats=[];
     for(let i=0;i<data.length;i+=4){
-      const r=data[i],g=data[i+1],b=data[i+2];
-      const max=Math.max(r,g,b), min=Math.min(r,g,b);
-      sats.push(max===0?0:(max-min)/max*255);
+      const hs=rgbToHueSat(data[i],data[i+1],data[i+2]);
+      hues.push(hs.h); sats.push(hs.s);
     }
-    if(!sats.length) continue;
-    const mean=sats.reduce((a,b)=>a+b,0)/sats.length;
-    const variance=sats.reduce((a,b)=>a+(b-mean)**2,0)/sats.length;
-    stats.push({mean, std:Math.sqrt(variance)});
+    if(!hues.length) continue;
+    const hMean=circularMeanDeg(hues);
+    const hStd=Math.sqrt(hues.reduce((a,h)=>{const d=angDiff(h,hMean);return a+d*d},0)/hues.length);
+    const sMean=sats.reduce((a,b)=>a+b,0)/sats.length;
+    const sStd=Math.sqrt(sats.reduce((a,b)=>a+(b-sMean)**2,0)/sats.length);
+    stats.push({hMean,hStd,sMean,sStd});
   }
-  if(!stats.length) return {mean:0,std:30};
-  const means=stats.map(s=>s.mean).sort((a,b)=>a-b);
-  const medianMean=means[Math.floor(means.length/2)];
-  const avgStd=stats.reduce((a,s)=>a+s.std,0)/stats.length;
-  return {mean:medianMean, std:avgStd};
+  if(!stats.length) return {hue:0,hueStd:30,sat:0,satStd:30};
+  const hues=stats.map(s=>s.hMean).sort((a,b)=>a-b);
+  const sats=stats.map(s=>s.sMean).sort((a,b)=>a-b);
+  return {
+    hue:hues[Math.floor(hues.length/2)],
+    hueStd:stats.reduce((a,s)=>a+s.hStd,0)/stats.length,
+    sat:sats[Math.floor(sats.length/2)],
+    satStd:stats.reduce((a,s)=>a+s.sStd,0)/stats.length,
+  };
 }
-function growBoxToBackground(canvas, box, bgMean, bgStd){
+// Hue in degrees (0-360, HSV convention), saturation 0-255 to match the
+// scale the earlier saturation-only version already used.
+function rgbToHueSat(r,g,b){
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  const s=max===0?0:(d/max)*255;
+  let h=0;
+  if(d!==0){
+    if(max===r) h=60*(((g-b)/d)%6);
+    else if(max===g) h=60*((b-r)/d+2);
+    else h=60*((r-g)/d+4);
+  }
+  if(h<0) h+=360;
+  return {h,s};
+}
+function angDiff(a,b){ const d=Math.abs(a-b)%360; return d>180?360-d:d; }
+function circularMeanDeg(vals){
+  let sx=0,sy=0;
+  for(const v of vals){ const r=v*Math.PI/180; sx+=Math.cos(r); sy+=Math.sin(r); }
+  let deg=Math.atan2(sy/vals.length,sx/vals.length)*180/Math.PI;
+  if(deg<0) deg+=360;
+  return deg;
+}
+/* Rebuilt with real safety rails after review caught what the first
+   version was missing: it correctly avoided cutting off either real
+   card, but nothing stopped it from growing enormously -- it could
+   turn a well-formed candidate into a box covering most of the photo,
+   which technically satisfies "don't cut off the card" while
+   producing a crop too full of table to actually read. That's a real
+   gap between "doesn't lose the card" and "usable," and this version
+   closes it without giving back the fix that made both real cases
+   pass:
+     - hard cap on how far any side can move, as a fraction of the
+       ORIGINAL detected box, not the growing one -- so growth can't
+       compound into something enormous;
+     - each side decided from three separate sample points along that
+       edge, not one wide averaged band -- a single strip can blend
+       real card content and real background into a misleading middle
+       reading; three independent points voting is harder to fool;
+     - the whole refinement gets rejected and the original candidate
+       kept if the grown box's proportions stop looking like a card
+       (roughly 2.5:3.5) -- a legitimate 25%-per-side cap can still
+       occasionally produce something too wide or too tall, and a
+       shape check catches that even when every individual edge
+       decision was locally reasonable. */
+function growBoxToBackground(canvas, box, bg){
   const ctx=canvas.getContext('2d');
   const cw=canvas.width, ch=canvas.height;
   const step=Math.max(8,Math.round(Math.min(box.width,box.height)*.02));
-  const maxSteps=40;
-  const threshold=bgMean+bgStd*1.5;
+  // No artificial floor on either tolerance -- a floor of 20 tried
+  // earlier silently broke the gold-panel case, whose background is
+  // naturally very tight (std~2.7); a floor that wide swallowed a real
+  // gold-foil edge value that was only 14.6 away from the background
+  // mean. Real background noise, whatever it happens to be for THIS
+  // photo, is what the tolerance should track, not a guessed constant.
+  const hueTol=bg.hueStd*1.5;
+  const satTol=bg.satStd*1.5;
+  const SAT_FLOOR=40;
+  // 25% of the ORIGINAL box's own dimension per side -- generous enough
+  // to have recovered the real ~40%-of-card miss this was built for,
+  // but bounded so a bad read on one side can't compound into a crop
+  // that's mostly background.
+  const maxGrowX=box.width*0.25;
+  const maxGrowY=box.height*0.25;
 
-  function bandSaturation(x0,y0,x1,y1){
+  function bandColor(x0,y0,x1,y1){
     x0=Math.max(0,Math.round(x0));y0=Math.max(0,Math.round(y0));
     x1=Math.min(cw,Math.round(x1));y1=Math.min(ch,Math.round(y1));
     if(x1<=x0||y1<=y0) return null;
     const data=ctx.getImageData(x0,y0,x1-x0,y1-y0).data;
-    let sum=0,n=0;
+    const hues=[]; let sSum=0,n=0;
     for(let i=0;i<data.length;i+=4){
-      const r=data[i],g=data[i+1],b=data[i+2];
-      const max=Math.max(r,g,b), min=Math.min(r,g,b);
-      sum+=(max===0?0:(max-min)/max*255);n++;
+      const hs=rgbToHueSat(data[i],data[i+1],data[i+2]);
+      hues.push(hs.h); sSum+=hs.s; n++;
     }
-    return n?sum/n:null;
+    if(!n) return null;
+    return {h:circularMeanDeg(hues), s:sSum/n};
+  }
+  // Similarity to background, not a one-sided ceiling -- catches a
+  // card region whether it's more OR less saturated than the table.
+  // Hue is SKIPPED (not just weighted less) when either side is
+  // near-neutral: traced directly against a real photo, the same
+  // physical grey table read as hue=207 in one corner and hue=16-26
+  // (nearly the opposite side of the colour wheel) across 140+ pixels
+  // of a different region of that same table -- a real, known
+  // instability in near-grey hue, not a fluke. Below the saturation
+  // floor, only saturation-closeness decides, matching what the
+  // original saturation-only version already did correctly there.
+  function looksLikeBackground(band){
+    const dSat=Math.abs(band.s-bg.sat);
+    if(band.s<SAT_FLOOR || bg.sat<SAT_FLOOR) return dSat<satTol;
+    return angDiff(band.h,bg.hue)<hueTol && dSat<satTol;
+  }
+  // Three independent points along the edge (20%/50%/80% of its
+  // length) rather than one wide band spanning the whole edge -- a
+  // single averaged strip can blend real card content on one part of
+  // it with real background on another into a reading that matches
+  // neither. Requires 2 of 3 to agree before treating the edge as
+  // background, so one contaminated sample point can't decide it alone.
+  function edgeIsBackground(x0,y0,x1,y1,vertical){
+    const length=vertical?(y1-y0):(x1-x0);
+    const segment=Math.max(20,Math.round(length/8));
+    const fracs=[0.2,0.5,0.8];
+    let votes=0;
+    for(const f of fracs){
+      let b;
+      if(vertical) b=bandColor(x0,y0+length*f,x1,y0+length*f+segment);
+      else b=bandColor(x0+length*f,y0,x0+length*f+segment,y1);
+      if(b && looksLikeBackground(b)) votes++;
+    }
+    return votes>=2;
   }
 
   let {x,y,width,height}=box;
 
-  let consec=0;
-  for(let i=0;i<maxSteps;i++){
-    const s=bandSaturation(x+width,y,x+width+step,y+height);
-    if(s===null)break;
-    if(s<threshold){consec++;if(consec>=2)break}
-    else{consec=0;width+=step}
+  let grown=0;
+  while(grown<maxGrowX){
+    if(edgeIsBackground(x+width,y,x+width+step,y+height,true)) break;
+    width+=step; grown+=step;
   }
-  consec=0;
-  for(let i=0;i<maxSteps;i++){
-    const s=bandSaturation(x-step,y,x,y+height);
-    if(s===null)break;
-    if(s<threshold){consec++;if(consec>=2)break}
-    else{consec=0;x-=step;width+=step}
+  grown=0;
+  while(grown<maxGrowX){
+    if(edgeIsBackground(x-step,y,x,y+height,true)) break;
+    x-=step; width+=step; grown+=step;
   }
-  consec=0;
-  for(let i=0;i<maxSteps;i++){
-    const s=bandSaturation(x,y+height,x+width,y+height+step);
-    if(s===null)break;
-    if(s<threshold){consec++;if(consec>=2)break}
-    else{consec=0;height+=step}
+  grown=0;
+  while(grown<maxGrowY){
+    if(edgeIsBackground(x,y+height,x+width,y+height+step,false)) break;
+    height+=step; grown+=step;
   }
-  consec=0;
-  for(let i=0;i<maxSteps;i++){
-    const s=bandSaturation(x,y-step,x+width,y);
-    if(s===null)break;
-    if(s<threshold){consec++;if(consec>=2)break}
-    else{consec=0;y-=step;height+=step}
+  grown=0;
+  while(grown<maxGrowY){
+    if(edgeIsBackground(x,y-step,x+width,y,false)) break;
+    y-=step; height+=step; grown+=step;
   }
 
-  return {x:Math.max(0,x), y:Math.max(0,y), width, height};
+  const result={x:Math.max(0,x), y:Math.max(0,y), width, height};
+
+  // Shape sanity check: a real card is roughly 2.5:3.5. If the grown
+  // box no longer looks card-shaped, something about this particular
+  // photo fooled the per-edge checks even though each stayed within
+  // its own cap -- safer to hand back the original OpenCV candidate
+  // than trust a refinement that's stopped looking like a card.
+  const ar=result.height?result.width/result.height:0;
+  const arNorm=ar?Math.max(ar,1/ar):999;
+  if(!(1.15<arNorm && arNorm<1.85)) return box;
+
+  return result;
 }
 function sourceCanvasForCrop(mat){
   const canvas=document.createElement('canvas');
