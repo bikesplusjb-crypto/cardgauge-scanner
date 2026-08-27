@@ -1348,7 +1348,54 @@ async function detectCards(file){
     return (a.x+a.width/2)-(b.x+b.width/2);
   });
 
-  const finalBoxes=splitCandidates.slice(0,20);
+  /* CONTENT CHECK -- rejects a candidate whose interior doesn't actually
+     look like a real card, even though its outer shape passed every gate
+     above. Real failure found in testing: on a photo with pencil
+     scribbles on the background and a reflective plastic case, a large
+     region combining mostly-empty background, a scribble mark, and a
+     sliver of case-edge reflection closed into ONE contour with
+     card-like proportions purely by coincidence -- passing size and
+     aspect-ratio checks despite being almost entirely empty table.
+
+     Tried checking what fraction of the interior colour-matches the
+     photo's background first (reusing the approach built for boundary
+     recovery). Didn't hold up: tested against several real, correctly-
+     detected cards and their background-match fraction ranged from 14%
+     to 44% -- and the actual false positive measured 47%, sitting
+     essentially inside that same range. No safe threshold exists between
+     "real card" and "background" on that specific signal.
+
+     What actually separates them cleanly: real printed card content has
+     far more visual detail than empty table or a soft pencil mark, even
+     under blur. Measured via Laplacian variance (a standard "how much
+     genuine detail is here" measure) -- tested against real photos,
+     TWICE catching genuine mistakes in my own test coordinates along the
+     way (a box that looked right but was actually sampling background
+     next to the card, not the card itself; verified by looking at each
+     one directly before trusting its number). With coordinates verified
+     correct, every real card measured 387-1470; both real false
+     positives measured under 180 -- a clean, wide gap, not a close call.
+
+     Dropped outright, not just flagged like the size-outlier check below:
+     that check can still be a genuine (if oddly cropped) card worth a
+     human look, but a region this textureless isn't a card at all --
+     sending it to the scan API would just waste a real request on
+     nothing. */
+  const contentChecked=splitCandidates.filter(b=>{
+    const cx=Math.max(0,Math.min(c.width-1,b.x)), cy=Math.max(0,Math.min(c.height-1,b.y));
+    const cw=Math.min(b.width,c.width-cx), ch=Math.min(b.height,c.height-cy);
+    if(cw<10||ch<10) return false;
+    const roi=gray.roi(new cv.Rect(cx,cy,cw,ch));
+    const lap=new cv.Mat();
+    cv.Laplacian(roi,lap,cv.CV_64F);
+    const mean=new cv.Mat(), stddev=new cv.Mat();
+    cv.meanStdDev(lap,mean,stddev);
+    const variance=stddev.data64F[0]**2;
+    roi.delete();lap.delete();mean.delete();stddev.delete();
+    return variance>250;
+  });
+
+  const finalBoxes=contentChecked.slice(0,20);
 
   if(!finalBoxes.length){
     [src,gray,blur,edge,contours,hierarchy].forEach(x=>x.delete());
