@@ -2716,18 +2716,12 @@ function ctaDefault(){
     eyebrow:'THIS WAS A LOOK-UP. THE REST IS A COLLECTION.',
     title:'CardGauge Scan gets you a price.<br/>CardGauge keeps the collection.',
     body:'A binder you can share, a tracker that works out what you\'d actually clear after '
-        +'fees, set checklists that name the cards you\'re missing, and a show log that keeps '
-        +'working when the hall\'s wifi doesn\'t.',
+        +'fees, and a show log that keeps working when the hall\'s wifi doesn\'t.',
     /* Sold comps is the thing they just used — listing it here spends a
        slot telling somebody about the screen they are already on. The
        grade pre-screen is the only tool that answers a DECISION rather
        than showing data, and it was the one missing. */
-    /* "Binder & set checklists" rather than "My Binder". The checklist is
-       not a page of its own — it lives inside the binder as a view of
-       saved cards grouped by set — so a sixth chip would point at the
-       same URL and say the same thing twice. Naming it here costs
-       nothing and is the only place the feature is mentioned at all. */
-    chips:['Grade pre-screen','Binder & set checklists','Profit tracker','Portfolio','Card show log'],
+    chips:['Grade pre-screen','My Binder','Profit tracker','Portfolio','Card show log'],
     btn:'Open full CardGauge',
     href:'https://www.cardgauge.com',
     tag:'cta_default_to_cardgauge',
@@ -3219,8 +3213,7 @@ function renderResult(d){
         +'<div class="save-note">'
         +(isPro
            ? 'Kept cards get re-priced every night. Your binder is unlimited.'
-           : '<b>Kept cards get re-priced every night</b>, so you can see what moved — and '
-             +'they group into sets so you can see which numbers you\'re still missing. '
+           : '<b>Kept cards get re-priced every night</b>, so you can see what moved. '
              +'First '+FREE_CARD_LIMIT+' are free.')
         +'</div>';
     }
