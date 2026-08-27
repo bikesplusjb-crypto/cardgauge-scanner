@@ -300,9 +300,15 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <ol>
         <li>Tap <b>Sign in</b> at the top, enter your email, enter the code sent to your inbox.</li>
         <li>If this is your shop's first time: tap <b>Create a shop</b>, give it a name.</li>
-        <li>If you're joining a shop someone else already created, they'll need to add you &mdash; there's no self-serve "join" yet, so ask them to loop you in.</li>
+        <li>If you're joining a shop someone else already created, they'll invite you &mdash; you'll get a real email, and signing in with that same address attaches you to their shop automatically. No code to enter, no separate "join" step.</li>
       </ol>
       <p>Once you're in, everything you do is tied to your shop, not just your device. A card scanned on a phone shows up on a desktop signed into the same shop, instantly.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Inviting staff</h2>
+      <p>Once you're signed into a shop, an <b>"+ Invite staff"</b> button appears next to Sign out. Enter their email, and they'll get a real invite email &mdash; the moment they sign in with that address, they're automatically added to your shop, no manual step on your end.</p>
+      <p>If that person already has their own personal CardGauge account, the invite email won't send (Supabase's invite system is built for brand-new accounts) &mdash; but they'll still be added to your shop automatically the next time they sign in normally. You'll just want to tell them directly in that case.</p>
     </div>
 
     <div class="panel">
@@ -345,12 +351,18 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <h2>Break Manager</h2>
       <p>For running a live break.</p>
       <ol>
-        <li>On the Break Manager tab, name your break, set how many spots, and create it.</li>
+        <li>On the Break Manager tab, name your break, set how many spots, and create it. Each spot also gets a <b>price</b> field &mdash; enter what that spot sold for, since this is what drives the profitability numbers below, not a separate typed-in total.</li>
         <li>For each spot, add a customer name and a team/player.</li>
-        <li><b>Auto-assign scanned cards</b> matches cards from your <i>current</i> Multi-Scan session to spots by team &mdash; this only works on cards from that same scanning session, so the order is: scan &rarr; add to inventory &rarr; then go assign, without reloading the page in between.</li>
+        <li><b>Auto-assign scanned cards</b> pulls from your shop's entire unsold inventory, not just whatever you last scanned &mdash; so if a break's cards were photographed across several separate batches over the course of a stream, running this once at the end still picks up all of them, matching each card to the spot with the same team.</li>
         <li>If a card's team can't be matched automatically, you can assign it manually.</li>
       </ol>
-      <p><b>One real limitation right now:</b> only your shop's most recent break loads automatically. Older breaks aren't lost &mdash; they're just not the one shown &mdash; there's no way yet to browse or switch back to a previous one.</p>
+      <p><b>One real limitation right now:</b> only your shop's most recent break loads automatically. Older breaks aren't lost &mdash; they're just not the one shown on this tab &mdash; there's no way yet to browse or switch back to a previous one on Break Manager (though its numbers still count toward the Business Dashboard's all-breaks totals).</p>
+    </div>
+
+    <div class="panel">
+      <h2>Verify &amp; Break Proof</h2>
+      <p>Below the assignment list, each spot shows the actual card thumbnails and serial numbers that got auto-assigned &mdash; hold the physical pile next to the screen and check it matches. Tap <b>Mark verified</b> once you've confirmed a spot; it records who verified it and when, right under the count.</p>
+      <p><b>Break Proof</b>, further down, turns every verified spot into a real, printable dispute record &mdash; card images, names, serial numbers, who verified it, timestamped. This is a genuine snapshot taken the moment you verify, not a live view &mdash; if a card is later edited or removed from inventory, the proof for that break stays exactly as it was. A spot that hasn't been verified shows up as an explicit warning in the proof, not silently skipped.</p>
     </div>
 
     <div class="panel">
@@ -359,11 +371,20 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
     </div>
 
     <div class="panel">
+      <h2>Business Profile &amp; Profitability</h2>
+      <p>On the Business Dashboard, set your shop's real defaults once &mdash; <b>target margin, marketplace fee %, and typical shipping cost</b>. Everything below reads from these instead of asking you to re-type them:</p>
+      <ul>
+        <li>Every <b>new break</b> starts with your fee % and shipping cost already filled in.</li>
+        <li>The <b>Margin &amp; Discount Guide</b> defaults to your target margin, and shows &mdash; for every priced item &mdash; how far you can safely discount it before eating into that margin. An item already priced below your target shows up clearly, not hidden.</li>
+        <li><b>Break Profitability</b> shows every break your shop has run, not just the current one &mdash; total revenue, total profit, and which break actually performed best. Per-break, it's Revenue (sum of spot prices) minus Wax, Fees, and Shipping.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
       <h2>Known limitations (beta, being honest about it)</h2>
       <ul>
-        <li><b>Adjacent cards placed close together can get detected as one merged card</b> instead of two separate ones &mdash; this is a real, known issue, not fixed yet. Leaving real space between cards avoids it.</li>
-        <li><b>Occasional false-positive detections</b> on background texture (a fold in a folder, a shadow) can show up as an extra, empty "card" &mdash; usually obvious when you look at the crop, easy to ignore or re-detect.</li>
-        <li>No self-serve way to join an existing shop yet &mdash; has to be done directly, not through the app.</li>
+        <li>No way yet to browse or switch back to a past break on the Break Manager tab itself &mdash; only the most recent one loads there, though its numbers still count in the Dashboard's all-breaks totals.</li>
+        <li>Inviting someone who already has their own personal CardGauge account won't send an email &mdash; they still get added automatically once they sign in, you'll just need to tell them directly.</li>
         <li>This is real, shared, permanent storage (not a demo) &mdash; but it's still beta software. Don't treat it as your only record of anything irreplaceable yet.</li>
       </ul>
     </div>
