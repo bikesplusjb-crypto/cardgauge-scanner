@@ -664,15 +664,27 @@ input[type=file]{display:none;}
 .show-tip-ico{flex-shrink:0;font-size:12px;line-height:1.4;}
 .show-tip-go{flex-shrink:0;color:var(--blue);font-weight:700;align-self:center;}
 @media(max-width:520px){ .show-tip{border-radius:12px;max-width:none;} }
-/* Gold variant of .show-tip for the Business tool banner -- same shape,
-   same interaction pattern, different accent color to match the
-   cross-sell already live on cardgauge.com. Reusing the pattern rather
-   than inventing a new one for consistency and because it's already
-   proven to work well in this exact spot on this exact page. */
-.show-tip.gold{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.28);}
-.show-tip.gold:hover{border-color:var(--gold);background:rgba(245,158,11,.13);}
-.show-tip.gold b{color:var(--gold);}
-.show-tip.gold .show-tip-go{color:var(--gold);}
+/* Replaced the quiet gold .show-tip variant with a real banner --
+   same component and CSS as the cardgauge.com version, for visual
+   consistency across both sites, sized to actually compete with the
+   headline for attention instead of blending into the page. */
+.biz-banner{display:flex;align-items:center;gap:16px;text-align:left;text-decoration:none;
+  background:linear-gradient(135deg,rgba(245,158,11,.16),rgba(245,158,11,.06));
+  border:2px solid var(--gold);border-radius:18px;
+  padding:18px 22px;margin:18px auto 0;max-width:640px;
+  transition:all .2s;}
+.biz-banner:hover{background:linear-gradient(135deg,rgba(245,158,11,.24),rgba(245,158,11,.1));
+  transform:translateY(-1px);box-shadow:0 8px 24px rgba(245,158,11,.2);}
+.biz-banner-ico{flex-shrink:0;font-size:34px;line-height:1;}
+.biz-banner-body{flex:1;min-width:0;}
+.biz-banner-k{font-family:var(--fm);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:3px;}
+.biz-banner-beta{display:inline-block;background:var(--gold);color:#1a1206;
+  font-family:var(--fm);font-size:11px;font-weight:900;letter-spacing:.08em;
+  padding:3px 9px;border-radius:6px;margin-bottom:6px;}
+.biz-banner-h{font-weight:800;font-size:16.5px;color:var(--text);line-height:1.3;margin-bottom:3px;}
+.biz-banner-p{font-size:12.5px;color:var(--text2);line-height:1.5;}
+.biz-banner-go{flex-shrink:0;color:var(--gold);font-weight:800;font-size:20px;align-self:center;}
+@media(max-width:520px){ .biz-banner{border-radius:14px;padding:15px 16px;gap:12px;} .biz-banner-ico{font-size:28px;} .biz-banner-h{font-size:15px;} }
 
 .foot-asks{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:4px 0 14px;}
 .foot-ask{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:100px;
@@ -885,6 +897,29 @@ input[type=file]{display:none;}
   <p>The year, the set and the card number are printed on the back &mdash; the front is
   artwork. And when the sales it finds are mixing versions, it tells you rather than
   averaging them into a number that looks certain.</p>
+
+  <!-- Moved to the very top and given a real banner instead of a small
+       pill -- this is the page people actually reach for camera in
+       hand, which makes it the right place for this to be prominent,
+       not just present. multiscan's own camera capture happens inside
+       business.html, but nobody finds that page by guessing the URL. -->
+  <a class="biz-banner" href="https://scan.cardgauge.com/business.html" target="_top"
+     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'business_banner_top',content_type:'scanner_standalone'})">
+    <span class="biz-banner-ico">🏪</span>
+    <div class="biz-banner-body">
+      <div class="biz-banner-beta">BETA TEST · FREE</div>
+      <div class="biz-banner-k">CardGauge Business</div>
+      <div class="biz-banner-h">Wanna make your shop or break easier to manage? Try it free while in beta.</div>
+      <div class="biz-banner-p">Scan a whole table of cards at once — shared inventory your team sees live, on any device.</div>
+    </div>
+    <span class="biz-banner-go">→</span>
+  </a>
+  <div style="text-align:center;margin-top:6px;margin-bottom:14px">
+    <a href="https://scan.cardgauge.com/business.html#help" target="_top"
+       style="font-family:var(--fm);font-size:10.5px;color:var(--text3);text-decoration:underline;"
+       onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'business_howto_top',content_type:'scanner_standalone'})">See how it works</a>
+  </div>
+
   <!-- High on the page because it is a REASON to be here, not a
        footnote. Somebody heading to a show needs to know this before
        they leave the house, and the footer is read by nobody.
@@ -899,20 +934,6 @@ input[type=file]{display:none;}
     <span class="show-tip-ico">&#128246;</span>
     <span><b>At a show?</b> Log your finds in the card show log — open it before you go
     and it keeps working when the hall&rsquo;s wifi doesn&rsquo;t.</span>
-    <span class="show-tip-go">&rarr;</span>
-  </a>
-
-  <!-- This is the page people actually reach for camera in hand, which
-       makes it the right place for this, not just cardgauge.com --
-       multiscan's own camera capture happens inside business.html, but
-       nobody finds that page by guessing the URL. Same honest "beta"
-       framing as the cardgauge.com cross-sell, same single real copy
-       of the tool linked from both places. -->
-  <a class="show-tip gold" href="https://scan.cardgauge.com/business.html" target="_top"
-     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'business_tip_top',content_type:'scanner_standalone'})">
-    <span class="show-tip-ico">&#127978;</span>
-    <span><b>Run a shop or breaking on stream?</b> Photograph a whole table of cards at once
-    with CardGauge Business (beta) — free while in beta.</span>
     <span class="show-tip-go">&rarr;</span>
   </a>
 
