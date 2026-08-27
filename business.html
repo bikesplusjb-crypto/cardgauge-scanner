@@ -66,7 +66,10 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 <div class="app">
   <div class="top">
     <div class="logo">CARD<span>GAUGE</span> <small>BUSINESS</small><span class="badge">ISOLATED V1</span></div>
-    <a href="https://www.cardgauge.com" style="color:var(--muted);font-size:11px">CardGauge.com</a>
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="btn gold" style="padding:6px 12px;font-size:11px" onclick="shareApp()">Share &#128257;</button>
+      <a href="https://www.cardgauge.com" style="color:var(--muted);font-size:11px">CardGauge.com</a>
+    </div>
   </div>
 
   <!-- SHOP SIGN-IN -- this is what makes everything below actually
@@ -511,6 +514,40 @@ async function logOutShop(){
 // manual timeout on the edge function call specifically, since a
 // network request that never resolves would produce exactly this
 // silence -- no success, no failure, just an await that never returns.
+// General "tell another shop about this" sharing -- deliberately
+// separate from inviteStaff() below. That one attaches a specific
+// person to THIS shop's inventory and requires being signed in; this
+// one is just spreading the word about the tool itself, works for
+// anyone regardless of auth state, and doesn't touch the database at
+// all. navigator.share() is the actual native OS share sheet on a
+// phone (Messages, Mail, WhatsApp, whatever's installed) -- that's
+// what "native share button" means here, not a custom-built menu
+// trying to imitate one.
+async function shareApp(){
+  const shareData={
+    title:'CardGauge Business (beta)',
+    text:"Scan a whole table of cards at once and keep one shared inventory your team can see — built for card shops and breakers. Free while in beta.",
+    url:'https://scan.cardgauge.com/business.html'
+  };
+  if(navigator.share){
+    try{ await navigator.share(shareData); }
+    catch(e){ /* AbortError just means they closed the share sheet -- not an error worth alerting on */ }
+    return;
+  }
+  // Fallback for browsers with no native share sheet (most desktop
+  // browsers) -- copy a ready-to-paste message instead.
+  const fallbackText=`${shareData.text}
+${shareData.url}`;
+  try{
+    await navigator.clipboard.writeText(fallbackText);
+    alert('Link copied — paste it into a text, email, or DM.');
+  }catch(e){
+    // Clipboard access itself can be blocked (permissions, non-HTTPS
+    // context) -- last resort, just show the text to copy manually.
+    prompt('Copy this to share:', fallbackText);
+  }
+}
+
 async function inviteStaff(){
   try{
     if(!currentShopId){ alert('No shop selected.'); return; }
@@ -1122,6 +1159,12 @@ async function detectCards(file){
      exactly the false-small-box failure mode above. */
   cv.GaussianBlur(gray,blur,new cv.Size(9,9),0);
   cv.Canny(blur,edge,25,120,3);
+  // Kept separate from the dilated map below -- used later to find a
+  // genuine split point between two merged cards. See the split-check
+  // block after candidate selection for why this needs to be the RAW,
+  // undilated edges specifically.
+  const edgeRaw=new cv.Mat();
+  cv.Canny(blur,edgeRaw,25,120,3);
   const edgeCloseKernel=cv.Mat.ones(5,5,cv.CV_8U);
   cv.dilate(edge,edge,edgeCloseKernel,new cv.Point(-1,-1),2);
   edgeCloseKernel.delete();
@@ -1218,15 +1261,94 @@ async function detectCards(file){
     if(!duplicate) selected.push(b);
   }
 
+  /* SPLIT CHECK -- catches two adjacent cards merged into one candidate
+     by the dilation step above. Real bug, found by testing: two portrait
+     cards placed close together often combine into a bounding box whose
+     OWN aspect ratio (roughly double-width, same height) still falls
+     inside the normal single-card aspect gate by mathematical
+     coincidence, so the shape check above can't catch it on its own.
+
+     First attempt: match the gap's colour against the photo's general
+     background (reusing the approach already built for boundary
+     recovery). Failed on a real photo -- the visible strip between two
+     raised card cases sits in their own cast shadow, which genuinely
+     changes its measured colour, not just its brightness, so it didn't
+     match the general background closely enough.
+
+     Switched to the RAW (undilated) edge map instead: a shadow boundary
+     is still a real luminance edge even when its colour doesn't match
+     open background, so Canny catches it either way regardless of
+     lighting.
+
+     A raw density peak alone isn't enough by itself, though -- tested
+     directly against a real single shiny card (an Optic refractor) and
+     its OWN internal foil pattern produced a STRONGER false peak (4.19x
+     its own baseline) than the genuine merge case (3.15x). Peak height
+     can't tell a real seam from foil noise.
+
+     What actually discriminates: whether splitting AT that peak
+     produces two halves that BOTH still look card-shaped. Verified
+     against three real photos -- correctly splits a genuine merge,
+     correctly refuses to split a real shiny card whose own texture
+     produced a stronger peak, correctly refuses to split a different
+     real shiny card too. The split point doesn't need to be exact --
+     each resulting half still goes through the normal growth/crop step
+     afterward, which can correct a slightly imprecise seam.
+
+     Deliberately single-pass: this doesn't recursively re-check its own
+     output for a THIRD merged card. No real test photo tonight showed a
+     3-way merge, and guessing at that without evidence is exactly the
+     kind of speculation this fix was built to avoid. */
+  const edgeRawData=edgeRaw.data, edgeRawCols=edgeRaw.cols, edgeRawRows=edgeRaw.rows;
+  const splitCandidates=[];
+  for(const cand of selected){
+    const {x:bx,y:by,width:bw,height:bh}=cand;
+    const scanY0=Math.max(0,by+Math.round(bh*0.2)), scanY1=Math.min(edgeRawRows,by+Math.round(bh*0.8));
+    const midStart=Math.round(bw*0.15), midEnd=Math.round(bw*0.85);
+
+    const density=new Array(bw).fill(0);
+    for(let dx=0;dx<bw;dx++){
+      const scanX=bx+dx;
+      if(scanX<0||scanX>=edgeRawCols) continue;
+      let count=0;
+      for(let sy=scanY0;sy<scanY1;sy++) if(edgeRawData[sy*edgeRawCols+scanX]>0) count++;
+      density[dx]=count;
+    }
+
+    const win=5, half=Math.floor(win/2);
+    const smoothed=density.map((_,i)=>{
+      let sum=0,n=0;
+      for(let k=-half;k<=half;k++){const idx=i+k; if(idx>=0&&idx<bw){sum+=density[idx];n++}}
+      return n?sum/n:0;
+    });
+
+    let peakIdx=midStart, peakVal=-1;
+    for(let i=midStart;i<midEnd;i++) if(smoothed[i]>peakVal){peakVal=smoothed[i];peakIdx=i}
+
+    const leftW=peakIdx, rightW=bw-peakIdx;
+    if(leftW<40||rightW<40){ splitCandidates.push(cand); continue }
+
+    const leftAr=Math.max(leftW/bh,bh/leftW), rightAr=Math.max(rightW/bh,bh/rightW);
+    const bothCardLike=(leftAr>1.05&&leftAr<1.95)&&(rightAr>1.05&&rightAr<1.95);
+
+    if(bothCardLike){
+      splitCandidates.push({x:bx,y:by,width:leftW,height:bh,area:leftW*bh,score:cand.score,quad:false,points:null});
+      splitCandidates.push({x:bx+peakIdx,y:by,width:rightW,height:bh,area:rightW*bh,score:cand.score,quad:false,points:null});
+    }else{
+      splitCandidates.push(cand);
+    }
+  }
+  edgeRaw.delete();
+
   // Reading order.
-  selected.sort((a,b)=>{
+  splitCandidates.sort((a,b)=>{
     const ay=a.y+a.height/2, by=b.y+b.height/2;
     const rowTolerance=Math.min(a.height,b.height)*.50;
     if(Math.abs(ay-by)>rowTolerance) return ay-by;
     return (a.x+a.width/2)-(b.x+b.width/2);
   });
 
-  const finalBoxes=selected.slice(0,20);
+  const finalBoxes=splitCandidates.slice(0,20);
 
   if(!finalBoxes.length){
     [src,gray,blur,edge,contours,hierarchy].forEach(x=>x.delete());
