@@ -663,6 +663,10 @@ input[type=file]{display:none;}
 .show-tip b{color:var(--blue);}
 .show-tip-ico{flex-shrink:0;font-size:12px;line-height:1.4;}
 .show-tip-go{flex-shrink:0;color:var(--blue);font-weight:700;align-self:center;}
+.share-link{display:inline-flex;align-items:center;gap:5px;margin-top:10px;
+  background:none;border:none;font-family:var(--fm);font-size:11px;color:var(--text3);
+  cursor:pointer;text-decoration:underline;padding:4px;}
+.share-link:hover{color:var(--text);}
 @media(max-width:520px){ .show-tip{border-radius:12px;max-width:none;} }
 /* Replaced the quiet gold .show-tip variant with a real banner --
    same component and CSS as the cardgauge.com version, for visual
@@ -938,6 +942,9 @@ input[type=file]{display:none;}
   </a>
 
   <div class="hero-free">✓ Free · No signup · Both sides read</div>
+  <div>
+    <button class="share-link" onclick="shareCardGauge()">&#128257; Share CardGauge with a friend</button>
+  </div>
 </div>
 
 <div class="wrap">
@@ -3841,6 +3848,32 @@ logEvent('visit');
 logEvent('page_view', 'scan', false);
 renderCta(null, null, null);   // default panel until there's a result to react to
 if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content_type:'landing'});
+
+// Real native share sheet on a phone (Messages, Mail, WhatsApp, whatever's
+// installed) via navigator.share() -- same pattern as cardgauge.com's
+// share button. Falls back to copying a ready-to-paste message on
+// browsers with no native share sheet, and to a plain prompt() if even
+// clipboard access is blocked -- so this can't fail silently.
+async function shareCardGauge(){
+  const shareData={
+    title:'CardGauge',
+    text:"I've been using CardGauge to scan and price my sports cards — free, no signup. Worth a look if you collect.",
+    url:'https://scan.cardgauge.com'
+  };
+  if(window.ttq)ttq.track('ClickButton',{content_name:'share_cardgauge',content_type:'scanner_standalone'});
+  if(navigator.share){
+    try{ await navigator.share(shareData); }
+    catch(e){ /* AbortError just means they closed the share sheet */ }
+    return;
+  }
+  const fallbackText=`${shareData.text}\n${shareData.url}`;
+  try{
+    await navigator.clipboard.writeText(fallbackText);
+    alert('Link copied — paste it into a text, email, or DM.');
+  }catch(e){
+    prompt('Copy this to share:', fallbackText);
+  }
+}
 </script>
 
 <script>
