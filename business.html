@@ -549,7 +549,17 @@ async function inviteStaff(){
       const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Timed out waiting for a response.')),8000));
       const {data,error}=await Promise.race([invokePromise,timeoutPromise]);
       if(error||data?.error) throw new Error(data?.error||error.message);
-      alert(`Invited ${email} — they'll get an email, and joining ${currentShopName} happens automatically the moment they sign in.`);
+      // The one accurate, distinct outcome worth telling apart from a
+      // real send: this address already has a CardGauge account, so
+      // Supabase's invite-email mechanism (built for brand-new emails
+      // only) doesn't apply -- but nothing is actually broken, since
+      // they'll still be attached automatically the moment they sign
+      // in normally. See invite-staff-email's alreadyHadAccount check.
+      if(data?.alreadyHadAccount){
+        alert(`${email} already has a CardGauge account, so no invite email was sent — but they'll still be added to ${currentShopName} automatically the next time they sign in. You may want to let them know directly.`);
+      }else{
+        alert(`Invited ${email} — they'll get an email, and joining ${currentShopName} happens automatically the moment they sign in.`);
+      }
     }catch(e){
       alert(`${email} is invited and will still be added to ${currentShopName} automatically when they sign in — but the notification email couldn't be sent (${e.message}). You may want to let them know directly.`);
     }
