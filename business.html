@@ -209,6 +209,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
     <div class="panel">
       <div class="row"><button class="btn danger" onclick="clearInventory()">Clear test inventory</button><button class="btn" onclick="exportInventory()">Export CSV</button><span class="right sub" id="invCount"></span></div>
       <div id="inventoryTable"></div>
+      <div id="saleFormArea"></div>
     </div>
   </section>
 
@@ -249,6 +250,16 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 
   <section id="dashboard" class="view">
     <div class="hero"><h1>Business Dashboard</h1><p>A test dashboard built around the workflow we're planning for CardGauge Business.</p></div>
+    <div class="panel">
+      <h2>Realized Profit — from actual recorded sales</h2>
+      <div class="sub">Real money, not potential. This only counts cards marked Sold through the sale form — the metrics below (inventory value, potential profit) are estimates from asking price; this is what actually happened.</div>
+      <div class="cards">
+        <div class="metric"><div class="k">Today</div><div class="v" id="salesToday">$0</div></div>
+        <div class="metric"><div class="k">This week</div><div class="v" id="salesWeek">$0</div></div>
+        <div class="metric"><div class="k">This month</div><div class="v" id="salesMonth">$0</div></div>
+        <div class="metric"><div class="k">Cards sold (month)</div><div class="v" id="salesCountMonth">0</div></div>
+      </div>
+    </div>
     <div class="cards">
       <div class="metric"><div class="k">Inventory cards</div><div class="v" id="mCards">0</div></div>
       <div class="metric"><div class="k">Inventory value</div><div class="v" id="mValue">$0</div></div>
@@ -2032,7 +2043,7 @@ function renderInventory(){
     const variantBadges=(x.isAuto?'<span class="pill bad">AUTO</span> ':'')+(x.isPatch?'<span class="pill warn">PATCH</span> ':'');
     const reviewBadge=x.needsReview?`<br><span class="pill bad" title="${esc((x.reviewReasons||[]).join('; '))}">⚠ Needs review</span>`:'';
     const addedByLine=x.addedBy?`<br><span class="sub" style="opacity:.7">Added by ${esc(x.addedBy)}</span>`:'';
-    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td></tr>`;
+    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="this.value==='Sold'?openSaleForm('${x.id}',this):editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td></tr>`;
   }).join('')}</tbody></table>`
 }
 // Takes the row's real id (a Supabase uuid), not an array index --
@@ -2051,6 +2062,67 @@ async function editInv(id,k,v){
     if(row) row[k]=value;
     renderDashboard();
   }catch(e){alert('Could not save that change: '+e.message)}
+}
+// REAL SALE CAPTURE. Selecting "Sold" in the status dropdown used to
+// just flip a label -- editInv() would write status='Sold' and stop
+// there, with nothing recording what it actually sold for, on which
+// marketplace, or what fees applied. That meant "today's profit" was
+// never actually computable, only estimated from ask price. This
+// captures a real sale event instead, with cost basis snapshotted at
+// the moment of sale -- same reasoning as Break Proof's snapshot -- so
+// a later edit to the item's cost can't silently rewrite a past sale's
+// recorded profit.
+function openSaleForm(id,selectEl){
+  const item=shopInventory.find(x=>x.id===id);
+  if(!item){ if(selectEl) selectEl.value='Available'; return; }
+  const el=document.getElementById('saleFormArea');
+  el.innerHTML=`<div class="panel" style="margin-top:10px;border-color:var(--gold,#f59e0b)">
+    <h2>Record sale — ${esc(item.name)}</h2>
+    <div class="formgrid">
+      <div><label class="small">Sale price</label><input id="saleSalePrice" type="number" min="0" step="0.01" value="${item.ask||0}"></div>
+      <div><label class="small">Marketplace</label><input id="saleMarketplace" placeholder="eBay, Whatnot, in-store..."></div>
+      <div><label class="small">Fees</label><input id="saleFees" type="number" min="0" step="0.01" value="0"></div>
+      <div><label class="small">Shipping</label><input id="saleShipping" type="number" min="0" step="0.01" value="0"></div>
+    </div>
+    <div class="sub" style="margin-top:6px">Cost basis (locked in at time of sale): ${money(item.cost)}</div>
+    <div class="actions row"><button class="btn primary" onclick="confirmSale('${id}')">Confirm sale</button><button class="btn" onclick="cancelSaleForm('${id}')">Cancel</button></div>
+  </div>`;
+}
+function cancelSaleForm(id){
+  document.getElementById('saleFormArea').innerHTML='';
+  renderInventory(); // resets the dropdown back to the item's real, unchanged status
+}
+async function confirmSale(id){
+  const item=shopInventory.find(x=>x.id===id);
+  if(!item)return;
+  const salePrice=Number(document.getElementById('saleSalePrice').value)||0;
+  const marketplace=document.getElementById('saleMarketplace').value.trim()||null;
+  const fees=Number(document.getElementById('saleFees').value)||0;
+  const shipping=Number(document.getElementById('saleShipping').value)||0;
+  if(salePrice<=0){ alert('Enter a real sale price.'); return; }
+  try{
+    const {error:saleErr}=await SB.from('sale').insert({
+      shop_id:currentShopId,
+      inventory_item_id:id,
+      card_name:item.name,
+      sale_price:salePrice,
+      marketplace,
+      fees,
+      shipping_cost:shipping,
+      cost_basis:Number(item.cost)||0,
+      sold_by:load(LS_STAFF,'')||null
+    });
+    if(saleErr) throw saleErr;
+    const {error:invErr}=await SB.from('shop_inventory')
+      .update({status:'Sold',updated_at:new Date().toISOString()})
+      .eq('id',id);
+    if(invErr) throw invErr;
+    item.status='Sold';
+    document.getElementById('saleFormArea').innerHTML='';
+    renderInventory();
+    renderDashboard();
+    alert('Sale recorded.');
+  }catch(e){ alert('Could not record sale: '+(e&&e.message?e.message:e)); }
 }
 async function clearInventory(){
   if(!currentShopId){alert('No shop selected.');return}
@@ -2331,6 +2403,42 @@ function renderDashboard(){
   if(ps && document.activeElement!==ps) ps.value=shopProfile.shippingCost;
   loadAllBreaksHistory();
   renderMarginGuide();
+  loadRealizedProfit();
+}
+// REALIZED PROFIT -- Today/Week/Month, from the real sale table, not
+// an estimate. Buckets client-side using the browser's own local time
+// rather than a UTC day-boundary query, since "today" should mean the
+// shop's actual today, not UTC's. Fetches a 31-day window (safe margin
+// past any calendar month) and buckets in JS rather than three
+// separate queries -- one round trip, same data, less to keep in sync.
+async function loadRealizedProfit(){
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+  if(!sbReady()||!currentShopId){ set('salesToday',money(0)); set('salesWeek',money(0)); set('salesMonth',money(0)); set('salesCountMonth','0'); return; }
+  try{
+    const since=new Date(); since.setDate(since.getDate()-31);
+    const {data,error}=await SB.from('sale')
+      .select('net_profit,sold_at')
+      .eq('shop_id',currentShopId)
+      .gte('sold_at',since.toISOString());
+    if(error) throw error;
+
+    const now=new Date();
+    const startOfToday=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const startOfWeek=new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate()-7);
+    const startOfMonth=new Date(now.getFullYear(),now.getMonth(),1);
+
+    let today=0,week=0,month=0,monthCount=0;
+    (data||[]).forEach(s=>{
+      const t=new Date(s.sold_at), p=Number(s.net_profit)||0;
+      if(t>=startOfToday) today+=p;
+      if(t>=startOfWeek) week+=p;
+      if(t>=startOfMonth){ month+=p; monthCount++; }
+    });
+    set('salesToday',money(today));
+    set('salesWeek',money(week));
+    set('salesMonth',money(month));
+    set('salesCountMonth',String(monthCount));
+  }catch(e){ console.warn('[realized profit] load failed:',e.message); }
 }
 // Saves the real defaults everything else now reads from. RLS already
 // restricts writes to the shops table to its owner -- a staff member
