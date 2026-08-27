@@ -501,41 +501,60 @@ async function logOutShop(){
 // Doesn't touch shop_staff directly; that only happens once the
 // invited person actually signs in and accept_pending_invites() runs
 // for them, since their real user id doesn't exist anywhere until then.
+// Wrapped end-to-end, same fix as autoAssign() earlier tonight for the
+// identical symptom: every path here already ended in an alert, and
+// yet on a real test, NONE of them fired -- not the success message,
+// not either failure message. That combination only makes sense if
+// something hung or threw somewhere no catch could see it. Two real
+// possibilities get handled explicitly below: an outer try/catch that
+// guarantees SOMETHING shows even for a truly unexpected error, and a
+// manual timeout on the edge function call specifically, since a
+// network request that never resolves would produce exactly this
+// silence -- no success, no failure, just an await that never returns.
 async function inviteStaff(){
-  if(!currentShopId)return;
-  const email=(prompt("Invite a staff member's email:")||'').trim().toLowerCase();
-  if(!email||!email.includes('@')){ if(email) alert('Enter a valid email.'); return; }
-
-  // The shop_invites row is still the real source of truth for WHO
-  // gets attached to WHICH shop on sign-in -- see accept_pending_invites().
-  // This insert alone was already the complete, working feature; what
-  // follows is purely the notification on top of it.
   try{
-    const {error}=await SB.from('shop_invites').insert({shop_id:currentShopId,email,invited_by:currentUser.id});
-    if(error) throw error;
-  }catch(e){
-    if(e.code==='23505'){ alert(`${email} already has a pending invite to this shop.`); return; }
-    alert('Could not send invite: '+e.message);
-    return;
-  }
+    if(!currentShopId){ alert('No shop selected.'); return; }
+    const email=(prompt("Invite a staff member's email:")||'').trim().toLowerCase();
+    if(!email){ return; } // cancelled the prompt -- not an error, nothing to alert
+    if(!email.includes('@')){ alert('Enter a valid email.'); return; }
 
-  // Actually notify them. This calls a real server-side function --
-  // sending Supabase's own invite email requires elevated privileges
-  // that can never live in the browser, which is the whole reason this
-  // isn't just another client-side Supabase call like everything else
-  // here. If THIS part fails, the invite above still exists and will
-  // still work the moment they sign in on their own -- this only
-  // affects whether they're told to.
-  try{
-    const {data:sessionData}=await SB.auth.getSession();
-    const {data,error}=await SB.functions.invoke('invite-staff-email',{
-      body:{email,shop_id:currentShopId},
-      headers:{Authorization:`Bearer ${sessionData?.session?.access_token||''}`}
-    });
-    if(error||data?.error) throw new Error(data?.error||error.message);
-    alert(`Invited ${email} — they'll get an email, and joining ${currentShopName} happens automatically the moment they sign in.`);
+    // The shop_invites row is still the real source of truth for WHO
+    // gets attached to WHICH shop on sign-in -- see
+    // accept_pending_invites(). This insert alone was already the
+    // complete, working feature; what follows is purely the
+    // notification on top of it.
+    try{
+      const {error}=await SB.from('shop_invites').insert({shop_id:currentShopId,email,invited_by:currentUser.id});
+      if(error) throw error;
+    }catch(e){
+      if(e.code==='23505'){ alert(`${email} already has a pending invite to this shop.`); return; }
+      alert('Could not send invite: '+e.message);
+      return;
+    }
+
+    // Actually notify them. Sending Supabase's own invite email
+    // requires elevated privileges that can never live in the
+    // browser, which is why this is a real server call instead of
+    // another direct Supabase client call. If THIS part fails, the
+    // invite above still exists and still works the moment they sign
+    // in on their own -- this only affects whether they're told to.
+    // 8-second manual timeout: a hung request otherwise looks
+    // identical to total silence, with no error to catch at all.
+    try{
+      const {data:sessionData}=await SB.auth.getSession();
+      const invokePromise=SB.functions.invoke('invite-staff-email',{
+        body:{email,shop_id:currentShopId},
+        headers:{Authorization:`Bearer ${sessionData?.session?.access_token||''}`}
+      });
+      const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Timed out waiting for a response.')),8000));
+      const {data,error}=await Promise.race([invokePromise,timeoutPromise]);
+      if(error||data?.error) throw new Error(data?.error||error.message);
+      alert(`Invited ${email} — they'll get an email, and joining ${currentShopName} happens automatically the moment they sign in.`);
+    }catch(e){
+      alert(`${email} is invited and will still be added to ${currentShopName} automatically when they sign in — but the notification email couldn't be sent (${e.message}). You may want to let them know directly.`);
+    }
   }catch(e){
-    alert(`${email} is invited and will still be added to ${currentShopName} automatically when they sign in — but the notification email couldn't be sent (${e.message}). You may want to let them know directly.`);
+    alert('Invite hit an unexpected error: '+(e&&e.message?e.message:e));
   }
 }
 
