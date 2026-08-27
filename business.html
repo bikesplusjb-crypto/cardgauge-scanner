@@ -2031,23 +2031,31 @@ async function autoAssign(){
   // only mean one thing -- something threw partway through and never
   // reached any of them. A phone has no visible console for that, so
   // surface it here instead of leaving it silent.
+  //
+  // Rewritten to pull from the shop's PERSISTED inventory instead of
+  // the current scan session's transient 'results' array. Real reason:
+  // a real break runs 100-300 cards across many separate photos (the
+  // detector caps at 20 candidates per photo, and that many cards
+  // don't fit usably in one frame anyway), but 'results' gets fully
+  // REPLACED, not accumulated, every time Detect Cards runs on a new
+  // photo -- so the old version could only ever auto-assign whichever
+  // single batch was scanned most recently. Using shopInventory instead
+  // means every card added to this shop, from any photo, at any point
+  // in the break, is available here -- not just the last one taken.
   try{
     if(!activeBreak){ alert('No active break -- create one first.'); return; }
-    const inv=shopInventory, available=inv.filter(x=>x.status!=='Sold');
-    let assigned=0, noTeam=0;
 
-    results.filter(r=>r.data).forEach(r=>{
-      const d=r.data, team=getTeam(d).toLowerCase();
-      if(!team){noTeam++;return;}
+    const alreadyAssignedIds=new Set(activeBreak.spots.flatMap(s=>s.cards||[]));
+    const eligible=shopInventory.filter(x=>x.status!=='Sold' && !alreadyAssignedIds.has(x.id));
+    const withTeam=eligible.filter(x=>x.team);
+    const noTeam=eligible.length-withTeam.length;
+
+    let assigned=0;
+    for(const item of withTeam){
+      const team=item.team.toLowerCase();
       const spot=activeBreak.spots.find(s=>s.team&&s.team.toLowerCase()===team);
-      if(!spot)return;
-      const card=getScanCard(d);
-      const x=available.find(z=>
-        z.name===(d.cardName||card.cardName||card.name||'') &&
-        !spot.cards.includes(z.id)
-      );
-      if(x){spot.cards.push(x.id);assigned++}
-    });
+      if(spot){ spot.cards.push(item.id); assigned++; }
+    }
 
     if(assigned){
       const {error}=await SB.from('shop_breaks')
@@ -2058,13 +2066,13 @@ async function autoAssign(){
     renderAssignments();
 
     if(assigned){
-      alert(`Assigned ${assigned} card(s).${noTeam?` ${noTeam} scanned card(s) had no team data.`:''}`);
-    }else if(noTeam){
-      alert('The scan results do not contain team data, so automatic team assignment cannot run yet. Manual assignment is still supported.');
-    }else if(!results.filter(r=>r.data).length){
-      alert('No scanned cards in this session yet -- scan and add cards on Multi-Scan first, then come back here without reloading.');
+      alert(`Assigned ${assigned} card(s) from inventory.${noTeam?` ${noTeam} unassigned card(s) had no team data.`:''}`);
+    }else if(noTeam && !withTeam.length){
+      alert('No unassigned inventory has team data yet, so automatic team assignment cannot run. Manual assignment is still supported.');
+    }else if(!eligible.length){
+      alert('No unassigned inventory available -- everything in stock is either already assigned to a spot or marked Sold.');
     }else{
-      alert('No team matches were available. Manual assignment is still supported.');
+      alert('No team matches were available for the unassigned inventory. Manual assignment is still supported.');
     }
   }catch(e){
     alert('Auto-assign hit an error: '+(e && e.message ? e.message : e));
