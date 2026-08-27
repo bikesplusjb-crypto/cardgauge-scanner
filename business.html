@@ -505,16 +505,37 @@ async function inviteStaff(){
   if(!currentShopId)return;
   const email=(prompt("Invite a staff member's email:")||'').trim().toLowerCase();
   if(!email||!email.includes('@')){ if(email) alert('Enter a valid email.'); return; }
+
+  // The shop_invites row is still the real source of truth for WHO
+  // gets attached to WHICH shop on sign-in -- see accept_pending_invites().
+  // This insert alone was already the complete, working feature; what
+  // follows is purely the notification on top of it.
   try{
     const {error}=await SB.from('shop_invites').insert({shop_id:currentShopId,email,invited_by:currentUser.id});
     if(error) throw error;
-    alert(`Invited ${email}. They'll be added to ${currentShopName} automatically the first time they sign in.`);
   }catch(e){
-    // A duplicate invite for the same email hits the unique(shop_id,
-    // email) constraint -- that's not really a failure worth alarming
-    // over, the invite already exists and will still work.
     if(e.code==='23505'){ alert(`${email} already has a pending invite to this shop.`); return; }
     alert('Could not send invite: '+e.message);
+    return;
+  }
+
+  // Actually notify them. This calls a real server-side function --
+  // sending Supabase's own invite email requires elevated privileges
+  // that can never live in the browser, which is the whole reason this
+  // isn't just another client-side Supabase call like everything else
+  // here. If THIS part fails, the invite above still exists and will
+  // still work the moment they sign in on their own -- this only
+  // affects whether they're told to.
+  try{
+    const {data:sessionData}=await SB.auth.getSession();
+    const {data,error}=await SB.functions.invoke('invite-staff-email',{
+      body:{email,shop_id:currentShopId},
+      headers:{Authorization:`Bearer ${sessionData?.session?.access_token||''}`}
+    });
+    if(error||data?.error) throw new Error(data?.error||error.message);
+    alert(`Invited ${email} — they'll get an email, and joining ${currentShopName} happens automatically the moment they sign in.`);
+  }catch(e){
+    alert(`${email} is invited and will still be added to ${currentShopName} automatically when they sign in — but the notification email couldn't be sent (${e.message}). You may want to let them know directly.`);
   }
 }
 
