@@ -13,7 +13,7 @@ button,input,select{font:inherit}button{cursor:pointer}
 nav{display:flex;gap:7px;overflow:auto;padding-bottom:8px}nav button{white-space:nowrap;background:var(--panel);color:var(--muted);border:1px solid var(--line);padding:10px 14px;border-radius:10px;font-weight:800}
 nav button.active{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.45);color:var(--green)}
 .view{display:none}.view.active{display:block}.hero{padding:20px 2px 12px}.hero h1{margin:0 0 8px;font-size:clamp(25px,5vw,38px)}.hero p{margin:0;color:var(--muted);line-height:1.5;max-width:720px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}.panel h2{font-size:18px;margin:0 0 5px}.sub{color:var(--muted);font-size:12px;line-height:1.5}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}.panel h2{font-size:18px;margin:0 0 5px}.sub{color:var(--muted);font-size:12px;line-height:1.5}.panel h3{font-size:14px;margin:16px 0 6px;color:var(--text)}.panel ol,.panel ul{margin:6px 0;padding-left:20px;line-height:1.7;font-size:13px;color:var(--text)}.panel li{margin-bottom:4px}.panel p{font-size:13px;line-height:1.6;margin:6px 0}
 .drop{border:2px dashed var(--line);background:var(--panel2);border-radius:14px;padding:28px 16px;text-align:center;display:block;cursor:pointer;margin-top:14px}.drop:hover{border-color:var(--green)}
 input[type=file]{display:none}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.actions{margin-top:12px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:11px 14px;border-radius:10px;font-weight:800}.btn.primary{background:var(--green);color:#042b13;border-color:var(--green)}.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}.btn.gold{background:var(--gold);border-color:var(--gold);color:#211300}.btn.danger{border-color:#6b2525;color:#ff9b9b}.btn:disabled{opacity:.45;cursor:not-allowed}
 .status{margin-top:12px;color:var(--muted);font-size:12px}.status.ok{color:var(--green)}.status.err{color:#ff9b9b}.progress{height:8px;background:#0b1220;border-radius:99px;overflow:hidden;margin-top:10px}.bar{height:100%;width:0;background:var(--green);transition:width .2s}
@@ -98,6 +98,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
     <button data-view="breaks">🎥 Break Manager</button>
     <button data-view="dashboard">📊 Dashboard</button>
     <button data-view="labels">🏷️ Labels</button>
+    <button data-view="help">❓ How To</button>
   </nav>
 
   <section id="scan" class="view active">
@@ -241,6 +242,93 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
     <div class="panel">
       <div class="row"><button class="btn primary" onclick="buildLabels()">Build labels from inventory</button><button class="btn" onclick="window.print()">Print</button></div>
       <div id="labelArea"></div>
+    </div>
+  </section>
+
+  <!-- HELP -- the how-to guide, built into the app itself rather than a
+       separate document, so it's actually where people are when they
+       need it instead of something they have to go find. Same content
+       as the standalone guide, converted to the app's own styling. -->
+  <section id="help" class="view">
+    <div class="hero"><h1>How To (Beta)</h1><p>A tool for card shops and breakers to scan a whole table of cards at once, price them, and keep one shared inventory your whole team can see &mdash; on a phone or a desktop, same live list.</p></div>
+
+    <div class="panel">
+      <div style="background:rgba(245,158,11,.1);border:1px solid var(--gold);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--text)">&#9888; <b>Early beta</b> &mdash; if something looks wrong, that's useful information, not just an inconvenience. See Known Limitations below.</div>
+      <h2>Getting started</h2>
+      <ol>
+        <li>Tap <b>Sign in</b> at the top, enter your email, enter the code sent to your inbox.</li>
+        <li>If this is your shop's first time: tap <b>Create a shop</b>, give it a name.</li>
+        <li>If you're joining a shop someone else already created, they'll need to add you &mdash; there's no self-serve "join" yet, so ask them to loop you in.</li>
+      </ol>
+      <p>Once you're in, everything you do is tied to your shop, not just your device. A card scanned on a phone shows up on a desktop signed into the same shop, instantly.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Scanning a batch of cards</h2>
+      <p>This is the core workflow, on the Multi-Scan tab.</p>
+      <ol>
+        <li><b>Lay your cards out with real space between them</b> &mdash; this matters more than it sounds like it should. Cards touching or nearly touching can get detected as one merged region instead of two. A couple inches of visible table between each card is enough.</li>
+        <li>Tap <b>Detect cards</b>. It'll find each card and show you the crops it captured.</li>
+        <li><b>Check the crops before moving on.</b> Each one should show the whole card. If a card is flagged <b>"Needs review"</b> &mdash; usually because it's too close to the edge of the photo, or the crop looks too small &mdash; don't just trust it. Look at it, and either re-take the photo with more margin, or tap <b>Scan anyway</b> if it actually looks fine to you.</li>
+        <li>Optionally tap <b>Capture backs</b> &mdash; same idea, lay the backs out and photograph them. The app matches each back to its front by position, not by order, so it doesn't matter if you flip them in a different arrangement.</li>
+        <li>Tap <b>Scan all detected</b>. Each card gets identified and priced. This happens one at a time, so a big batch takes a little while &mdash; that's normal, not stuck.</li>
+        <li>Review the results, then tap <b>Add all to inventory</b>.</li>
+      </ol>
+      <h3>A note on pricing labels</h3>
+      <p>You'll see either a green <span class="pill ok">Sold</span> badge (a real sold-comps price), a yellow <span class="pill warn">Mixed comps</span> badge (sold data exists but looks inconsistent, worth a second look), or a yellow <span class="pill warn">Ask only</span> badge (no sold data found, this is an asking price instead). The app won't call an asking price "sold" &mdash; if it says sold, it means it.</p>
+      <h3>Tips for a clean scan</h3>
+      <ul>
+        <li>Leave a visible margin of background around every card, even when scanning just one. A card pressed right up to the edge of the photo is the single most common cause of a bad crop.</li>
+        <li>Shiny, foil, and refractor cards are harder to detect than plain ones &mdash; angle the card slightly to avoid a direct glare, or use softer light.</li>
+        <li>If a batch comes back with a wrong count, type the number of cards you expect into the small box before detecting &mdash; it'll warn you if it finds fewer than that.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Adding a card manually</h2>
+      <p>Not every card needs a photo. On the Inventory tab, there's an <b>"Add a card manually"</b> form &mdash; type in the name, year, set, and whatever else you know, mark it AUTO/PATCH if it applies, set a cost and ask price, and it goes straight into the same shared inventory as a scanned card. Useful for a card you already sold, one from before this tool existed, or just a quick log without pulling out the camera.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Managing inventory</h2>
+      <p>The Inventory tab shows everything in your shop's shared list &mdash; from any scan or manual entry, from any staff member signed into your shop.</p>
+      <ul>
+        <li><b>Cost, Ask, and Status are editable right in the table</b> &mdash; tap a field, change it, it saves automatically.</li>
+        <li><b>Export CSV</b> if you want the raw data elsewhere.</li>
+        <li><b>Clear test inventory</b> wipes everything for your shop &mdash; this is permanent, use it deliberately, not by accident.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Break Manager</h2>
+      <p>For running a live break.</p>
+      <ol>
+        <li>On the Break Manager tab, name your break, set how many spots, and create it.</li>
+        <li>For each spot, add a customer name and a team/player.</li>
+        <li><b>Auto-assign scanned cards</b> matches cards from your <i>current</i> Multi-Scan session to spots by team &mdash; this only works on cards from that same scanning session, so the order is: scan &rarr; add to inventory &rarr; then go assign, without reloading the page in between.</li>
+        <li>If a card's team can't be matched automatically, you can assign it manually.</li>
+      </ol>
+      <p><b>One real limitation right now:</b> only your shop's most recent break loads automatically. Older breaks aren't lost &mdash; they're just not the one shown &mdash; there's no way yet to browse or switch back to a previous one.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Labels</h2>
+      <p>The Labels tab builds printable price tags straight from your inventory &mdash; card name, year/set/number, and price, up to 60 at a time. Tap <b>Build labels from inventory</b>, then <b>Print</b>.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Known limitations (beta, being honest about it)</h2>
+      <ul>
+        <li><b>Adjacent cards placed close together can get detected as one merged card</b> instead of two separate ones &mdash; this is a real, known issue, not fixed yet. Leaving real space between cards avoids it.</li>
+        <li><b>Occasional false-positive detections</b> on background texture (a fold in a folder, a shadow) can show up as an extra, empty "card" &mdash; usually obvious when you look at the crop, easy to ignore or re-detect.</li>
+        <li>No self-serve way to join an existing shop yet &mdash; has to be done directly, not through the app.</li>
+        <li>This is real, shared, permanent storage (not a demo) &mdash; but it's still beta software. Don't treat it as your only record of anything irreplaceable yet.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Something look wrong? Tell me directly</h2>
+      <p>This beta is genuinely trying to catch real problems before this becomes the real product. If a crop looks wrong, a price looks off, or anything just feels broken &mdash; say so, with a screenshot if you can. That's exactly the kind of feedback this beta period is for.</p>
     </div>
   </section>
 </div>
