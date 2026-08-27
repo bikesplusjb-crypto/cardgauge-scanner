@@ -419,6 +419,16 @@ async function verifyAuthCode(){
 async function resolveShop(){
   if(!sbReady()||!currentUser){renderAuthPanel();return}
   try{
+    // Consume any invite addressed to this email BEFORE checking
+    // membership -- this is the actual self-serve join: an owner
+    // invited this address earlier, and signing in is what completes
+    // it. Safe to call even with nothing pending; it just does
+    // nothing in that case. See accept_pending_invites() -- runs
+    // server-side under this user's own identity, not a manual
+    // database insert on my end anymore.
+    const {error:inviteErr}=await SB.rpc('accept_pending_invites');
+    if(inviteErr) console.warn('[invites] accept failed:',inviteErr.message);
+
     const {data,error}=await SB.from('shop_staff')
       .select('shop_id, shops(id,name)')
       .eq('user_id',currentUser.id)
@@ -487,6 +497,27 @@ async function logOutShop(){
   renderAuthPanel();renderAll();
 }
 
+// Invite by email -- this is the whole point of the shop_invites table.
+// Doesn't touch shop_staff directly; that only happens once the
+// invited person actually signs in and accept_pending_invites() runs
+// for them, since their real user id doesn't exist anywhere until then.
+async function inviteStaff(){
+  if(!currentShopId)return;
+  const email=(prompt("Invite a staff member's email:")||'').trim().toLowerCase();
+  if(!email||!email.includes('@')){ if(email) alert('Enter a valid email.'); return; }
+  try{
+    const {error}=await SB.from('shop_invites').insert({shop_id:currentShopId,email,invited_by:currentUser.id});
+    if(error) throw error;
+    alert(`Invited ${email}. They'll be added to ${currentShopName} automatically the first time they sign in.`);
+  }catch(e){
+    // A duplicate invite for the same email hits the unique(shop_id,
+    // email) constraint -- that's not really a failure worth alarming
+    // over, the invite already exists and will still work.
+    if(e.code==='23505'){ alert(`${email} already has a pending invite to this shop.`); return; }
+    alert('Could not send invite: '+e.message);
+  }
+}
+
 function renderAuthPanel(){
   const el=document.getElementById('authPanel');
   if(!el)return;
@@ -495,7 +526,7 @@ function renderAuthPanel(){
   }else if(!currentShopId){
     el.innerHTML=`<b>Signed in as ${esc(currentUser.email)}.</b> <span class="sub">No shop yet.</span> <button class="btn gold" onclick="createShop()">Create a shop</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
   }else{
-    el.innerHTML=`<b>${esc(currentShopName)}</b> <span class="sub">· ${esc(currentUser.email)} · shared inventory</span> <button class="btn" onclick="logOutShop()">Sign out</button>`;
+    el.innerHTML=`<b>${esc(currentShopName)}</b> <span class="sub">· ${esc(currentUser.email)} · shared inventory</span> <button class="btn gold" onclick="inviteStaff()">+ Invite staff</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
   }
 }
 
@@ -684,7 +715,29 @@ function getTeam(d){
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
-document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(b.dataset.view).classList.add('active');renderAll()});
+// Named as a real function, not just an inline handler, so a link from
+// OUTSIDE the app (the cross-sell banners on cardgauge.com and
+// scan.cardgauge.com) can open straight to a specific tab -- like the
+// How To guide -- instead of always landing on Multi-Scan first.
+function switchToView(view){
+  const btn=document.querySelector(`#nav button[data-view="${view}"]`);
+  if(!btn) return;
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(view).classList.add('active');
+  renderAll();
+}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+  switchToView(b.dataset.view);
+  history.replaceState(null,'','#'+b.dataset.view);
+});
+// Respect a tab named directly in the URL on load -- #help opens
+// straight to How To rather than always starting on Multi-Scan.
+(function(){
+  const target=(location.hash||'').replace('#','');
+  if(target && document.getElementById(target)) switchToView(target);
+})();
 
 document.getElementById('photo').onchange=async e=>{
   sourceFile=e.target.files[0]; if(!sourceFile)return;
