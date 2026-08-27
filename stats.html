@@ -26,14 +26,12 @@ body{
 }
 .wrap{max-width:940px;margin:0 auto;}
 
-/* ── masthead ─────────────────────────────────────────────── */
 .mast{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
   padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:22px;flex-wrap:wrap;}
 .mast h1{font-family:var(--fbig);font-size:26px;letter-spacing:.5px;font-weight:400;}
 .mast h1 span{color:var(--gold);}
 .stamp{font-family:var(--fm);font-size:10.5px;color:var(--text3);letter-spacing:.06em;}
 
-/* ── the 24h reading ──────────────────────────────────────── */
 .hero{border:1px solid var(--border2);border-radius:var(--radius);
   background:linear-gradient(160deg,rgba(245,158,11,.09),rgba(245,158,11,.01));
   padding:22px;margin-bottom:16px;}
@@ -42,13 +40,10 @@ body{
 .hero-unit{font-family:var(--f);font-size:14px;color:var(--text2);margin-top:8px;}
 .hero-cmp{font-family:var(--fm);font-size:11.5px;color:var(--text3);margin-top:10px;}
 .hero-cmp b{color:var(--text2);font-weight:600;}
-/* The scan/search split. Which way people come in decides what to
-   build next — heavy search means desktop, and desktop has no camera. */
 .hero-split{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;padding-top:12px;
   border-top:1px solid var(--border);font-family:var(--fm);font-size:11px;color:var(--text3);}
 .hero-split b{color:var(--text2);font-weight:600;}
 
-/* ── bars ─────────────────────────────────────────────────── */
 .card{border:1px solid var(--border);border-radius:var(--radius);
   background:var(--surface);padding:18px;margin-bottom:16px;}
 .card h2{font-family:var(--fm);font-size:10.5px;letter-spacing:1.6px;
@@ -57,9 +52,6 @@ body{
 .bar{flex:1;min-width:0;border-radius:2px 2px 0 0;position:relative;min-height:2px;
   display:flex;flex-direction:column;justify-content:flex-end;}
 .bar i{display:block;width:100%;}
-/* Two segments per day: photo scans below, typed searches above.
-   One flat bar hid the fact that nearly half of all lookups never
-   touch the camera. */
 .bar .seg-scan{background:var(--gold);}
 .bar .seg-search{background:var(--blue);opacity:.75;}
 .bar.today .seg-scan{background:var(--gold-warm);}
@@ -71,7 +63,6 @@ body{
 .axis{display:flex;justify-content:space-between;font-family:var(--fm);
   font-size:10px;color:var(--text3);margin-top:8px;}
 
-/* ── stat grid ────────────────────────────────────────────── */
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;
   background:var(--border);border:1px solid var(--border);border-radius:var(--radius);
   overflow:hidden;margin-bottom:16px;}
@@ -81,7 +72,6 @@ body{
 .cell-n{font-family:var(--fbig);font-size:28px;line-height:1;font-weight:400;}
 .cell-sub{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:6px;}
 
-/* ── tables ───────────────────────────────────────────────── */
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 @media(max-width:700px){.two{grid-template-columns:1fr;}}
 table{width:100%;border-collapse:collapse;table-layout:fixed;}
@@ -91,14 +81,8 @@ tr:last-child td{border-bottom:none;}
 td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
   color:var(--gold-warm);width:58px;font-weight:600;}
 .empty{font-family:var(--fm);font-size:11.5px;color:var(--text3);padding:6px 0;}
-/* How a card was looked up, next to how often. A card that is only
-   ever typed is a card nobody has in their hand. */
 .how{font-family:var(--fm);font-size:9.5px;color:var(--text3);display:block;margin-top:3px;}
 
-/* ── the trust step ────────────────────────────────────────
-   Scanning is free and sells nothing directly. Its job is to be so
-   obviously honest that the paid half becomes believable. This is the
-   number that says whether that works. */
 .trust{border:1px solid var(--border2);border-radius:var(--radius);
   background:linear-gradient(160deg,rgba(34,197,94,.08),rgba(17,24,39,.4));
   padding:20px;margin-bottom:16px;}
@@ -117,9 +101,6 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
   background:var(--surface2);margin:14px 0 10px;}
 .srcbar i{display:block;}
 
-/* Owner testing is still inside every scan_events number, because that
-   table carries no user id. Said out loud rather than left for somebody
-   to rediscover in three weeks. */
 .aff{margin-top:16px;}
 .aff-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
@@ -151,7 +132,6 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
   background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);
   border-radius:9px;padding:10px 12px;margin-top:13px;}
 
-/* ── coverage meter ───────────────────────────────────────── */
 .meter{height:9px;border-radius:100px;background:var(--surface2);
   overflow:hidden;display:flex;margin:4px 0 12px;}
 .meter i{display:block;height:100%;}
@@ -163,7 +143,14 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
   padding-top:12px;border-top:1px solid var(--border);}
 .verdict b{color:var(--text);}
 
-/* ── gate + states ────────────────────────────────────────── */
+.eo-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px;}
+.eo-row:last-child{border-bottom:none;}
+.eo-recipient{color:var(--text2);overflow-wrap:anywhere;}
+.eo-status{font-family:var(--fm);font-size:11px;flex-shrink:0;text-align:right;}
+.eo-status.opened{color:var(--green);}
+.eo-status.unopened{color:var(--text3);}
+
 .gate{max-width:400px;margin:60px auto;text-align:center;}
 .gate p{color:var(--text2);font-size:13.5px;margin:10px 0 18px;line-height:1.5;}
 input{width:100%;background:var(--surface2);border:1px solid var(--border2);
@@ -196,15 +183,8 @@ const esc = s => String(s==null?'':s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const num = n => Number(n||0).toLocaleString();
 
-/* Every totals field the SQL may or may not have. Reading a missing key
-   straight into num() prints 0, which is indistinguishable from a real
-   zero — so an out-of-date function would silently report no traffic
-   rather than saying it is out of date. */
 function has(o, k){ return o && Object.prototype.hasOwnProperty.call(o, k); }
 
-/* Token comes from the URL so the page can be bookmarked. It is kept
-   out of any request that could be logged elsewhere — it only ever
-   goes in the POST body to Supabase. */
 function tokenFromUrl(){
   try { return new URLSearchParams(location.search).get('k') || ''; } catch(e){ return ''; }
 }
@@ -243,9 +223,6 @@ async function load(){
         + 'Run <b>trust_stats.sql</b> in the Supabase SQL editor first.</div>';
       return;
     }
-    /* Read the body before deciding what went wrong. Every failure used
-       to be reported as a bad token, which sent debugging in the wrong
-       direction when the real cause was a missing grant. */
     let body = null;
     try { body = await r.json(); } catch(e){}
 
@@ -276,9 +253,6 @@ function render(d){
   const daily = d.daily    || [];
   const cov   = d.sold_coverage || {};
 
-  /* An old cg_stats returns scans_* but no lookups_*. Rather than
-     printing zeros that look like a dead week, say plainly that the
-     SQL half of this pair has not been deployed. */
   if(!has(t, 'lookups_7d')){
     app.innerHTML = '<div class="err"><b>The database function is out of date.</b><br/>'
       + 'This page expects the Aug 10 <b>cg_stats</b>, which counts typed searches as well as '
@@ -288,21 +262,6 @@ function render(d){
     return;
   }
 
-  /* ── THE TRUST STEP ─────────────────────────────────────────
-     A rate, not a count. "17 saved" means nothing on its own — 17 of
-     20 is a working funnel and 17 of 400 is not, and only the second
-     number tells you which.
-
-     THE DENOMINATOR IS LOOKUPS, NOT SCANS. A card saved after a typed
-     search still counts as a save — source='scanner' is set by the
-     save path, not by how the card was found — so dividing by photo
-     scans alone compared two different populations and overstated the
-     rate by roughly the share of searches, which is currently 45%.
-
-     Still not a clean conversion: one person can look up five cards
-     and save one, and a save can land a day after the lookup. It is a
-     direction of travel, and the reading below says so rather than
-     dressing it up as precision. */
   const tr      = d.trust  || {};
   const bin     = d.binder || {};
   const saves   = Number(tr.saves_7d) || 0;
@@ -327,8 +286,6 @@ function render(d){
       + 'That is the gap to close before spending anything on traffic.';
   }
 
-  /* Where cards come from at all, so the scanner's share is visible
-     against pasting and the other routes in. */
   const bySrc = bin.by_source || {};
   const srcTotal = Object.keys(bySrc).reduce(function(a,k){ return a + Number(bySrc[k]||0); }, 0);
   const srcCol = { scanner:'#22c55e', bulk:'#3b82f6', profit_tracker:'#a855f7', show_log:'#f59e0b' };
@@ -352,18 +309,9 @@ function render(d){
     +     (Number(tr.savers_7d) === 1 ? 'person' : 'people') + ' saved something.</div>'
     +   srcBar
     +   '<div class="trust-read">' + reading + '</div>'
-    /* The caveat has to describe the state the data is actually in, and
-       that state changed the day the owner flag shipped. Saying
-       "your testing is still in here" after it stops being true is the
-       same failure as saying the opposite before it was — a dashboard
-       that describes itself wrongly is worse than one that says
-       nothing, because you stop checking.
-
-       So it reads the number rather than asserting a state. */
     +   ownerCaveat(t)
     + '</div>';
 
-  /* Oldest → newest for the bar strip; the query returns newest first. */
   const days  = daily.slice().reverse();
   const peak  = Math.max(1, ...days.map(x => Number(x.lookups)||0));
   const today = days.length ? days[days.length-1].day : '';
@@ -371,8 +319,6 @@ function render(d){
   const bars = days.map(x => {
     const nS = Number(x.scans)||0, nQ = Number(x.searches)||0, nT = nS + nQ;
     const h  = Math.round((nT/peak)*100);
-    /* Segment heights are shares of THIS bar, so the two always add to
-       the bar's own height whatever the day's total. */
     const pS = nT ? (nS/nT)*100 : 0;
     return '<div class="bar' + (x.day===today?' today':'') + '" style="height:' + Math.max(h,2) + '%">'
       + '<span class="tip">' + esc(x.day) + ' · ' + num(nT) + ' lookups ('
@@ -382,9 +328,6 @@ function render(d){
       + '</div>';
   }).join('');
 
-  /* Most-looked-up rows carry a scan/search split now, so a card that
-     is only ever typed is visible as such — nobody had that one in
-     their hand. */
   const cardRows = (arr) => arr.length
     ? '<table>' + arr.map(x => {
         const s = Number(x.scans)||0, q = Number(x.searches)||0;
@@ -401,15 +344,6 @@ function render(d){
       ).join('') + '</table>'
     : '<div class="empty">nothing in the last 30 days</div>';
 
-  /* Sold coverage. This is the number that answers whether the API
-     plan is earning its keep — an empty result means the user saw
-     asking prices only.
-
-     The old copy here recommended trialling "the next tier" and named
-     the 14-day Starter plan. That advice was for a plan already left
-     behind: /api/cardapi-status now reports a 30-day lookback and a
-     50,000 daily record limit. Telling yourself to buy something you
-     own is how a dashboard loses your trust. */
   const q   = Number(cov.queries)||0;
   const has_= Number(cov.with_data)||0;
   const pct = q ? Math.round((has_/q)*100) : 0;
@@ -439,10 +373,6 @@ function render(d){
     + '<div class="hero">'
     +  '<div class="hero-lbl">CARD LOOKUPS · LAST 24 HOURS</div>'
     +  '<div class="hero-n">' + num(t.lookups_24h) + '</div>'
-    /* Sessions that actually looked something up, not sessions that
-       loaded the page. The old line put lookups next to a headcount of
-       everyone who arrived, which invited reading it as one lookup
-       each — and made a good day look like a thin one. */
     +  '<div class="hero-unit">' + (has(t,'scanners_24h')
          ? ('from <b style="color:var(--text)">' + num(t.scanners_24h) + '</b> '
             + (Number(t.scanners_24h)===1?'session':'sessions') + ' \u00b7 '
@@ -477,32 +407,12 @@ function render(d){
 
     + '<div class="grid">'
     +  cell('People · 7d',  num(t.people_7d),  num(t.visits_7d) + ' visits')
-    /* Sessions that did SOMETHING, against sessions that merely
-       arrived. This is the number that says whether the page works;
-       counting only photo scans put it at a third of the truth. */
     +  cell('Used it · 7d',
             (Number(t.people_7d) ? Math.round((Number(t.scanners_7d)/Number(t.people_7d))*100) + '%' : '\u2014'),
             num(t.scanners_7d) + ' of ' + num(t.people_7d) + ' sessions looked up a card')
-    /* A share, not a bare count, and measured against SCANS rather
-       than lookups — a typed search has no images, so it could never
-       have used a back and would only dilute the rate. */
     +  cell('Both sides · 7d',
             (Number(t.scans_7d) ? Math.round((Number(t.backs_7d)/Number(t.scans_7d))*100) + '%' : '\u2014'),
             num(t.backs_7d) + ' of ' + num(t.scans_7d) + ' scans used the back')
-    /* Sell-link taps, measured against LOOKUPS rather than visits. The
-       sell block only exists on a result page, so the only people who
-       could have tapped it are the ones who looked something up —
-       dividing by all sessions would understate it by the bounce rate
-       and make a working feature look dead.
-
-       Expect a 0 here for a while. It is a series that starts now so it
-       exists when there is enough traffic to read it, not a number to
-       judge anything by yet. */
-    /* Acted on it: kept the session, or went to list a card. Both are
-       "somebody did something after seeing a price", which is the step
-       this whole dashboard exists to measure — and at 113 lookups a
-       week, splitting them into two tiles gives you two zeros instead
-       of one signal. */
     +  cell('Acted on it · 7d',
             num(Number(t.bench_saves_7d||0) + Number(t.sell_clicks_7d||0)),
             (has(t,'bench_saves_7d')
@@ -514,9 +424,6 @@ function render(d){
     + '<div class="two">'
     +  '<div class="card"><h2>Where they came from · 30d</h2>'
     +    rows(d.sources||[], 'source')
-    /* Own-domain hits, kept but separated. Somebody moving from the
-       scanner to the site is not a channel, and letting those outrank
-       every real source made internal navigation look like acquisition. */
     +    ((d.internal||[]).length
           ? '<div class="subhead">Moving around the site</div>' + rows(d.internal, 'source')
           : '')
@@ -532,6 +439,8 @@ function render(d){
     + funnelPanel(d, t)
 
     + affPanel(d, t)
+
+    + emailOpensPanel(d, t)
 
     + '<div class="card">'
     +  '<h2>Sold-price coverage · 30d</h2>'
@@ -550,12 +459,6 @@ function render(d){
     +  'Anyone with this URL can read these numbers.</div>';
 }
 
-/* Three honest states, chosen by what the data says rather than by
-   what was true when this was written.
-
-   owner_lookups_7d is only present once the updated cg_stats is
-   deployed; an older function returns nothing for it, and the page
-   should say so rather than silently implying the exclusion is on. */
 function ownerCaveat(t){
   if(!has(t, 'owner_lookups_7d')){
     return '<div class="caveat">Saves exclude your own account. Lookups do not \u2014 '
@@ -574,8 +477,6 @@ function ownerCaveat(t){
     + 'Everything above is other people.</div>';
 }
 
-/* Placement names in the order they appear on a result page, so the
-   list reads as a funnel rather than an alphabet. */
 var AFF_LABEL = {
   shop_active: 'Shop this card on eBay',
   sold_verify: 'See the sold listings',
@@ -586,12 +487,6 @@ var AFF_LABEL = {
 };
 var AFF_ORDER = ['shop_active','sold_verify','sold_check','open_search','shop_amazon','own_store'];
 
-/* The Pro funnel. Four steps that used to live in three systems: the
-   wall was unmeasured, the click only reached TikTok, the payment only
-   existed in Stripe. Shown as a ladder with the drop-off between rungs,
-   because the RATE is the finding — a wall nobody reaches and a wall
-   everybody bounces off need opposite fixes and look identical as raw
-   counts. */
 var WALL_LABEL = {
   bulk_full:     'Paste blocked \u2014 binder already full',
   bulk_overflow: 'Paste would overflow the free limit',
@@ -601,17 +496,6 @@ var WALL_LABEL = {
   share_locked:  'Tried the locked share panel'
 };
 
-/* Saving, as a rate rather than a count. Two saves against 110 lookups
-   was the number that prompted this, and on its own it says nothing:
-   the missing figure was how many people were ever offered a save.
-
-   Bench and single-card offers are shown apart because most sessions
-   look up one card and never see a bench — which makes them different
-   problems with different fixes. */
-/* The set builder, which had no visibility at all until now. Kept as a
-   short block rather than a funnel: the useful reading is whether the
-   missing-cards screen is ever reached, and how often the catalog
-   fails to match a set somebody actually owns. */
 function setPanel(d, t){
   if(!has(t,'set_missing_30d')) return '';
   var looks = Number(t.set_lookups_30d||0);
@@ -719,7 +603,6 @@ function funnelPanel(d, t){
     return '<div class="fsrc"><span>'+esc(WALL_LABEL[k]||k)+'</span><b>'+num(by[k])+'</b></div>';
   }).join('');
 
-  /* The one number that invalidates the rest of the panel. */
   var fails = Number(t.pro_check_fails_30d||0);
   var note = fails
     ? '<div class="fnote bad">\u26a0 <b>'+fails+' Pro checks failed</b> and fell back to granting '
@@ -752,8 +635,6 @@ function affPanel(d, t){
       + esc(AFF_LABEL[k]||k) + '</span><b>' + num(by[k]) + '</b></div>';
   }).join('');
 
-  /* Anything the page sends that this list does not know about gets
-     shown raw rather than dropped silently. */
   Object.keys(by).forEach(function(k){
     if(AFF_ORDER.indexOf(k) === -1)
       rows += '<div class="aff-row"><span>'+esc(k)+'</span><b>'+num(by[k])+'</b></div>';
@@ -769,6 +650,49 @@ function affPanel(d, t){
           : 'Clicks to <b>your own store</b> are worth more than the rest \u2014 EPN credits the '
            + 'final value fee on those sales too.')
     + '</div></div>';
+}
+
+/* Outreach email opens. New tonight, kept in the same "say what the
+   data actually is" spirit as everything else here: a real, honest
+   lower bound, not a claimed exact count -- many mail clients block
+   remote images by default, so an email genuinely read can still show
+   as unopened here. Said directly rather than left for someone to
+   assume this is precise. */
+function emailOpensPanel(d, t){
+  var eo = d.email_opens;
+  if(!eo) return '';
+  var sent = Number(eo.sent_30d||0);
+  var opened = Number(eo.opened_30d||0);
+  var recent = eo.recent || [];
+
+  if(!sent){
+    return '<div class="card"><h2>Outreach email opens \u00b7 30d</h2>'
+      + '<div class="empty">Nothing tracked yet. Only emails sent WITH the tracking pixel '
+      + 'embedded show up here \u2014 plain-text emails sent before this shipped can\'t be '
+      + 'tracked retroactively.</div></div>';
+  }
+
+  var pct = sent ? Math.round((opened/sent)*100) : 0;
+  var rows = recent.map(function(r){
+    var when = String(r.sent_at||'').slice(0,10);
+    return '<div class="eo-row"><span class="eo-recipient">' + esc(r.recipient)
+      + (r.campaign ? '<span class="how"> ' + esc(r.campaign) + '</span>' : '')
+      + '</span><span class="eo-status ' + (r.opened?'opened':'unopened') + '">'
+      + (r.opened ? '\u2713 opened' : 'sent ' + esc(when))
+      + '</span></div>';
+  }).join('');
+
+  return '<div class="card"><h2>Outreach email opens \u00b7 30d</h2>'
+    + '<div class="funnel">'
+      + '<div class="fstep"><div class="fstep-k">Sent</div>'
+        + '<div class="fstep-n">'+num(sent)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep paid"><div class="fstep-k">Opened (at least once)</div>'
+        + '<div class="fstep-n">'+num(opened)+'</div><div class="fstep-r">'+pct+'%</div></div>'
+    + '</div>'
+    + (rows ? '<div class="subhead">Recent sends</div>' + rows : '')
+    + '<div class="fnote">A real lower bound, not an exact count \u2014 many mail clients block '
+    + 'remote images by default, so a genuinely-read email can still show as unopened here.</div>'
+    + '</div>';
 }
 
 function cell(label, n, sub){
