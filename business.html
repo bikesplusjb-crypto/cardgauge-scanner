@@ -2027,6 +2027,64 @@ function variantBadgesHtml(v){
    surfaces it as a review flag -- visible, not blocking, matching
    every other honesty check in this file: the person decides, the
    app's job is making sure they're not deciding blind. */
+/* LISTING-YEAR CROSS-CHECK.
+
+   Found from a real miss (Munetaka Murakami, 2026-08-28): the scan
+   returned "2023 Topps Series Two ... #503" with confidence High and
+   parallelCertain true, while every single one of the six eBay listings
+   it priced from had 2026 in the title. His MLB rookie card is 2026
+   Topps Series 2. Set and card number were both right -- only the year
+   was invented, and nothing in the response caught it.
+
+   That mistake wasn't free. The sold-comps query was built from the
+   same wrong year, matched nothing (soldCount 0), and the card silently
+   fell back to an asking price -- so a hallucinated year turns into a
+   worse number on the shelf, not just a wrong label.
+
+   The listings are the check, and they cost nothing: they're already in
+   the response, and they're real marketplace titles written by people
+   holding the card. When the year the AI claims appears in NONE of them
+   and a different year appears in most, the listings are the better
+   evidence.
+
+   Deliberately strict, because a false "your year is wrong" on a
+   correctly-read card is worse than a missed catch:
+     - needs 3+ listings that actually contain a year;
+     - a single listing supporting the claimed year cancels the whole
+       check, no argument;
+     - the disagreeing year has to carry 70% of the listings that have
+       one, not just be the most common.
+   A card that legitimately carries two years in its titles (a modern
+   set using a throwback design, a reprint) will usually have at least
+   one listing backing the real year, which cancels this outright.
+
+   This flags, it does not correct. The right fix lives in the backend:
+   re-run the sold query with the year the listings agree on, which
+   would have found real sold comps here instead of falling back to
+   asks. This just makes sure the wrong year stops being invisible. */
+function listingYearMismatch(d){
+  const card=getScanCard(d);
+  const claimed=String(d?.year ?? card?.year ?? '').trim();
+  if(!/^(?:19|20)\d{2}$/.test(claimed)) return null;
+  const listings=Array.isArray(d?.listings)?d.listings:(Array.isArray(card?.listings)?card.listings:[]);
+  if(listings.length<3) return null;
+  let withYears=0, supporting=0;
+  const tally={};
+  for(const l of listings){
+    const found=String(l?.title||'').match(/\b(?:19|20)\d{2}\b/g);
+    if(!found || !found.length) continue;
+    const years=Array.from(new Set(found));
+    withYears++;
+    if(years.indexOf(claimed)!==-1){ supporting++; continue; }
+    for(const y of years) tally[y]=(tally[y]||0)+1;
+  }
+  if(withYears<3) return null;
+  if(supporting>0) return null;
+  let best=null, bestN=0;
+  for(const y in tally){ if(tally[y]>bestN){ best=y; bestN=tally[y]; } }
+  if(!best || bestN < Math.ceil(withYears*0.7)) return null;
+  return { claimedYear:claimed, listingYear:best, agreeing:bestN, total:withYears };
+}
 function getReviewFlag(d){
   const card=getScanCard(d);
   const confidence=String(d?.confidence ?? card?.confidence ?? '').trim().toLowerCase();
@@ -2038,7 +2096,27 @@ function getReviewFlag(d){
       reasons.push(verified.note || 'This card number could not be found in the catalog for this set');
     }else if(verified.exists===true && String(verified.confidence||'').toLowerCase()==='low'){
       reasons.push(verified.note || 'The catalog lists a different player for this card number');
+    }else if(verified.exists===null || verified.exists===undefined){
+      /* THIRD STATE, previously silent. The catalog check ran and came
+         back unable to answer -- exists:null, note "That set isn't in
+         the card catalog, so we couldn't confirm it." Both branches
+         above test for a definite answer, so an inconclusive result
+         fell through and displayed identically to a card the catalog
+         had positively confirmed.
+
+         That's exactly backwards on the case it matters most. The
+         Murakami scan couldn't be confirmed BECAUSE the set it claimed
+         (2023 Series Two) doesn't exist -- the catalog was reporting
+         the real problem and the UI dropped it on the floor. "Couldn't
+         check" is not "checked and fine," and a shop pricing off this
+         deserves to know which one it got. */
+      reasons.push(verified.note || 'The catalog could not confirm this card');
     }
+  }
+  const ym=listingYearMismatch(d);
+  if(ym){
+    reasons.push('Listings for this card say '+ym.listingYear+', not '+ym.claimedYear
+      +' ('+ym.agreeing+' of '+ym.total+') — the year is probably wrong, and the sold-price search used the wrong year');
   }
   return { needsReview: reasons.length>0, reasons };
 }
