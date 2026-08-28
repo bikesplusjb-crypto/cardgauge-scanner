@@ -2666,19 +2666,71 @@ function renderMarginGuide(){
   const target=targetPct/100;
   const priced=shopInventory.filter(x=>Number(x.cost)>0 && Number(x.ask)>0);
   if(!priced.length){ el.innerHTML='<div class="empty">No inventory has both a cost and an ask price set yet.</div>'; return; }
+  /* FEES AND SHIPPING BELONG IN THE MARGIN, NOT BESIDE IT.
+
+     Found in a real sale, 2026-08-28. An Elly De La Cruz cost $3 and
+     was asking $5. This guide reported "40% margin, 25% safe discount"
+     — so, room to come down to $3.75. The card then sold at the full
+     $5 ask and netted EXACTLY $0.00, because a $2 marketplace fee came
+     out of it. Every dollar of the advertised discount would have been
+     a loss on a card the guide called healthy.
+
+     The old maths was cost vs ask and nothing else. But a shop does
+     not keep the ask — it keeps the ask minus what the marketplace
+     takes and minus what shipping costs. Those numbers are already
+     saved in Business Profile and were simply never read here.
+
+     Fee is a PERCENTAGE OF THE SALE PRICE, which is why the floor is
+     solved for rather than added on: at price P the shop nets
+     P*(1-fee) - ship, and that has to clear cost/(1-target). Adding a
+     flat "fee amount" to the cost instead would understate the floor
+     at every price above the ask, which is the direction that loses
+     money.
+
+     Break-even is shown next to the target-margin floor on purpose.
+     A shop discounting under pressure at a show needs to know the
+     point where it stops making anything at all, not only the point
+     where it dips under target. */
+  const feePct  = Math.min(0.95, Math.max(0, Number(shopProfile.feePercent||0)/100));
+  const shipping= Math.max(0, Number(shopProfile.shippingCost||0));
+  // Net to the shop at a given sticker price, after the marketplace's
+  // cut and the cost of posting it.
+  const netAt = p => p*(1-feePct) - shipping;
+  // Lowest price whose NET still clears `floorNet`. Solving rather than
+  // iterating keeps this exact.
+  const priceForNet = n => (n + shipping)/(1-feePct);
+
   const rows=priced.map(x=>{
     const cost=Number(x.cost), ask=Number(x.ask);
-    const currentMargin=((ask-cost)/ask)*100;
-    const minPrice=cost/(1-target);
+    // Margin on what's actually kept, not on the sticker.
+    const net=netAt(ask);
+    const currentMargin= ask>0 ? ((net-cost)/ask)*100 : 0;
+    // Floor that still earns the target margin, and the floor where
+    // the shop merely stops losing money.
+    const minPrice     = priceForNet(cost/(1-target));
+    const breakEven    = priceForNet(cost);
     const safeDiscountPct=Math.max(0,(1-(minPrice/ask))*100);
-    return {name:x.name,cost,ask,currentMargin,safeDiscountPct};
+    // Priced at or under break-even: the item cannot be discounted at
+    // all and is not making money as it stands.
+    const underwater = net <= cost;
+    return {name:x.name,cost,ask,net,currentMargin,safeDiscountPct,minPrice,breakEven,underwater};
   }).sort((a,b)=>b.safeDiscountPct-a.safeDiscountPct);
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse">
-    <tr style="font-size:11px;color:var(--muted,#94a3b8)"><td>Card</td><td style="text-align:right">Current margin</td><td style="text-align:right">Safe discount</td></tr>
+  // Stated plainly, because a 0% fee and $0 shipping produce the same
+  // numbers the old version showed -- somebody comparing the two needs
+  // to know whether fees were actually part of it.
+  const basisNote = (feePct>0 || shipping>0)
+    ? `After ${(feePct*100).toFixed(0)}% marketplace fee${shipping>0?` and ${money(shipping)} shipping`:''}.`
+    : `No marketplace fee or shipping set in Business Profile &mdash; these figures assume you keep the full sale price.`;
+
+  el.innerHTML=`<div class="sub" style="margin-bottom:6px">${basisNote}</div>
+  <table style="width:100%;border-collapse:collapse">
+    <tr style="font-size:11px;color:var(--muted,#94a3b8)"><td>Card</td><td style="text-align:right">Margin after fees</td><td style="text-align:right">Don't go below</td><td style="text-align:right">Break-even</td><td style="text-align:right">Safe discount</td></tr>
     ${rows.slice(0,30).map(r=>`
       <tr style="border-top:1px solid var(--line,#293b57)">
-        <td style="padding:6px 4px">${esc(r.name)}</td>
-        <td style="padding:6px 4px;text-align:right">${r.currentMargin.toFixed(0)}%</td>
+        <td style="padding:6px 4px">${esc(r.name)}${r.underwater?' <span class="pill bad" style="margin-top:0">⚠ no room</span>':''}</td>
+        <td style="padding:6px 4px;text-align:right;color:${r.currentMargin>0?'inherit':'var(--red,#ef4444)'}">${r.currentMargin.toFixed(0)}%</td>
+        <td style="padding:6px 4px;text-align:right">${money(r.minPrice)}</td>
+        <td style="padding:6px 4px;text-align:right;color:var(--muted,#94a3b8)">${money(r.breakEven)}</td>
         <td style="padding:6px 4px;text-align:right;color:${r.safeDiscountPct>0?'var(--green,#22c55e)':'var(--red,#ef4444)'}">${r.safeDiscountPct.toFixed(0)}%</td>
       </tr>`).join('')}
   </table>${rows.length>30?`<div class="sub" style="margin-top:6px">Showing top 30 of ${rows.length} priced items.</div>`:''}`;
