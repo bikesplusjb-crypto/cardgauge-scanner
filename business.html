@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>CardGauge Business V1 — Isolated Test</title>
+<title>CardGauge Business</title>
 <style>
 :root{--bg:#080d17;--panel:#101827;--panel2:#162236;--line:#293b57;--text:#f5f7fb;--muted:#94a3b8;--green:#22c55e;--blue:#3b82f6;--gold:#f59e0b;--red:#ef4444}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif}
@@ -66,7 +66,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
 <body>
 <div class="app">
   <div class="top">
-    <div class="logo">CARD<span>GAUGE</span> <small>BUSINESS</small><span class="badge">ISOLATED V1</span></div>
+    <div class="logo">CARD<span>GAUGE</span> <small>BUSINESS</small><span class="badge">BETA</span></div>
     <div style="display:flex;align-items:center;gap:14px">
       <button class="btn gold" style="padding:6px 12px;font-size:11px" onclick="shareApp()">Share &#128257;</button>
       <a href="https://www.cardgauge.com" style="color:var(--muted);font-size:11px">CardGauge.com</a>
@@ -106,7 +106,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
   </nav>
 
   <section id="scan" class="view active">
-    <div class="hero"><h1>Scan a whole table at once.</h1><p>Take one photo of several separated cards. This isolated V1 detects card-shaped regions, sends each crop through your existing CardGauge scanner API, and can add the results to test inventory.</p></div>
+    <div class="hero"><h1>Scan a whole table at once.</h1><p>Take one photo of several separated cards. CardGauge Business detects card-shaped regions, sends each crop through your existing CardGauge scanner API, and adds the results straight to your shop's inventory.</p></div>
     <!-- STAFF NAME -- FORWARD-COMPATIBLE PLUMBING, NOT A REAL ACCOUNT.
 
          Inventory is local-storage-only right now, one browser, no
@@ -119,7 +119,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
          works without a second pass through every record that predates
          it. Optional and remembered locally -- never blocks scanning. -->
     <div class="panel" style="padding:14px 18px">
-      <div class="sub">Your name (optional) — tags cards you add to inventory. Separate shop logins are a paid upgrade once this is fully deployed.</div>
+      <div class="sub">Your name (optional) — tags cards you add to inventory.</div>
       <input id="staffName" type="text" placeholder="e.g. Alex" style="width:200px;margin-top:4px" value="">
     </div>
     <div class="panel">
@@ -169,12 +169,12 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <div id="scanStatus" class="status"></div>
       <div class="progress"><div id="bar" class="bar"></div></div>
       <div id="results" class="grid"></div>
-      <div class="notice">This test does not write to Supabase and does not modify your production scanner. Inventory and Break Manager data are stored only in this browser's local storage until we build the production database integration.</div>
+      <div class="notice">This is real, shared storage — everything you scan or add is saved to your shop's account and visible to your whole team, on any device signed in. It doesn't touch or modify your separate personal CardGauge scanner.</div>
     </div>
   </section>
 
   <section id="inventory" class="view">
-    <div class="hero"><h1>Business Inventory</h1><p>Test inventory for cards coming from Multi-Scan. Cost, asking price, profit and status are editable.</p></div>
+    <div class="hero"><h1>Business Inventory</h1><p>Your shop's shared inventory, filled from Multi-Scan or added manually. Cost, asking price, profit and status are editable.</p></div>
 
     <!-- MANUAL ADD -- not every card gets photographed. A card already
          sold, one from a batch scanned earlier before this existed, or
@@ -207,7 +207,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
     </div>
 
     <div class="panel">
-      <div class="row"><button class="btn danger" onclick="clearInventory()">Clear test inventory</button><button class="btn" onclick="exportInventory()">Export CSV</button><span class="right sub" id="invCount"></span></div>
+      <div class="row"><button class="btn danger" onclick="clearInventory()">Clear inventory</button><button class="btn" onclick="exportInventory()">Export CSV</button><span class="right sub" id="invCount"></span></div>
       <div id="inventoryTable"></div>
       <div id="saleFormArea"></div>
     </div>
@@ -226,7 +226,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <div id="breakEditor"></div>
     </div>
     <div class="panel">
-      <h2>Assign scanned cards</h2><div class="sub">This V1 uses the team's text in a scan result. If the API result has no team, you can assign manually.</div>
+      <h2>Assign scanned cards</h2><div class="sub">This uses the team's text in a scan result. If the API result has no team, you can assign manually.</div>
       <div id="breakAssignments"></div>
     </div>
     <div class="panel">
@@ -249,7 +249,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
   </section>
 
   <section id="dashboard" class="view">
-    <div class="hero"><h1>Business Dashboard</h1><p>A test dashboard built around the workflow we're planning for CardGauge Business.</p></div>
+    <div class="hero"><h1>Business Dashboard</h1><p>Your shop's real numbers — realized profit, inventory value, break profitability, all in one place.</p></div>
     <div class="panel">
       <h2>Realized Profit — from actual recorded sales</h2>
       <div class="sub">Real money, not potential. This only counts cards marked Sold through the sale form — the metrics below (inventory value, potential profit) are estimates from asking price; this is what actually happened.</div>
@@ -291,7 +291,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
   </section>
 
   <section id="labels" class="view">
-    <div class="hero"><h1>Print Labels</h1><p>Select inventory cards and generate a printer-friendly sheet. No printer connection is required for this test.</p></div>
+    <div class="hero"><h1>Print Labels</h1><p>Select inventory cards and generate a printer-friendly sheet.</p></div>
     <div class="panel">
       <div class="row"><button class="btn primary" onclick="buildLabels()">Build labels from inventory</button><button class="btn" onclick="window.print()">Print</button></div>
       <div id="labelArea"></div>
@@ -354,7 +354,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <ul>
         <li><b>Cost, Ask, and Status are editable right in the table</b> &mdash; tap a field, change it, it saves automatically.</li>
         <li><b>Export CSV</b> if you want the raw data elsewhere.</li>
-        <li><b>Clear test inventory</b> wipes everything for your shop &mdash; this is permanent, use it deliberately, not by accident.</li>
+        <li><b>Clear inventory</b> wipes everything for your shop &mdash; this is permanent, use it deliberately, not by accident.</li>
       </ul>
     </div>
 
@@ -2036,8 +2036,8 @@ function toggleDebug(id){
   if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
 function renderInventory(){
-  const inv=shopInventory;document.getElementById('invCount').textContent=inv.length+' test cards';
-  if(!inv.length){document.getElementById('inventoryTable').innerHTML='<div class="empty">No test inventory yet. Run a Multi-Scan batch and add the results.</div>';return}
+  const inv=shopInventory;document.getElementById('invCount').textContent=inv.length+' cards';
+  if(!inv.length){document.getElementById('inventoryTable').innerHTML='<div class="empty">No inventory yet. Run a Multi-Scan batch and add the results.</div>';return}
   document.getElementById('inventoryTable').innerHTML=`<table><thead><tr><th>Card</th><th>Market</th><th>Cost</th><th>Ask</th><th>Profit</th><th>Status</th></tr></thead><tbody>${inv.map((x,i)=>{
     const variantMeta=[x.parallel,x.serial].filter(Boolean).join(' · ');
     const variantBadges=(x.isAuto?'<span class="pill bad">AUTO</span> ':'')+(x.isPatch?'<span class="pill warn">PATCH</span> ':'');
@@ -2133,12 +2133,12 @@ async function clearInventory(){
     await refreshShopInventory();
   }catch(e){alert('Could not clear inventory: '+e.message)}
 }
-function exportInventory(){const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Market','Cost','Ask','Profit','Status'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.market,x.cost,x.ask,x.ask-x.cost,x.status])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-test-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
+function exportInventory(){const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Market','Cost','Ask','Profit','Status'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.market,x.cost,x.ask,x.ask-x.cost,x.status])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
 
 async function createBreak(){
   if(!currentShopId){alert('Sign in and create or join a shop first -- see the panel at the top of the page.');return}
   const n=Math.max(1,Math.min(100,Number(document.getElementById('spotCount').value)||10));
-  const name=document.getElementById('breakName').value||'Test Break';
+  const name=document.getElementById('breakName').value||'Untitled break';
   const rule=document.getElementById('breakRule').value;
   const spots=Array.from({length:n},(_,i)=>({spot:i+1,customer:'',team:'',cards:[],price:0}));
   try{
