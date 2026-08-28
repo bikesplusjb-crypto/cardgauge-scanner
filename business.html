@@ -1514,7 +1514,12 @@ async function detectCards(file){
 
     // Try to recover any part of the real card this contour missed --
     // see backgroundColorProfile()/growBoxToBackground() above.
-    const grown=growBoxToBackground(sourceCanvas,{x,y,width:w,height:h},bgProfile);
+    // Every OTHER candidate box in this same photo, so growth can be
+    // hard-bounded away from them -- see the neighbour clamp inside
+    // growBoxToBackground(). Passed as the raw contour boxes, which is
+    // the tightest honest estimate of where each other card actually is.
+    const neighborBoxes=finalBoxes.filter((_,j)=>j!==i);
+    const grown=growBoxToBackground(sourceCanvas,{x,y,width:w,height:h},bgProfile,neighborBoxes);
 
     // Perspective warp deliberately NOT used, even when the contour
     // offered a clean 4-point quad. The quad and the bounding box come
@@ -1786,7 +1791,7 @@ function circularMeanDeg(vals){
        occasionally produce something too wide or too tall, and a
        shape check catches that even when every individual edge
        decision was locally reasonable. */
-function growBoxToBackground(canvas, box, bg){
+function growBoxToBackground(canvas, box, bg, neighbors){
   const ctx=canvas.getContext('2d');
   const cw=canvas.width, ch=canvas.height;
   const step=Math.max(8,Math.round(Math.min(box.width,box.height)*.02));
@@ -1805,6 +1810,51 @@ function growBoxToBackground(canvas, box, bg){
   // that's mostly background.
   const maxGrowX=box.width*0.25;
   const maxGrowY=box.height*0.25;
+
+  /* NEIGHBOUR CLAMP -- the failure this was added for, seen on a real
+     3-card batch photo (Caglianone / Murakami / Ohtani, 2026-08-28):
+     every one of the three crops came back containing slices of the
+     other two cards. The 25%-per-side cap is bounded relative to the
+     card, but it knows nothing about what is NEXT TO the card, and on
+     a normally-spaced table 25% of a card's height is wider than the
+     gap between two cards. Whenever the background stop-test failed to
+     fire for any reason -- glare, an off background profile, a tight
+     tolerance -- growth simply ran to its cap and walked straight into
+     the neighbour.
+
+     This does not try to make the stop-test smarter. It adds a hard
+     geometric bound that does not depend on the test being right at
+     all: detection already knows where every other candidate box in
+     this photo is, so a box is never allowed to grow into another
+     detected card's territory, full stop. A wrong colour reading can
+     now cost at most the empty gap between two cards, never a slice of
+     the neighbour itself.
+
+     Only neighbours that actually sit in the direction of growth AND
+     overlap on the perpendicular axis constrain a side -- a card
+     diagonally offset with no shared rows doesn't block downward
+     growth, because growth downward would never reach it. */
+  const NEIGHBOR_GAP=2;
+  const OVERLAP_MIN=0.15;
+  function sharesSpan(aStart,aEnd,bStart,bEnd,ref){
+    return (Math.min(aEnd,bEnd)-Math.max(aStart,bStart)) > ref*OVERLAP_MIN;
+  }
+  let limRight=cw, limLeft=0, limBottom=ch, limTop=0;
+  for(const n of (neighbors||[])){
+    if(!n || !n.width || !n.height) continue;
+    if(sharesSpan(box.y,box.y+box.height,n.y,n.y+n.height,Math.min(box.height,n.height))){
+      if(n.x>=box.x+box.width)     limRight=Math.min(limRight, n.x-NEIGHBOR_GAP);
+      if(n.x+n.width<=box.x)       limLeft =Math.max(limLeft,  n.x+n.width+NEIGHBOR_GAP);
+    }
+    if(sharesSpan(box.x,box.x+box.width,n.x,n.x+n.width,Math.min(box.width,n.width))){
+      if(n.y>=box.y+box.height)    limBottom=Math.min(limBottom, n.y-NEIGHBOR_GAP);
+      if(n.y+n.height<=box.y)      limTop   =Math.max(limTop,    n.y+n.height+NEIGHBOR_GAP);
+    }
+  }
+  const capRight =Math.min(maxGrowX, Math.max(0, limRight -(box.x+box.width)));
+  const capLeft  =Math.min(maxGrowX, Math.max(0, box.x - limLeft));
+  const capBottom=Math.min(maxGrowY, Math.max(0, limBottom-(box.y+box.height)));
+  const capTop   =Math.min(maxGrowY, Math.max(0, box.y - limTop));
 
   function bandColor(x0,y0,x1,y1){
     x0=Math.max(0,Math.round(x0));y0=Math.max(0,Math.round(y0));
@@ -1854,28 +1904,50 @@ function growBoxToBackground(canvas, box, bg){
     return votes>=2;
   }
 
-  let {x,y,width,height}=box;
+  /* REVERT-ON-CAP -- the second half of the same real failure. Growth
+     is a RECOVERY step: it exists to find the card's true edge when
+     the contour stopped early, and it is only trustworthy when it
+     actually FOUND that edge, i.e. when it stopped because it read
+     background. A side that ran the whole way to its cap without ever
+     reading background didn't find anything -- it just ran out of
+     rope, and the pixels it collected on the way are unexplained.
+     Keeping them is what produced crops full of neighbouring cards.
 
-  let grown=0;
-  while(grown<maxGrowX){
-    if(edgeIsBackground(x+width,y,x+width+step,y+height,true)) break;
-    width+=step; grown+=step;
+     So each side is now all-or-nothing: growth is kept only on a side
+     that terminated at background, and a side that hit its cap is put
+     back exactly where the contour had it. The cost is real and worth
+     naming: a card that genuinely needed MORE than 25% recovery on one
+     side used to get a partial recovery and now gets none. For a
+     multi-card shop scan that trade is right -- an under-cropped card
+     is still that card and still scans, while an over-grown crop feeds
+     two cards into one identification request and returns a confidently
+     wrong answer.
+
+     Each side is measured against the ORIGINAL box rather than the
+     partially-grown one, so the four decisions are independent and the
+     result no longer depends on which side happened to be evaluated
+     first. */
+  function growSide(cap, probe){
+    let grown=0, foundBackground=false;
+    for(;;){
+      if(probe(grown)){ foundBackground=true; break; }
+      if(grown>=cap) break;
+      // Land the final probe exactly ON the cap rather than stopping a
+      // whole step short of it -- caught in testing, where a box that
+      // needed recovery of exactly its cap distance came back with no
+      // growth at all because the last probe was never taken.
+      grown=Math.min(grown+step,cap);
+    }
+    return foundBackground?grown:0;
   }
-  grown=0;
-  while(grown<maxGrowX){
-    if(edgeIsBackground(x-step,y,x,y+height,true)) break;
-    x-=step; width+=step; grown+=step;
-  }
-  grown=0;
-  while(grown<maxGrowY){
-    if(edgeIsBackground(x,y+height,x+width,y+height+step,false)) break;
-    height+=step; grown+=step;
-  }
-  grown=0;
-  while(grown<maxGrowY){
-    if(edgeIsBackground(x,y-step,x+width,y,false)) break;
-    y-=step; height+=step; grown+=step;
-  }
+
+  const dRight = growSide(capRight,  g=>edgeIsBackground(box.x+box.width+g, box.y, box.x+box.width+g+step, box.y+box.height, true));
+  const dLeft  = growSide(capLeft,   g=>edgeIsBackground(box.x-g-step, box.y, box.x-g, box.y+box.height, true));
+  const dBottom= growSide(capBottom, g=>edgeIsBackground(box.x, box.y+box.height+g, box.x+box.width, box.y+box.height+g+step, false));
+  const dTop   = growSide(capTop,    g=>edgeIsBackground(box.x, box.y-g-step, box.x+box.width, box.y-g, false));
+
+  const x=box.x-dLeft, y=box.y-dTop;
+  const width=box.width+dLeft+dRight, height=box.height+dTop+dBottom;
 
   const result={x:Math.max(0,x), y:Math.max(0,y), width, height};
 
