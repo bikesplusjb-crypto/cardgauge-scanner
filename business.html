@@ -2250,23 +2250,32 @@ async function confirmSale(id){
   const fees=Number(document.getElementById('saleFees').value)||0;
   const shipping=Number(document.getElementById('saleShipping').value)||0;
   if(salePrice<=0){ alert('Enter a real sale price.'); return; }
+  /* ONE TRANSACTION, NOT TWO WRITES.
+
+     This used to insert the sale, then update the card to Sold, as two
+     separate round trips. If the second one failed -- dropped
+     connection, RLS, a tab closed mid-save -- the shop was left holding
+     a recorded sale against a card that still read Available. Pressing
+     Sold again then wrote a SECOND sale for the same card, and nothing
+     in the data said which one was real.
+
+     record_sale() does the whole thing inside one database transaction:
+     it locks the inventory row, checks the card belongs to this shop,
+     refuses if it is already Sold, snapshots the cost basis, writes the
+     sale and flips the status. Either all of that happened or none of
+     it did. The already-Sold check also means a double press is
+     rejected by the database rather than trusted to the UI. */
   try{
-    const {error:saleErr}=await SB.from('sale').insert({
-      shop_id:currentShopId,
-      inventory_item_id:id,
-      card_name:item.name,
-      sale_price:salePrice,
-      marketplace,
-      fees,
-      shipping_cost:shipping,
-      cost_basis:Number(item.cost)||0,
-      sold_by:load(LS_STAFF,'')||null
+    const {data,error}=await SB.rpc('record_sale',{
+      p_inventory_item_id:id,
+      p_sale_price:salePrice,
+      p_fees:fees,
+      p_shipping_cost:shipping,
+      p_marketplace:marketplace,
+      p_sold_by:load(LS_STAFF,'')||null
     });
-    if(saleErr) throw saleErr;
-    const {error:invErr}=await SB.from('shop_inventory')
-      .update({status:'Sold',updated_at:new Date().toISOString()})
-      .eq('id',id);
-    if(invErr) throw invErr;
+    if(error) throw error;
+    if(!data) throw new Error('The sale was not recorded.');
     item.status='Sold';
     document.getElementById('saleFormArea').innerHTML='';
     renderInventory();
