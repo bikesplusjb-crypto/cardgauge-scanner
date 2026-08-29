@@ -1,358 +1,2971 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CardGauge Business — How to run it</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CardGauge Business</title>
 <style>
-:root{
-  --ink:#0A1018;
-  --panel:#111A26;
-  --panel2:#16212F;
-  --line:#24334A;
-  --line2:#33465F;
-  --text:#E7EDF5;
-  --muted:#93A4BC;
-  --green:#3FCF7F;
-  --gold:#E8B33D;
-  --red:#F2777A;
-  --cream:#F2EDE1;
-}
-*{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{
-  margin:0;background:var(--ink);color:var(--text);
-  font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:16px;line-height:1.65;
-}
-.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
-
-/* ── nameplate: the strip along the bottom of a card front ── */
-.plate{
-  border:1px solid var(--line2);border-radius:10px;overflow:hidden;
-  background:var(--panel);margin-bottom:34px;
-}
-.plate-top{
-  padding:26px 24px 20px;
-  background:
-    repeating-linear-gradient(115deg,rgba(63,207,127,.05) 0 2px,transparent 2px 9px),
-    var(--panel2);
-  border-bottom:1px solid var(--line2);
-}
-.eyebrow{
-  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--green);margin:0 0 10px;
-}
-h1{
-  font-family:Oswald,sans-serif;font-weight:600;font-size:clamp(30px,6vw,46px);
-  line-height:1.03;letter-spacing:.01em;margin:0 0 12px;text-transform:uppercase;
-}
-.lede{margin:0;color:var(--muted);max-width:52ch}
-.plate-bottom{
-  display:flex;flex-wrap:wrap;gap:0;border-top:0;
-}
-.stat{
-  flex:1 1 130px;padding:14px 18px;border-right:1px solid var(--line);
-}
-.stat:last-child{border-right:0}
-.stat b{
-  display:block;font-family:"IBM Plex Mono",monospace;font-size:19px;color:var(--text);
-}
-.stat span{
-  display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px;
-}
-
-h2{
-  font-family:Oswald,sans-serif;font-weight:500;text-transform:uppercase;
-  letter-spacing:.05em;font-size:20px;margin:44px 0 6px;
-}
-h2 .num{font-family:"IBM Plex Mono",monospace;color:var(--green);font-size:14px;margin-right:10px}
-.sub{color:var(--muted);margin:0 0 18px;max-width:60ch}
-
-/* ── steps: numbered like card slots ── */
-.steps{border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.step{display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--panel)}
-.step:last-child{border-bottom:0}
-.step-n{
-  flex:0 0 62px;display:flex;align-items:center;justify-content:center;
-  font-family:Oswald,sans-serif;font-size:24px;font-weight:500;color:var(--muted);
-  background:var(--panel2);border-right:1px solid var(--line);
-}
-.step-b{padding:16px 20px}
-.step h3{
-  font-family:Oswald,sans-serif;font-weight:500;text-transform:uppercase;letter-spacing:.04em;
-  font-size:16px;margin:0 0 4px;
-}
-.step p{margin:0;color:var(--muted);font-size:15px}
-.step .why{
-  display:block;margin-top:8px;padding-left:12px;border-left:2px solid var(--line2);
-  font-size:14px;color:var(--muted);
-}
-.step .why b{color:var(--text);font-weight:500}
-
-/* ── badge key ── */
-.key{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
-.keyrow{
-  background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
-}
-.pill{
-  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;
-  letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;
-  border:1px solid currentColor;margin-bottom:8px;
-}
-.pill.ok{color:var(--green)}
-.pill.warn{color:var(--gold)}
-.pill.bad{color:var(--red)}
-.keyrow p{margin:0;font-size:14px;color:var(--muted)}
-
-/* ── troubleshooting ── */
-details{
-  background:var(--panel);border:1px solid var(--line);border-radius:8px;
-  padding:0;margin-bottom:8px;
-}
-summary{
-  cursor:pointer;padding:14px 18px;font-weight:500;list-style:none;
-  display:flex;justify-content:space-between;align-items:center;gap:12px;
-}
-summary::-webkit-details-marker{display:none}
-summary::after{content:"+";font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:18px}
-details[open] summary::after{content:"\2212"}
-details[open] summary{border-bottom:1px solid var(--line)}
-details .body{padding:14px 18px 18px;color:var(--muted);font-size:15px}
-details .body p{margin:0 0 10px}
-details .body p:last-child{margin:0}
-
-table{width:100%;border-collapse:collapse;font-size:15px;margin-top:4px}
-th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
-th{
-  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);font-weight:400;
-}
-td.n{font-family:"IBM Plex Mono",monospace}
-.callout{
-  border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
-  background:var(--panel);padding:16px 18px;margin:18px 0;font-size:15px;
-}
-.callout b{color:var(--gold);font-weight:500}
-footer{
-  margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
-  color:var(--muted);font-size:13px;
-}
-a{color:var(--green)}
+:root{--bg:#080d17;--panel:#101827;--panel2:#162236;--line:#293b57;--text:#f5f7fb;--muted:#94a3b8;--green:#22c55e;--blue:#3b82f6;--gold:#f59e0b;--red:#ef4444}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}
+.app{max-width:1180px;margin:auto;padding:14px 16px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 16px}
+.logo{font-weight:950;letter-spacing:.4px}.logo span{color:var(--green)}.badge{font-size:10px;color:var(--gold);border:1px solid #6b4a14;padding:4px 8px;border-radius:99px;margin-left:8px}
+nav{display:flex;gap:7px;overflow:auto;padding-bottom:8px}nav button{white-space:nowrap;background:var(--panel);color:var(--muted);border:1px solid var(--line);padding:10px 14px;border-radius:10px;font-weight:800}
+nav button.active{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.45);color:var(--green)}
+.view{display:none}.view.active{display:block}.hero{padding:20px 2px 12px}.hero h1{margin:0 0 8px;font-size:clamp(25px,5vw,38px)}.hero p{margin:0;color:var(--muted);line-height:1.5;max-width:720px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}.panel h2{font-size:18px;margin:0 0 5px}.sub{color:var(--muted);font-size:12px;line-height:1.5}.panel h3{font-size:14px;margin:16px 0 6px;color:var(--text)}.panel ol,.panel ul{margin:6px 0;padding-left:20px;line-height:1.7;font-size:13px;color:var(--text)}.panel li{margin-bottom:4px}.panel p{font-size:13px;line-height:1.6;margin:6px 0}
+.drop{border:2px dashed var(--line);background:var(--panel2);border-radius:14px;padding:28px 16px;text-align:center;display:block;cursor:pointer;margin-top:14px}.drop:hover{border-color:var(--green)}
+input[type=file]{display:none}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.actions{margin-top:12px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:11px 14px;border-radius:10px;font-weight:800}.btn.primary{background:var(--green);color:#042b13;border-color:var(--green)}.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}.btn.gold{background:var(--gold);border-color:var(--gold);color:#211300}.btn.danger{border-color:#6b2525;color:#ff9b9b}.btn:disabled{opacity:.45;cursor:not-allowed}
+.status{margin-top:12px;color:var(--muted);font-size:12px}.status.ok{color:var(--green)}.status.err{color:#ff9b9b}.progress{height:8px;background:#0b1220;border-radius:99px;overflow:hidden;margin-top:10px}.bar{height:100%;width:0;background:var(--green);transition:width .2s}
+.preview{display:none;max-width:100%;max-height:520px;margin:14px auto 0;border-radius:10px}.stats{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px}.stat b{font-size:20px;display:block}.stat span{font-size:10px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}.grid2 label{display:block;margin-bottom:3px}.grid2 input{width:100%}.item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden}.item img{width:100%;aspect-ratio:5/7;object-fit:contain;background:#02060c}.item .body{padding:10px}.name{font-size:12px;font-weight:850;line-height:1.3}.meta{font-size:10px;color:var(--muted);margin-top:4px}.pill{display:inline-block;font-size:9px;border:1px solid var(--line);padding:3px 6px;border-radius:99px;color:var(--muted);margin-top:7px}.ok{color:var(--green)}.warn{color:var(--gold)}.bad{color:#ff9b9b}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px 11px;outline:none;width:100%}input:focus,select:focus{border-color:var(--green)}label.small{font-size:10px;color:var(--muted);display:block;margin-bottom:4px}
+.formgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.formgrid .wide{grid-column:span 2}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}.metric .v{font-size:25px;font-weight:900;margin-top:4px}.metric .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.spotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:12px}.spot{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}.spot strong{font-size:13px}.spot small{color:var(--muted);display:block;margin-top:4px}.empty{padding:25px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;margin-top:12px}
+#labelArea{display:none}.label-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.label{border:1px solid #000;background:#fff;color:#000;border-radius:4px;padding:8px;min-height:90px;font-family:Arial}.label b{font-size:12px}.label small{display:block;font-size:9px;margin-top:4px}.right{margin-left:auto}
+#proofArea{display:none}.proof-spot{border:1px solid #000;background:#fff;color:#000;border-radius:6px;padding:14px;margin-bottom:12px;font-family:Arial;page-break-inside:avoid}.proof-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px}.proof-cards{display:flex;flex-wrap:wrap;gap:10px}.proof-card{width:90px;text-align:center;font-size:10px}.proof-card img{width:90px;height:126px;object-fit:contain;border:1px solid #ccc;border-radius:4px}.proof-unverified{border:1px dashed #999;color:#666;border-radius:6px;padding:12px;margin-bottom:12px;font-family:Arial;font-size:12px}
+/* PRINT -- the whole point of this page is a sheet somebody cuts apart
+   and sticks on cards. Printing it with no print stylesheet at all
+   meant the entire dark app chrome (nav, heading, instructions, the
+   buttons themselves) went to the printer along with it -- most of a
+   page of ink on things nobody wanted printed, with the actual labels
+   left small and few-per-page as a result. This hides everything
+   except the label sheet itself when printing, drops the dark
+   background (real ink cost on a real printer), and shrinks each
+   label toward an actual sticker/tag size instead of a near-full-width
+   box, so more fit per page. */
 @media print{
-  body{background:#fff;color:#000}
-  .plate,.step,.keyrow,details,.callout{background:#fff;border-color:#bbb}
-  .step-n,.plate-top{background:#f3f3f3}
-  details{page-break-inside:avoid}
-  details .body{display:block!important}
-  summary::after{display:none}
-  .muted,.sub,p{color:#333}
+  body{background:#fff !important}
+  /* #labelArea is nested three levels deep (.app > section#labels >
+     .panel > #labelArea) -- discovered by actually checking the real
+     markup rather than assuming a flat structure. Hiding .app's
+     children also hides everything inside them, including a
+     display:block on a buried grandchild, since a hidden ancestor
+     hides its whole subtree regardless of the child's own display
+     rule. So visibility gets unwound one level at a time: hide
+     everything, then re-show only the one path down to labelArea. */
+  .app > *{display:none !important}
+  .app > #labels{display:block !important}
+  #labels > *{display:none !important}
+  #labels > .panel{display:block !important}
+  #labels > .panel > *{display:none !important}
+  #labels > .panel > #labelArea{display:block !important}
+  .label-sheet{grid-template-columns:repeat(4,1fr);gap:4px}
+  .label{min-height:auto;padding:6px;break-inside:avoid;page-break-inside:avoid}
+  .label b{font-size:10px}
+  .label small{font-size:8px;margin-top:2px}
 }
+.notice{padding:11px 13px;border-radius:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:#f8c66a;font-size:11px;line-height:1.5;margin-top:10px}
+@media(max-width:760px){.cards{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:repeat(2,1fr)}.formgrid .wide{grid-column:span 2}table{font-size:11px}/* PHONE: the inventory table has six columns and no room for them. On a phone the Cost and Ask inputs were squeezed to roughly 38px of usable space -- narrower than one digit plus a caret -- so a shop typing a cost could not see what they were typing. Nothing was lost; it was simply invisible, which is worse, because cost is the field every profit figure downstream depends on. Fixed by letting the table be as wide as it needs and scrolling it sideways, rather than by shrinking the inputs further. A number you can read matters more than fitting every column on screen at once. */.tblscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}.tblscroll table{min-width:560px}.tblscroll td input{min-width:74px;font-size:15px;padding:12px 10px}.tblscroll td select{min-width:104px;font-size:15px;padding:12px 8px}/* 16px or above stops iOS zooming the whole page in on focus, which was throwing the layout off every time a field was tapped. */.tblscroll td input,.tblscroll td select{font-size:16px}.tblscroll th,.tblscroll td{padding:10px 6px;white-space:nowrap}.tblscroll td:first-child{white-space:normal;min-width:150px}}
+@media(max-width:520px){.app{padding:10px 11px 40px}.panel{padding:13px}.grid{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:26px}.spotgrid{grid-template-columns:1fr 1fr}.label-sheet{grid-template-columns:1fr 1fr}}
 </style>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<div class="wrap">
-
-<div class="plate">
-  <div class="plate-top">
-    <p class="eyebrow">Shop portal · beta</p>
-    <h1>How to run<br>CardGauge Business</h1>
-    <p class="lede">Photograph a table of cards, get names and real sold prices back, put them in your shop's shared inventory, and record what they sell for. This is everything you need to run it well.</p>
+<div class="app">
+  <div class="top">
+    <div class="logo">CARD<span>GAUGE</span> <small>BUSINESS</small><span class="badge">BETA</span></div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="btn gold" style="padding:6px 12px;font-size:11px" onclick="shareApp()">Share &#128257;</button>
+      <a href="https://www.cardgauge.com" style="color:var(--muted);font-size:11px">CardGauge.com</a>
+    </div>
   </div>
-  <div class="plate-bottom">
-    <div class="stat"><b>3–10</b><span>cards per photo</span></div>
-    <div class="stat"><b>2</b><span>photos per batch</span></div>
-    <div class="stat"><b>30 days</b><span>of sold comps</span></div>
-    <div class="stat"><b>Shared</b><span>across your staff</span></div>
+
+  <!-- SHOP SIGN-IN -- this is what makes everything below actually
+       shared instead of local. Nothing renders or saves against real
+       shop_inventory until a shop is resolved: signed in, and either
+       already staff of a shop or one just created. -->
+  <div class="panel" id="authPanel" style="padding:14px 18px;margin-bottom:14px"></div>
+
+  <div class="modal" id="authModal" style="display:none;position:fixed;inset:0;background:#000a;z-index:999;align-items:center;justify-content:center">
+    <div class="panel" style="max-width:360px;width:90%;padding:20px">
+      <h2 style="margin-top:0">Sign in</h2>
+      <div id="authStepEmail">
+        <input id="authEmail" type="email" placeholder="your@email.com" style="width:100%;margin-bottom:8px">
+        <button class="btn blue" style="width:100%" onclick="sendAuthCode()">Email me a code</button>
+      </div>
+      <div id="authStepCode" style="display:none">
+        <div class="sub" style="margin-bottom:8px">Code sent to <b id="authEmailShown"></b></div>
+        <input id="authCode" type="text" inputmode="numeric" placeholder="code from your email" style="width:100%;margin-bottom:8px">
+        <button class="btn blue" style="width:100%" onclick="verifyAuthCode()">Confirm</button>
+      </div>
+      <div id="authErr" class="sub" style="color:var(--red);margin-top:8px;display:none"></div>
+      <button class="btn" style="width:100%;margin-top:10px" onclick="closeAuth()">Cancel</button>
+    </div>
   </div>
+
+  <nav id="nav">
+    <button class="active" data-view="scan">📸 Multi-Scan</button>
+    <button data-view="inventory">📦 Inventory</button>
+    <button data-view="breaks">🎥 Break Manager</button>
+    <button data-view="dashboard">📊 Dashboard</button>
+    <button data-view="labels">🏷️ Labels</button>
+    <button data-view="help">❓ How To</button>
+  </nav>
+
+  <section id="scan" class="view active">
+    <div class="hero"><h1>Scan a whole table at once.</h1><p>Take one photo of several separated cards. CardGauge Business detects card-shaped regions, sends each crop through your existing CardGauge scanner API, and adds the results straight to your shop's inventory.</p></div>
+    <!-- STAFF NAME -- FORWARD-COMPATIBLE PLUMBING, NOT A REAL ACCOUNT.
+
+         Inventory is local-storage-only right now, one browser, no
+         shared backend -- so this name does not do anything functional
+         yet; Alex's phone and Jordan's phone are already two separate
+         datasets whether or not either of them types a name in here.
+         What it DOES do is get every inventory record stamped with who
+         added it from day one, so when real shared storage exists later
+         (see /areas/cardgauge-business-tool.md), attribution already
+         works without a second pass through every record that predates
+         it. Optional and remembered locally -- never blocks scanning. -->
+    <div class="panel" style="padding:14px 18px">
+      <div class="sub">Your name (optional) — tags cards you add to inventory.</div>
+      <input id="staffName" type="text" placeholder="e.g. Alex" style="width:200px;margin-top:4px" value="">
+    </div>
+    <div class="panel">
+      <h2>1. Capture the batch</h2>
+      <div class="sub">Best results: 3–10 cards, flat, not overlapping, camera roughly overhead, even lighting. After the fronts are detected, you can flip the cards in the same positions and capture the backs.</div>
+      <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Shiny/refractor/prizm cards are harder to detect reliably than plain cards — direct glare can cause one to be missed or cropped wrong. Angling the card slightly to avoid a bright reflection, or using softer/indirect light, helps. Set the expected card count below so a miss gets flagged instead of slipping through.</div>
+      <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Don't fill the whole frame with one card — leave a visible margin of background around every edge, even scanning just one. A card pressed up to the edge of the photo can get cropped wrong, since the detector needs to see all four edges to find the card.</div>
+      <label class="drop" for="photo"><strong>📷 Take photo / choose image</strong><br><span class="sub">On a phone, this opens the camera or photo picker.</span></label>
+      <input id="photo" type="file" accept="image/*" capture="environment">
+      <input id="backPhoto" type="file" accept="image/*" capture="environment" style="display:none">
+      <div id="sourceWrap" style="position:relative;display:inline-block">
+        <img id="source" class="preview" alt="">
+        <canvas id="trayOverlay" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
+      </div>
+      <!-- EXPECTED-COUNT SAFETY NET.
+
+           Detection on shiny/refractor cards is glare-sensitive in a way
+           no fixed blur/dilate setting fully eliminates -- confirmed
+           directly: the same 5 real cards detected 5/5 clean in one
+           photo, then a genuinely missed card AND a small false
+           fragment in another, purely from a harsher lighting angle.
+           The fragment case is already caught by the size-outlier
+           check elsewhere in this file, but a card that is missed
+           ENTIRELY produces nothing to flag -- there is no wrong box
+           to compare against, just an absent one. The app has no way
+           to know a 5th card should exist unless told.
+
+           This tells it. Optional on purpose -- forcing a count before
+           every batch would be friction for the common case where
+           detection just works, and an unset field is silently
+           skipped, never treated as "expected 0". */ -->
+      <div class="sub" style="margin-top:8px">Optional: how many cards are in this photo? Lets detection warn you if it finds fewer.</div>
+      <input id="expectedCount" type="number" min="1" max="30" placeholder="e.g. 5" style="width:100px;margin-top:4px">
+      <div class="stats">
+        <div class="stat"><b id="detected">0</b><span>Cards detected</span></div>
+        <div class="stat"><b id="backsDetected">0</b><span>Backs captured</span></div>
+        <div class="stat"><b id="scanned">0</b><span>Cards scanned</span></div>
+        <div class="stat"><b id="added">0</b><span>Added to inventory</span></div>
+      </div>
+      <div class="actions row">
+        <button id="detectBtn" class="btn primary" disabled>Detect cards</button>
+        <button id="scanBtn" class="btn blue" disabled>Scan all detected</button>
+        <button id="backBtn" class="btn" disabled>Capture backs</button>
+        <button id="addAllBtn" class="btn gold" disabled>Add all to inventory</button>
+      </div>
+      <div class="sub" style="margin-top:10px">Recommended workflow: <b>Detect fronts → Capture backs → Scan all</b>. Back scanning is optional.</div>
+      <div id="scanStatus" class="status"></div>
+      <div class="progress"><div id="bar" class="bar"></div></div>
+      <div id="results" class="grid"></div>
+      <div class="notice">This is real, shared storage — everything you scan or add is saved to your shop's account and visible to your whole team, on any device signed in. It doesn't touch or modify your separate personal CardGauge scanner.</div>
+    </div>
+  </section>
+
+  <section id="inventory" class="view">
+    <div class="hero"><h1>Business Inventory</h1><p>Your shop's shared inventory, filled from Multi-Scan or added manually. Cost, asking price, profit and status are editable.</p></div>
+
+    <!-- MANUAL ADD -- not every card gets photographed. A card already
+         sold, one from a batch scanned earlier before this existed, or
+         staff just wanting to log something quickly without a camera --
+         all real reasons to type a card in directly rather than force
+         everything through Multi-Scan. Writes to the exact same
+         shop_inventory table addAllBtn does, so nothing downstream
+         (Inventory table, Dashboard, Labels, Break Manager) needs to
+         know or care how a given card got added. -->
+    <div class="panel">
+      <h2>Add a card manually</h2>
+      <div class="sub" style="margin-bottom:10px">For anything not scanned -- typed in goes straight into the same shared inventory.</div>
+      <div class="grid2">
+        <div><label class="small">Card name *</label><input id="manName" placeholder="2025 Topps Finest Shohei Ohtani"></div>
+        <div><label class="small">Year</label><input id="manYear" type="number" placeholder="2025"></div>
+        <div><label class="small">Brand</label><input id="manBrand" placeholder="Topps"></div>
+        <div><label class="small">Set</label><input id="manSet" placeholder="Finest"></div>
+        <div><label class="small">Card #</label><input id="manNumber" placeholder="50"></div>
+        <div><label class="small">Team</label><input id="manTeam" placeholder="Dodgers"></div>
+        <div><label class="small">Parallel</label><input id="manParallel" placeholder="Gold Refractor"></div>
+        <div><label class="small">Serial #</label><input id="manSerial" placeholder="12/25"></div>
+        <div><label class="small">Cost</label><input id="manCost" type="number" step=".01" value="0"></div>
+        <div><label class="small">Ask</label><input id="manAsk" type="number" step=".01" value="0"></div>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <label class="small" style="display:flex;align-items:center;gap:5px"><input id="manAuto" type="checkbox"> Autograph</label>
+        <label class="small" style="display:flex;align-items:center;gap:5px"><input id="manPatch" type="checkbox"> Patch</label>
+      </div>
+      <button class="btn primary" style="margin-top:10px" onclick="addManualCard()">Add to inventory</button>
+    </div>
+
+    <div class="panel">
+      <div class="row"><button class="btn danger" onclick="clearInventory()">Clear inventory</button><button class="btn" onclick="exportInventory()">Export CSV</button><span class="right sub" id="invCount"></span></div>
+      <div class="row" style="margin-top:10px;gap:8px">
+        <input id="invSearch" placeholder="Search name, year, set, number, team…" oninput="renderInventory()" style="flex:2;min-width:190px">
+        <select id="invStatus" onchange="renderInventory()" style="flex:1;min-width:120px">
+          <option value="">All statuses</option>
+          <option value="Available">Available</option>
+          <option value="Listed">Listed</option>
+          <option value="Sold">Sold</option>
+        </select>
+        <select id="invSort" onchange="renderInventory()" style="flex:1;min-width:150px">
+          <option value="added_desc">Newest first</option>
+          <option value="added_asc">Oldest first</option>
+          <option value="value_desc">Highest value</option>
+          <option value="value_asc">Lowest value</option>
+          <option value="profit_desc">Most potential profit</option>
+          <option value="name_asc">Card name A–Z</option>
+        </select>
+      </div>
+      <div id="inventoryTable"></div>
+      <div id="saleFormArea"></div>
+    </div>
+  </section>
+
+  <section id="breaks" class="view">
+    <div class="hero"><h1>Break Manager</h1><p>Create a break, define the spots, then use the scanned card results to assign cards to customers by team.</p></div>
+    <div class="panel">
+      <h2>Create / edit break</h2>
+      <div class="formgrid">
+        <div class="wide"><label class="small">Break name</label><input id="breakName" placeholder="2026 Topps Chrome Hobby #1042"></div>
+        <div><label class="small">Spots</label><input id="spotCount" type="number" min="1" max="100" value="10"></div>
+        <div><label class="small">Rule</label><select id="breakRule"><option>Team</option><option>Random</option><option>Player</option></select></div>
+      </div>
+      <div class="actions"><button class="btn primary" onclick="createBreak()">Create break</button></div>
+      <div id="breakEditor"></div>
+    </div>
+    <div class="panel">
+      <h2>Assign scanned cards</h2><div class="sub">This uses the team's text in a scan result. If the API result has no team, you can assign manually.</div>
+      <div id="breakAssignments"></div>
+    </div>
+    <div class="panel">
+      <h2>Break Proof</h2>
+      <div class="sub">A permanent record of what each customer was verified as receiving — card image, name, serial number, and who confirmed it. Snapshotted at the moment a spot is verified, so it stays accurate even if that card is later edited or removed from inventory.</div>
+      <div class="row"><button class="btn primary" onclick="buildBreakProof()">Generate Break Proof</button><button class="btn" onclick="window.print()">Print</button></div>
+      <div id="proofArea"></div>
+    </div>
+    <div class="panel">
+      <h2>Break Costs &amp; Profitability</h2>
+      <div class="sub">Revenue is calculated automatically from each spot's price, entered above. Enter what this break actually cost to run.</div>
+      <div class="formgrid">
+        <div><label class="small">Wax cost</label><input id="waxCost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label class="small">Shipping cost</label><input id="shippingCost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label class="small">Platform fee %</label><input id="feePercent" type="number" min="0" max="100" step="0.1" placeholder="0"></div>
+      </div>
+      <div class="actions"><button class="btn primary" onclick="saveBreakCosts()">Save costs</button></div>
+      <div id="breakAnalytics"></div>
+    </div>
+  </section>
+
+  <section id="dashboard" class="view">
+    <div class="hero"><h1>Business Dashboard</h1><p>Your shop's real numbers — realized profit, inventory value, break profitability, all in one place.</p></div>
+    <div class="panel">
+      <h2>Realized Profit — from actual recorded sales</h2>
+      <div class="sub">Real money, not potential. This only counts cards marked Sold through the sale form — the metrics below (inventory value, potential profit) are estimates from asking price; this is what actually happened.</div>
+      <div class="cards">
+        <div class="metric"><div class="k">Today</div><div class="v" id="salesToday">$0</div></div>
+        <div class="metric"><div class="k">This week</div><div class="v" id="salesWeek">$0</div></div>
+        <div class="metric"><div class="k">This month</div><div class="v" id="salesMonth">$0</div></div>
+        <div class="metric"><div class="k">Cards sold (month)</div><div class="v" id="salesCountMonth">0</div></div>
+      </div>
+    </div>
+    <div class="cards">
+      <div class="metric"><div class="k">Inventory cards</div><div class="v" id="mCards">0</div></div>
+      <div class="metric"><div class="k">Inventory value</div><div class="v" id="mValue">$0</div></div>
+      <div class="metric"><div class="k">Potential profit</div><div class="v" id="mProfit">$0</div></div>
+      <div class="metric"><div class="k">Break spots</div><div class="v" id="mSpots">0</div></div>
+    </div>
+    <div class="panel">
+      <h2>Business Profile</h2>
+      <div class="sub">Your shop's real defaults, saved once and reused everywhere below — the Margin Guide, and every new break's fee and shipping cost, so you're not re-typing the same numbers each time.</div>
+      <div class="formgrid">
+        <div><label class="small">Default target margin (%)</label><input id="profTargetMargin" type="number" min="0" max="95" step="1"></div>
+        <div><label class="small">Marketplace fee (%)</label><input id="profFeePercent" type="number" min="0" max="50" step="0.1"></div>
+        <div><label class="small">Typical shipping cost ($)</label><input id="profShippingCost" type="number" min="0" step="0.01"></div>
+      </div>
+      <div class="actions"><button class="btn primary" onclick="saveShopProfile()">Save defaults</button></div>
+    </div>
+    <div class="panel">
+      <h2>Break Profitability · All Breaks</h2>
+      <div class="sub">Every break this shop has run, not just the one currently open on the Break Manager tab — this is what answers "how much am I actually making from breaks."</div>
+      <div id="allBreaksHistory"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="panel">
+      <h2>Margin &amp; Discount Guide</h2>
+      <div class="sub">For each priced item, how much room exists before a discount eats into your target margin. Only shows items with both a cost and an ask price set.</div>
+      <div class="row"><label class="small">Target margin</label><input id="targetMargin" type="number" min="0" max="95" step="1" value="20" style="width:70px" onchange="this.dataset.touched='1';renderMarginGuide()">%</div>
+      <div id="marginGuide"></div>
+    </div>
+    <div class="panel"><h2>Workflow</h2><div class="sub">PHOTO → DETECT → IDENTIFY → PRICE → INVENTORY → BREAK ASSIGNMENT → LABEL</div></div>
+  </section>
+
+  <section id="labels" class="view">
+    <div class="hero"><h1>Print Labels</h1><p>Select inventory cards and generate a printer-friendly sheet.</p></div>
+    <div class="panel">
+      <div class="row"><button class="btn primary" onclick="buildLabels()">Build labels from inventory</button><button class="btn" onclick="window.print()">Print</button></div>
+      <div id="labelArea"></div>
+    </div>
+  </section>
+
+  <!-- HELP -- the how-to guide, built into the app itself rather than a
+       separate document, so it's actually where people are when they
+       need it instead of something they have to go find. Same content
+       as the standalone guide, converted to the app's own styling. -->
+  <section id="help" class="view">
+    <div class="hero"><h1>How To (Beta)</h1><p>A tool for card shops and breakers to scan a whole table of cards at once, price them, and keep one shared inventory your whole team can see &mdash; on a phone or a desktop, same live list.</p></div>
+
+    <div class="panel">
+      <div style="background:rgba(245,158,11,.1);border:1px solid var(--gold);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--text)">&#9888; <b>Early beta</b> &mdash; if something looks wrong, that's useful information, not just an inconvenience. See Known Limitations below.</div>
+      <h2>Getting started</h2>
+      <ol>
+        <li>Tap <b>Sign in</b> at the top, enter your email, enter the code sent to your inbox.</li>
+        <li>If this is your shop's first time: tap <b>Create a shop</b>, give it a name.</li>
+        <li>If you're joining a shop someone else already created, they'll invite you &mdash; you'll get a real email, and signing in with that same address attaches you to their shop automatically. No code to enter, no separate "join" step.</li>
+      </ol>
+      <p>Once you're in, everything you do is tied to your shop, not just your device. A card scanned on a phone shows up on a desktop signed into the same shop, instantly.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Inviting staff</h2>
+      <p>Once you're signed into a shop, an <b>"+ Invite staff"</b> button appears next to Sign out. Enter their email, and they'll get a real invite email &mdash; the moment they sign in with that address, they're automatically added to your shop, no manual step on your end.</p>
+      <p>If that person already has their own personal CardGauge account, the invite email won't send (Supabase's invite system is built for brand-new accounts) &mdash; but they'll still be added to your shop automatically the next time they sign in normally. You'll just want to tell them directly in that case.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Scanning a batch of cards</h2>
+      <p>This is the core workflow, on the Multi-Scan tab.</p>
+      <ol>
+        <li><b>Lay your cards out with real space between them</b> &mdash; this matters more than it sounds like it should. Cards touching or nearly touching can get detected as one merged region instead of two. A couple inches of visible table between each card is enough.</li>
+        <li>Tap <b>Detect cards</b>. It'll find each card and show you the crops it captured.</li>
+        <li><b>Check the crops before moving on.</b> Each one should show the whole card. If a card is flagged <b>"Needs review"</b> &mdash; usually because it's too close to the edge of the photo, or the crop looks too small &mdash; don't just trust it. Look at it, and either re-take the photo with more margin, or tap <b>Scan anyway</b> if it actually looks fine to you.</li>
+        <li>Optionally tap <b>Capture backs</b> &mdash; same idea, lay the backs out and photograph them. The app matches each back to its front by position, not by order, so it doesn't matter if you flip them in a different arrangement.</li>
+        <li>Tap <b>Scan all detected</b>. Each card gets identified and priced. This happens one at a time, so a big batch takes a little while &mdash; that's normal, not stuck.</li>
+        <li>Review the results, then tap <b>Add all to inventory</b>.</li>
+      </ol>
+      <h3>A note on pricing labels</h3>
+      <p>You'll see either a green <span class="pill ok">Sold</span> badge (a real sold-comps price), a yellow <span class="pill warn">Mixed comps</span> badge (sold data exists but looks inconsistent, worth a second look), or a yellow <span class="pill warn">Ask only</span> badge (no sold data found, this is an asking price instead). The app won't call an asking price "sold" &mdash; if it says sold, it means it.</p>
+      <h3>Tips for a clean scan</h3>
+      <ul>
+        <li>Leave a visible margin of background around every card, even when scanning just one. A card pressed right up to the edge of the photo is the single most common cause of a bad crop.</li>
+        <li>Shiny, foil, and refractor cards are harder to detect than plain ones &mdash; angle the card slightly to avoid a direct glare, or use softer light.</li>
+        <li>If a batch comes back with a wrong count, type the number of cards you expect into the small box before detecting &mdash; it'll warn you if it finds fewer than that.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Adding a card manually</h2>
+      <p>Not every card needs a photo. On the Inventory tab, there's an <b>"Add a card manually"</b> form &mdash; type in the name, year, set, and whatever else you know, mark it AUTO/PATCH if it applies, set a cost and ask price, and it goes straight into the same shared inventory as a scanned card. Useful for a card you already sold, one from before this tool existed, or just a quick log without pulling out the camera.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Managing inventory</h2>
+      <p>The Inventory tab shows everything in your shop's shared list &mdash; from any scan or manual entry, from any staff member signed into your shop.</p>
+      <ul>
+        <li><b>Cost, Ask, and Status are editable right in the table</b> &mdash; tap a field, change it, it saves automatically.</li>
+        <li><b>Export CSV</b> if you want the raw data elsewhere.</li>
+        <li><b>Clear inventory</b> wipes everything for your shop &mdash; this is permanent, use it deliberately, not by accident.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Break Manager</h2>
+      <p>For running a live break.</p>
+      <ol>
+        <li>On the Break Manager tab, name your break, set how many spots, and create it. Each spot also gets a <b>price</b> field &mdash; enter what that spot sold for, since this is what drives the profitability numbers below, not a separate typed-in total.</li>
+        <li>For each spot, add a customer name and a team/player.</li>
+        <li><b>Auto-assign scanned cards</b> pulls from your shop's entire unsold inventory, not just whatever you last scanned &mdash; so if a break's cards were photographed across several separate batches over the course of a stream, running this once at the end still picks up all of them, matching each card to the spot with the same team.</li>
+        <li>If a card's team can't be matched automatically, you can assign it manually.</li>
+      </ol>
+      <p><b>One real limitation right now:</b> only your shop's most recent break loads automatically. Older breaks aren't lost &mdash; they're just not the one shown on this tab &mdash; there's no way yet to browse or switch back to a previous one on Break Manager (though its numbers still count toward the Business Dashboard's all-breaks totals).</p>
+    </div>
+
+    <div class="panel">
+      <h2>Verify &amp; Break Proof</h2>
+      <p>Below the assignment list, each spot shows the actual card thumbnails and serial numbers that got auto-assigned &mdash; hold the physical pile next to the screen and check it matches. Tap <b>Mark verified</b> once you've confirmed a spot; it records who verified it and when, right under the count.</p>
+      <p><b>Break Proof</b>, further down, turns every verified spot into a real, printable dispute record &mdash; card images, names, serial numbers, who verified it, timestamped. This is a genuine snapshot taken the moment you verify, not a live view &mdash; if a card is later edited or removed from inventory, the proof for that break stays exactly as it was. A spot that hasn't been verified shows up as an explicit warning in the proof, not silently skipped.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Labels</h2>
+      <p>The Labels tab builds printable price tags straight from your inventory &mdash; card name, year/set/number, and price, up to 60 at a time. Tap <b>Build labels from inventory</b>, then <b>Print</b>.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Business Profile &amp; Profitability</h2>
+      <p>On the Business Dashboard, set your shop's real defaults once &mdash; <b>target margin, marketplace fee %, and typical shipping cost</b>. Everything below reads from these instead of asking you to re-type them:</p>
+      <ul>
+        <li>Every <b>new break</b> starts with your fee % and shipping cost already filled in.</li>
+        <li>The <b>Margin &amp; Discount Guide</b> defaults to your target margin, and shows &mdash; for every priced item &mdash; how far you can safely discount it before eating into that margin. An item already priced below your target shows up clearly, not hidden.</li>
+        <li><b>Break Profitability</b> shows every break your shop has run, not just the current one &mdash; total revenue, total profit, and which break actually performed best. Per-break, it's Revenue (sum of spot prices) minus Wax, Fees, and Shipping.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Known limitations (beta, being honest about it)</h2>
+      <ul>
+        <li>No way yet to browse or switch back to a past break on the Break Manager tab itself &mdash; only the most recent one loads there, though its numbers still count in the Dashboard's all-breaks totals.</li>
+        <li>Inviting someone who already has their own personal CardGauge account won't send an email &mdash; they still get added automatically once they sign in, you'll just need to tell them directly.</li>
+        <li>This is real, shared, permanent storage (not a demo) &mdash; but it's still beta software. Don't treat it as your only record of anything irreplaceable yet.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Something look wrong? Tell me directly</h2>
+      <p>This beta is genuinely trying to catch real problems before this becomes the real product. If a crop looks wrong, a price looks off, or anything just feels broken &mdash; say so, with a screenshot if you can. That's exactly the kind of feedback this beta period is for.</p>
+    </div>
+  </section>
 </div>
 
-<h2><span class="num">01</span>Scanning a batch</h2>
-<p class="sub">Seven steps, start to finish. The order matters — backs have to be captured before you scan, not after.</p>
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<script>
+const API='https://stock-card-api.onrender.com';
+const LS_STAFF='cg_business_v1_staffname';
+let sourceFile=null, backSourceFile=null, detectedCards=[], backCards=[], results=[], activeBreak=null;
+// Shop-level defaults (target margin, marketplace fee %, shipping cost)
+// so the Margin Guide and new-break costs don't reset to zero/hardcoded
+// values every time -- loaded once in resolveShop(), used everywhere
+// those numbers were previously hardcoded or blank.
+let shopProfile={targetMargin:20,feePercent:0,shippingCost:0};
 
-<div class="steps">
-  <div class="step"><div class="step-n">1</div><div class="step-b">
-    <h3>Lay the cards out</h3>
-    <p>Three to ten at a time, flat, with a gap between each one. No overlapping.</p>
-    <span class="why"><b>Why:</b> the app finds a card by seeing all four of its edges. Cards that touch each other get cropped together and priced as one.</span>
-  </div></div>
+// ══════════════════════════════════════════════════════════════
+// SHOP AUTH + SHARED STORAGE
+//
+// This is what replaces localStorage. Reuses the same Supabase
+// project and the same email-code sign-in CardGauge's main site
+// already uses -- one login, not a second account system.
+//
+// Everything below is a real network call, not an instant local
+// read, so every write is deliberately explicit about success or
+// failure rather than assuming it worked. No silent localStorage
+// fallback if a save fails -- a card that looks saved but isn't
+// is worse than a save that visibly failed and can be retried.
+// ══════════════════════════════════════════════════════════════
+const SB_URL='https://nlaqvfplecacbbdbmhxd.supabase.co';
+const SB_KEY='sb_publishable_9e5zQmOwtT6aJM1t-xSEyQ_jA2tDY5N';
+let SB=null;
+function sbReady(){
+  if(SB) return SB;
+  try{
+    if(window.supabase && window.supabase.createClient){
+      SB=window.supabase.createClient(SB_URL,SB_KEY);
+    }
+  }catch(e){SB=null}
+  return SB;
+}
 
-  <div class="step"><div class="step-n">2</div><div class="step-b">
-    <h3>Stand back and shoot</h3>
-    <p>Hold the phone high enough that there's clear table visible all the way around the group. Even light, no direct glare.</p>
-    <span class="why"><b>Why:</b> further away reads better than closer, which is the opposite of what feels right. A card pressed to the edge of the frame is the most common cause of a bad crop.</span>
-  </div></div>
+let currentUser=null, currentShopId=null, currentShopName=null;
+// In-memory mirror of the shop_inventory table. Every read call site
+// in the app (renderInventory, the break assigner, the dashboard
+// totals, label printing, CSV export) reads THIS, synchronously --
+// only refreshShopInventory() talks to the network. That keeps the
+// async/await boundary in exactly one place instead of rewriting
+// every function in the file to be async.
+let shopInventory=[];
+let authEmailPending='';
 
-  <div class="step"><div class="step-n">3</div><div class="step-b">
-    <h3>Type how many cards you put down</h3>
-    <p>Use the small count box before pressing Detect.</p>
-    <span class="why"><b>Why:</b> this is the only thing that catches a card being missed. Without it, finding four of five looks exactly like success.</span>
-  </div></div>
+function openAuth(){
+  document.getElementById('authModal').style.display='flex';
+  document.getElementById('authStepEmail').style.display='';
+  document.getElementById('authStepCode').style.display='none';
+  document.getElementById('authErr').style.display='none';
+}
+function closeAuth(){document.getElementById('authModal').style.display='none'}
+function setAuthErr(msg){
+  const el=document.getElementById('authErr');
+  el.textContent=msg;el.style.display='block';
+}
 
-  <div class="step"><div class="step-n">4</div><div class="step-b">
-    <h3>Detect cards</h3>
-    <p>Check the count that comes back matches what you put down. If it's short, re-shoot before going any further.</p>
-    <span class="why"><b>Why:</b> everything after this runs on the crops. A bad crop can't be fixed later in the process.</span>
-  </div></div>
+async function sendAuthCode(){
+  if(!sbReady()){setAuthErr('Accounts unavailable right now -- try again in a moment.');return}
+  const email=(document.getElementById('authEmail').value||'').trim();
+  if(!email||email.indexOf('@')<0){setAuthErr('Enter a valid email.');return}
+  try{
+    const r=await SB.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+    if(r.error) throw r.error;
+    authEmailPending=email;
+    document.getElementById('authEmailShown').textContent=email;
+    document.getElementById('authStepEmail').style.display='none';
+    document.getElementById('authStepCode').style.display='';
+  }catch(e){setAuthErr(e.message||'Could not send code.')}
+}
+async function verifyAuthCode(){
+  if(!sbReady())return;
+  const code=(document.getElementById('authCode').value||'').trim();
+  if(!code){setAuthErr('Enter the code from your email.');return}
+  try{
+    const r=await SB.auth.verifyOtp({email:authEmailPending,token:code,type:'email'});
+    if(r.error) throw r.error;
+    currentUser=r.data.user||(r.data.session&&r.data.session.user);
+    closeAuth();
+    await resolveShop();
+  }catch(e){setAuthErr(e.message||'That code did not work.')}
+}
 
-  <div class="step"><div class="step-n">5</div><div class="step-b">
-    <h3>Capture backs</h3>
-    <p>Flip every card in place without sliding them around, then take the second photo from the same distance.</p>
-    <span class="why"><b>Why:</b> the year and card number are printed on the back. Skip this and cards come back as "Unknown" year with a price for the player rather than the card.</span>
-  </div></div>
+// One shop per person for now, matching the decision that shop
+// inventory is shared, not per-staff. Finds the shop this user is
+// already staff of; if none, the panel below offers to create one.
+async function resolveShop(){
+  if(!sbReady()||!currentUser){renderAuthPanel();return}
+  try{
+    // Consume any invite addressed to this email BEFORE checking
+    // membership -- this is the actual self-serve join: an owner
+    // invited this address earlier, and signing in is what completes
+    // it. Safe to call even with nothing pending; it just does
+    // nothing in that case. See accept_pending_invites() -- runs
+    // server-side under this user's own identity, not a manual
+    // database insert on my end anymore.
+    const {error:inviteErr}=await SB.rpc('accept_pending_invites');
+    if(inviteErr) console.warn('[invites] accept failed:',inviteErr.message);
 
-  <div class="step"><div class="step-n">6</div><div class="step-b">
-    <h3>Scan all detected</h3>
-    <p>Wait for every tile to finish. Each one comes back with a name, a price, and sometimes a warning.</p>
-    <span class="why"><b>Why:</b> prices come from completed eBay sales over the last 30 days, not asking prices — unless the tile says otherwise.</span>
-  </div></div>
+    const {data,error}=await SB.from('shop_staff')
+      .select('shop_id, shops(id,name,default_target_margin,default_fee_percent,default_shipping_cost)')
+      .eq('user_id',currentUser.id)
+      .limit(1);
+    if(error) throw error;
+    if(data&&data.length&&data[0].shops){
+      currentShopId=data[0].shops.id;
+      currentShopName=data[0].shops.name;
+      shopProfile={
+        targetMargin:Number(data[0].shops.default_target_margin??20),
+        feePercent:Number(data[0].shops.default_fee_percent??0),
+        shippingCost:Number(data[0].shops.default_shipping_cost??0)
+      };
+      await refreshShopInventory();
+      await refreshShopBreak();
+    }
+  }catch(e){console.warn('[shop] resolve failed:',e.message)}
+  renderAuthPanel();
+}
 
-  <div class="step"><div class="step-n">7</div><div class="step-b">
-    <h3>Add all to inventory</h3>
-    <p>Read the flagged cards first, then press once and wait for the confirmation.</p>
-    <span class="why"><b>Why:</b> nothing is saved before this. Pressing twice adds everything twice.</span>
-  </div></div>
-</div>
+// Same pattern as refreshShopInventory() -- pulls the shop's break out
+// of Supabase into the local activeBreak var everything else in this
+// file already reads from, so nothing downstream (renderBreaks,
+// renderAssignments, autoAssign) needs to know or care that the source
+// changed from localStorage. Just the most recent break for the shop --
+// this app only ever edits one break at a time, matching what the UI
+// already offered before this migration; older breaks aren't lost,
+// they're just not the one loaded here.
+async function refreshShopBreak(){
+  if(!sbReady()||!currentShopId){activeBreak=null;renderBreaks();return}
+  try{
+    const {data,error}=await SB.from('shop_breaks')
+      .select('*')
+      .eq('shop_id',currentShopId)
+      .order('created_at',{ascending:false})
+      .limit(1);
+    if(error) throw error;
+    activeBreak=(data&&data[0])
+      ? {id:data[0].id, name:data[0].name, rule:data[0].rule, spots:data[0].spots||[],
+         waxCost:Number(data[0].wax_cost||0), shippingCost:Number(data[0].shipping_cost||0),
+         feePercent:Number(data[0].platform_fee_percent||0)}
+      : null;
+  }catch(e){console.warn('[break] refresh failed:',e.message)}
+  renderBreaks();
+}
 
-<div class="callout">
-  <b>Before step 7, nothing exists.</b> Scan results live in the page only. Reloading, closing the tab, or switching to another device loses them. Add to inventory is the moment it becomes real and shows up for your whole team.
-</div>
+async function createShop(){
+  if(!sbReady()||!currentUser)return;
+  const name=(prompt('Name your shop:')||'').trim();
+  if(!name)return;
+  try{
+    // Log exactly what's about to be sent, before the request goes out.
+    // If owner_user_id and the RLS check disagree about who's signed
+    // in, this is the only way to catch that from a phone with no
+    // console -- an alert showing just e.message hides the Postgres
+    // error code/details/hint that actually explains an RLS failure.
+    console.log('[createShop] currentUser.id =',currentUser.id,'session=',await SB.auth.getSession());
+    const {data,error}=await SB.from('shops').insert({name,owner_user_id:currentUser.id}).select().single();
+    if(error) throw error;
+    currentShopId=data.id;currentShopName=data.name;
+    await refreshShopInventory();
+    renderAuthPanel();
+  }catch(e){
+    const detail=[e.message,e.code?`code: ${e.code}`:'',e.details?`details: ${e.details}`:'',e.hint?`hint: ${e.hint}`:'']
+      .filter(Boolean).join('\n');
+    alert('Could not create shop:\n\n'+detail);
+  }
+}
 
-<h2><span class="num">02</span>Reading the badges</h2>
-<p class="sub">Every tile tells you where its number came from. That's the difference between a price you can put on a sticker and one you should check.</p>
+async function logOutShop(){
+  if(sbReady()) await SB.auth.signOut();
+  currentUser=null;currentShopId=null;currentShopName=null;shopInventory=[];
+  renderAuthPanel();renderAll();
+}
 
-<div class="key">
-  <div class="keyrow">
-    <span class="pill ok">Sold</span>
-    <p>A median of what this card actually sold for. This is the number to trust.</p>
-  </div>
-  <div class="keyrow">
-    <span class="pill warn">Ask only</span>
-    <p>No completed sales found, so this is what sellers are asking. Asking prices run high — treat it as a ceiling, not a value.</p>
-  </div>
-  <div class="keyrow">
-    <span class="pill warn">Mixed comps</span>
-    <p>Sold data exists but the sales don't agree with each other. Usually means parallels got mixed in. Worth a look.</p>
-  </div>
-  <div class="keyrow">
-    <span class="pill bad">Needs review</span>
-    <p>Something didn't add up — the set isn't in the catalog, or the listings disagree with the year on the card. Check before you price it.</p>
-  </div>
-  <div class="keyrow">
-    <span class="pill bad">Crop looks too small</span>
-    <p>The app grabbed a piece of a card rather than the card. Re-detect that one.</p>
-  </div>
-  <div class="keyrow">
-    <span class="pill ok">Front + back matched</span>
-    <p>Both sides were used to identify this card. These reads are the most reliable.</p>
-  </div>
-</div>
+// Invite by email -- this is the whole point of the shop_invites table.
+// Doesn't touch shop_staff directly; that only happens once the
+// invited person actually signs in and accept_pending_invites() runs
+// for them, since their real user id doesn't exist anywhere until then.
+// Wrapped end-to-end, same fix as autoAssign() earlier tonight for the
+// identical symptom: every path here already ended in an alert, and
+// yet on a real test, NONE of them fired -- not the success message,
+// not either failure message. That combination only makes sense if
+// something hung or threw somewhere no catch could see it. Two real
+// possibilities get handled explicitly below: an outer try/catch that
+// guarantees SOMETHING shows even for a truly unexpected error, and a
+// manual timeout on the edge function call specifically, since a
+// network request that never resolves would produce exactly this
+// silence -- no success, no failure, just an await that never returns.
+// General "tell another shop about this" sharing -- deliberately
+// separate from inviteStaff() below. That one attaches a specific
+// person to THIS shop's inventory and requires being signed in; this
+// one is just spreading the word about the tool itself, works for
+// anyone regardless of auth state, and doesn't touch the database at
+// all. navigator.share() is the actual native OS share sheet on a
+// phone (Messages, Mail, WhatsApp, whatever's installed) -- that's
+// what "native share button" means here, not a custom-built menu
+// trying to imitate one.
+async function shareApp(){
+  const shareData={
+    title:'CardGauge Business (beta)',
+    text:"Scan a whole table of cards at once and keep one shared inventory your team can see — built for card shops and breakers. Free while in beta.",
+    url:'https://scan.cardgauge.com/business.html'
+  };
+  if(navigator.share){
+    try{ await navigator.share(shareData); }
+    catch(e){ /* AbortError just means they closed the share sheet -- not an error worth alerting on */ }
+    return;
+  }
+  // Fallback for browsers with no native share sheet (most desktop
+  // browsers) -- copy a ready-to-paste message instead.
+  const fallbackText=`${shareData.text}
+${shareData.url}`;
+  try{
+    await navigator.clipboard.writeText(fallbackText);
+    alert('Link copied — paste it into a text, email, or DM.');
+  }catch(e){
+    // Clipboard access itself can be blocked (permissions, non-HTTPS
+    // context) -- last resort, just show the text to copy manually.
+    prompt('Copy this to share:', fallbackText);
+  }
+}
 
-<h2><span class="num">03</span>Pricing so you actually make money</h2>
-<p class="sub">Set your real numbers once in Business Profile and every screen below uses them.</p>
+async function inviteStaff(){
+  try{
+    if(!currentShopId){ alert('No shop selected.'); return; }
+    const email=(prompt("Invite a staff member's email:")||'').trim().toLowerCase();
+    if(!email){ return; } // cancelled the prompt -- not an error, nothing to alert
+    if(!email.includes('@')){ alert('Enter a valid email.'); return; }
 
-<table>
-  <tr><th>Field</th><th>What to put</th><th>What it changes</th></tr>
-  <tr><td>Target margin</td><td class="n">20%</td><td>The margin you want to keep on a card</td></tr>
-  <tr><td>Marketplace fee</td><td class="n">13%</td><td>eBay's cut — comes off every sale</td></tr>
-  <tr><td>Shipping cost</td><td class="n">$1.00</td><td>What it costs you to post one card</td></tr>
-</table>
+    // The shop_invites row is still the real source of truth for WHO
+    // gets attached to WHICH shop on sign-in -- see
+    // accept_pending_invites(). This insert alone was already the
+    // complete, working feature; what follows is purely the
+    // notification on top of it.
+    try{
+      const {error}=await SB.from('shop_invites').insert({shop_id:currentShopId,email,invited_by:currentUser.id});
+      if(error) throw error;
+    }catch(e){
+      if(e.code==='23505'){ alert(`${email} already has a pending invite to this shop.`); return; }
+      alert('Could not send invite: '+e.message);
+      return;
+    }
 
-<p class="sub" style="margin-top:18px">The Margin &amp; Discount Guide then shows four things per card. <b>Margin after fees</b> is what you really keep. <b>Don't go below</b> is the lowest sticker that still hits your target. <b>Break-even</b> is where you stop making anything at all. <b>Safe discount</b> is how far you can come down at a show.</p>
+    // Actually notify them. Sending Supabase's own invite email
+    // requires elevated privileges that can never live in the
+    // browser, which is why this is a real server call instead of
+    // another direct Supabase client call. If THIS part fails, the
+    // invite above still exists and still works the moment they sign
+    // in on their own -- this only affects whether they're told to.
+    // 8-second manual timeout: a hung request otherwise looks
+    // identical to total silence, with no error to catch at all.
+    try{
+      const {data:sessionData}=await SB.auth.getSession();
+      const invokePromise=SB.functions.invoke('invite-staff-email',{
+        body:{email,shop_id:currentShopId},
+        headers:{Authorization:`Bearer ${sessionData?.session?.access_token||''}`}
+      });
+      const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Timed out waiting for a response.')),8000));
+      const {data,error}=await Promise.race([invokePromise,timeoutPromise]);
+      if(error||data?.error) throw new Error(data?.error||error.message);
+      // The one accurate, distinct outcome worth telling apart from a
+      // real send: this address already has a CardGauge account, so
+      // Supabase's invite-email mechanism (built for brand-new emails
+      // only) doesn't apply -- but nothing is actually broken, since
+      // they'll still be attached automatically the moment they sign
+      // in normally. See invite-staff-email's alreadyHadAccount check.
+      if(data?.alreadyHadAccount){
+        alert(`${email} already has a CardGauge account, so no invite email was sent — but they'll still be added to ${currentShopName} automatically the next time they sign in. You may want to let them know directly.`);
+      }else{
+        alert(`Invited ${email} — they'll get an email, and joining ${currentShopName} happens automatically the moment they sign in.`);
+      }
+    }catch(e){
+      alert(`${email} is invited and will still be added to ${currentShopName} automatically when they sign in — but the notification email couldn't be sent (${e.message}). You may want to let them know directly.`);
+    }
+  }catch(e){
+    alert('Invite hit an unexpected error: '+(e&&e.message?e.message:e));
+  }
+}
 
-<div class="callout">
-  <b>Small cards lose money fast.</b> On a $5 card, a 13% fee plus a dollar of postage takes about 92% of the gross margin. Cards marked <b>no room</b> can't be discounted at all — they're already at or under break-even as priced.
-</div>
+function renderAuthPanel(){
+  const el=document.getElementById('authPanel');
+  if(!el)return;
+  if(!currentUser){
+    el.innerHTML=`<b>Not signed in.</b> <span class="sub">Sign in to save to a real, shared shop inventory instead of just this browser.</span> <button class="btn blue" onclick="openAuth()">Sign in</button>`;
+  }else if(!currentShopId){
+    el.innerHTML=`<b>Signed in as ${esc(currentUser.email)}.</b> <span class="sub">No shop yet.</span> <button class="btn gold" onclick="createShop()">Create a shop</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
+  }else{
+    el.innerHTML=`<b>${esc(currentShopName)}</b> <span class="sub">· ${esc(currentUser.email)} · shared inventory</span> <button class="btn gold" onclick="inviteStaff()">+ Invite staff</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
+  }
+}
 
-<h2><span class="num">04</span>Selling a card</h2>
-<p class="sub">Easier on a computer than a phone. Same login, same shop, same inventory.</p>
+// Pulls the real table into the local cache and re-renders everything
+// that depends on it -- the one place the DB row shape gets translated
+// into the field names the rest of the app already expects, so nothing
+// downstream (renderInventory, autoAssign, buildLabels...) has to know
+// or care that the source changed from localStorage to Supabase.
+async function refreshShopInventory(){
+  if(!sbReady()||!currentShopId){shopInventory=[];return}
+  try{
+    const {data,error}=await SB.from('shop_inventory')
+      .select('*')
+      .eq('shop_id',currentShopId)
+      .order('created_at',{ascending:false});
+    if(error) throw error;
+    shopInventory=(data||[]).map(row=>({
+      id:row.id,
+      name:row.card_name,year:row.year,brand:row.brand,set:row.set_name,
+      number:row.card_number,team:row.team,parallel:row.parallel,serial:row.serial_number,
+      isAuto:row.is_auto,isPatch:row.is_patch,
+      needsReview:row.needs_review,reviewReasons:row.review_reasons||[],
+      market:row.market_price,priceBasis:row.price_basis,
+      cost:Number(row.cost||0),ask:Number(row.ask||0),
+      status:row.status,image:row.image_url,source:row.source,
+      created:row.created_at,addedBy:row.added_by
+    }));
+  }catch(e){console.warn('[inventory] refresh failed:',e.message)}
+  renderInventory();renderDashboard();
+}
 
-<div class="steps">
-  <div class="step"><div class="step-n">1</div><div class="step-b">
-    <h3>Set the cost first</h3>
-    <p>What you paid for it. Scanned cards come in at zero.</p>
-    <span class="why"><b>Why:</b> profit is worked out from cost. Leave it at zero and every sale looks like pure profit.</span>
-  </div></div>
-  <div class="step"><div class="step-n">2</div><div class="step-b">
-    <h3>Change status to Sold</h3>
-    <p>Enter the real sale price and the fee you were charged.</p>
-    <span class="why"><b>Why:</b> gross and net profit are calculated for you and can't be edited afterwards.</span>
-  </div></div>
-  <div class="step"><div class="step-n">3</div><div class="step-b">
-    <h3>Check the Dashboard</h3>
-    <p>Realized Profit only counts cards sold through this form. Everything else on that screen is an estimate.</p>
-    <span class="why"><b>Why:</b> it's the difference between money you made and money you might make.</span>
-  </div></div>
-</div>
+// Restores a session already in progress (a page reload) without
+// making the person sign in again -- same retry-until-loaded pattern
+// as the main scanner, since the Supabase library is deferred and may
+// not have finished loading the instant this runs.
+(async function initShopAuth(){
+  let tries=0;
+  while(!sbReady()&&tries<25){await new Promise(r=>setTimeout(r,200));tries++}
+  if(!sbReady()){renderAuthPanel();return}
+  try{
+    const {data}=await SB.auth.getSession();
+    currentUser=data.session?data.session.user:null;
+  }catch(e){currentUser=null}
+  if(currentUser) await resolveShop();
+  else renderAuthPanel();
+})();
 
-<div class="callout">
-  <b>Check the sale price before you save.</b> A recorded sale can be corrected afterwards, but profit figures feed straight into your Dashboard &mdash; a wrong number there is a wrong number everywhere until you fix it.
-</div>
+function load(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function money(n){return '$'+Number(n||0).toFixed(2)}
+function getScanCard(d){
+  return d?.card || d || {};
+}
+/* SOLD DATA FIRST, ASKING PRICE ONLY AS A FALLBACK.
 
-<h2><span class="num">05</span>When something looks wrong</h2>
-<p class="sub">Every one of these has a cause worth knowing rather than a button to press.</p>
+   avgSoldPrice is a misleading field name on the backend -- despite the
+   name, it is market.avgPrice, the median of ACTIVE eBay LISTINGS
+   (asking prices), not anything sold. The real sold data lives nested
+   at sold.soldMedian. The old version of this function checked the
+   misleadingly-named field first, so a shop owner would have been shown
+   an asking-price average labeled as market value on almost every card,
+   even when real sold comps existed right next to it in the same
+   response.
 
-<details><summary>It found fewer cards than I put down</summary><div class="body">
-<p>Almost always spacing or glare. Spread the cards further apart, angle shiny cards away from the light, and shoot from further back.</p>
-<p>Shiny and refractor cards are the hardest — a bright reflection can hide an edge entirely. If one card keeps getting missed, move that one and re-shoot.</p>
-</div></details>
+   Sold data is checked first now. Asking price is still used as a
+   fallback when there is genuinely no sold data -- a rough number beats
+   none -- but getPriceBasis() below tells the UI which kind of number
+   it actually got, so the shop owner is never shown an asking price
+   silently mislabeled as a sold price. */
+/* ONE RESOLVER, NOT TWO FUNCTIONS THAT HAVE TO AGREE.
 
-<details><summary>The year or card number says Unknown</summary><div class="body">
-<p>You skipped backs, or the back photo didn't come out. The year and number are printed on the back and can't reliably be read from the front.</p>
-<p>The price you get is then for that player generally, not that card — which can be off by a lot. Re-scan with backs.</p>
-</div></details>
+   The first version of this fix had getMarketPrice() and getPriceBasis()
+   as two SEPARATE functions, each re-deciding the fallback order on its
+   own. Caught immediately by testing rather than assuming: on
+   contaminated sold data with a valid ask price available,
+   getMarketPrice() correctly fell back to the ask price, but
+   getPriceBasis() independently saw a non-zero sold.soldMedian first
+   and labeled it 'sold_mixed' -- producing "$400 [Mixed comps]" in the
+   UI when $400 was actually the ASK price, not any sold figure at all.
+   Two numbers that must always describe the same fact will eventually
+   drift if computed separately; this was proof of that within minutes
+   of writing it.
 
-<details><summary>A common card is showing a huge price</summary><div class="body">
-<p>The card was identified wrongly and the search matched something else — a sealed box or a lot. You'll see it flagged.</p>
-<p>Don't add it. Re-scan that card on its own with the back captured. If it comes back sensible, the first read was the problem.</p>
-</div></details>
+   So there is now exactly one place this decision gets made.
+   getMarketPrice() and getPriceBasis() are both thin wrappers that read
+   from the same resolved {price, basis} pair, so they cannot disagree
+   about which one produced the number on screen. */
+function is_contaminated(d, card){
+  return !!(d?.sold?.soldContaminated ?? card?.sold?.soldContaminated);
+}
+function resolvePriceAndBasis(d){
+  const card=getScanCard(d);
+  const contaminated=is_contaminated(d, card);
+  const soldVal=Number(d?.sold?.soldMedian ?? card?.sold?.soldMedian);
+  const askVal=Number(d?.avgSoldPrice ?? d?.avgPrice ?? card?.avgSoldPrice ?? card?.avgPrice);
+  const soldAskVal=Number(d?.sold?.avgSoldPrice ?? d?.sold?.avgPrice ?? card?.sold?.avgSoldPrice ?? card?.sold?.avgPrice);
 
-<details><summary>A price looks far too low</summary><div class="body">
-<p>Cheap cards often sell at auction for almost nothing while fixed-price copies go for several times more. If the card is flagged as limited or thin, there weren't enough clean sales to price from.</p>
-<p>Check the sold comps link on the tile and judge it yourself.</p>
-</div></details>
+  // Clean sold data wins outright -- the best fact available.
+  if(Number.isFinite(soldVal) && soldVal>0 && !contaminated){
+    return {price:soldVal, basis:'sold'};
+  }
+  // No clean sold data (missing, or contaminated). An asking price is
+  // a different KIND of fact, but still a real one and worth showing.
+  if(Number.isFinite(askVal) && askVal>0){
+    return {price:askVal, basis:'ask'};
+  }
+  if(Number.isFinite(soldAskVal) && soldAskVal>0){
+    return {price:soldAskVal, basis:'ask'};
+  }
+  // Nothing clean anywhere. A contaminated median beats no number at
+  // all, but the UI must never call this 'sold' the way clean data is.
+  if(Number.isFinite(soldVal) && soldVal>0 && contaminated){
+    return {price:soldVal, basis:'sold_mixed'};
+  }
+  return {price:0, basis:'none'};
+}
+function getMarketPrice(d){ return resolvePriceAndBasis(d).price; }
+/* 'sold' = a clean, non-contaminated sold-comps median. 'sold_mixed' =
+   no clean sold data or ask price existed anywhere, so the contaminated
+   median is shown as a last resort -- flagged, not hidden. 'ask' = an
+   asking price was used, whether because there was no sold data at all
+   OR because the only sold data available was contaminated. 'none' = no
+   usable price at all. */
+function getPriceBasis(d){ return resolvePriceAndBasis(d).basis; }
+/* THE BACKEND DOES NOT RETURN A TEAM FIELD AT ALL.
 
-<details><summary>I added the same cards twice</summary><div class="body">
-<p>Add all to inventory ran twice. Delete the duplicates from the Inventory tab — they'll have the same timestamp.</p>
-<p>Press once and wait for the green confirmation rather than pressing again.</p>
-</div></details>
+   /api/scan-card returns player, year, set, brand, cardNumber, sport,
+   parallel -- never a team. Every one of the candidate fields below
+   checks a name the API genuinely might use, but as of this build none
+   of them exist, so this always fell through to ''.
 
-<details><summary>My staff can't see the inventory</summary><div class="body">
-<p>They need to be invited to the shop and signed in on their own account. Same shop, same cards, any device.</p>
-<p>A blank Inventory tab usually means signed out, not missing data. Sign in and it comes back.</p>
-</div></details>
+   Rather than have the AI guess a team from the card image (an extra,
+   fallible vision call for something that's public, static knowledge
+   for well-known players), this falls back to a small hand-maintained
+   player -> team table. It only covers well-known current players, and
+   it WILL go stale -- rosters change with trades and free agency, and
+   this table is not re-verified against any live source. Treat it as a
+   convenience for common cases in Break Manager, not an authority. A
+   player not in the table returns '' (honestly unknown) rather than a
+   guess, same principle as everywhere else in this app: no team is
+   better than the wrong team, since a wrong auto-assign silently
+   drops a card into the wrong customer's spot. */
+const PLAYER_TEAM_MAP={
+  // MLB
+  'shohei ohtani':'Dodgers','aaron judge':'Yankees','mike trout':'Angels',
+  'ronald acuna jr':'Braves','ronald acuna jr.':'Braves','juan soto':'Mets',
+  'bobby witt jr':'Royals','bobby witt jr.':'Royals','elly de la cruz':'Reds',
+  'julio rodriguez':'Mariners','corbin carroll':'Diamondbacks',
+  'gunnar henderson':'Orioles','yordan alvarez':'Astros',
+  'freddie freeman':'Dodgers','mookie betts':'Dodgers',
+  'fernando tatis jr':'Padres','fernando tatis jr.':'Padres',
+  'vladimir guerrero jr':'Blue Jays','vladimir guerrero jr.':'Blue Jays',
+  'bryce harper':'Phillies','paul skenes':'Pirates',
+  // NBA
+  'lebron james':'Lakers','stephen curry':'Warriors','steph curry':'Warriors',
+  'nikola jokic':'Nuggets','giannis antetokounmpo':'Bucks',
+  'joel embiid':'76ers','victor wembanyama':'Spurs',
+  'anthony edwards':'Timberwolves','jayson tatum':'Celtics',
+  'shai gilgeous-alexander':'Thunder','zion williamson':'Pelicans',
+  'ja morant':'Grizzlies',
+  // NFL
+  'patrick mahomes':'Chiefs','josh allen':'Bills',
+  'jayden daniels':'Commanders','caleb williams':'Bears',
+  'c.j. stroud':'Texans','cj stroud':'Texans',
+  'justin jefferson':'Vikings',"ja'marr chase":'Bengals','jamarr chase':'Bengals',
+  'christian mccaffrey':'49ers','travis kelce':'Chiefs'
+};
+function lookupPlayerTeam(name){
+  const key=String(name||'').trim().toLowerCase();
+  return key && PLAYER_TEAM_MAP[key] || '';
+}
+function getTeam(d){
+  const card=getScanCard(d);
+  const candidates=[
+    d?.team,d?.cardTeam,d?.playerTeam,d?.teamName,
+    card?.team,card?.cardTeam,card?.playerTeam,card?.teamName,
+    d?.metadata?.team,d?.details?.team,card?.metadata?.team,card?.details?.team
+  ];
+  for(const v of candidates){
+    const s=String(v??'').trim();
+    if(s) return s;
+  }
+  const player=d?.player||card?.player||'';
+  return lookupPlayerTeam(player);
+}
 
-<h2><span class="num">06</span>Running a break</h2>
-<p class="sub">Break Manager holds the spots; the Dashboard tells you whether the break made money.</p>
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
-<div class="steps">
-  <div class="step"><div class="step-n">1</div><div class="step-b">
-    <h3>Create the break</h3>
-    <p>Name it, choose how many spots, pick team or random.</p>
-  </div></div>
-  <div class="step"><div class="step-n">2</div><div class="step-b">
-    <h3>Fill in each spot</h3>
-    <p>Customer, team, and what that spot sold for.</p>
-    <span class="why"><b>Why:</b> spot prices are where break revenue comes from. Leave them empty and the break reads as zero regardless of what you took.</span>
-  </div></div>
-  <div class="step"><div class="step-n">3</div><div class="step-b">
-    <h3>Enter your costs</h3>
-    <p>Wax cost, shipping, platform fee.</p>
-    <span class="why"><b>Why:</b> profit is revenue minus those three. Without them you're looking at revenue, not profit.</span>
-  </div></div>
-  <div class="step"><div class="step-n">4</div><div class="step-b">
-    <h3>Assign cards as you pull</h3>
-    <p>Auto-assign matches scanned cards to spots by team; anything unmatched you place by hand.</p>
-  </div></div>
-</div>
+// Named as a real function, not just an inline handler, so a link from
+// OUTSIDE the app (the cross-sell banners on cardgauge.com and
+// scan.cardgauge.com) can open straight to a specific tab -- like the
+// How To guide -- instead of always landing on Multi-Scan first.
+function switchToView(view){
+  const btn=document.querySelector(`#nav button[data-view="${view}"]`);
+  if(!btn) return;
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(view).classList.add('active');
+  renderAll();
+}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+  switchToView(b.dataset.view);
+  history.replaceState(null,'','#'+b.dataset.view);
+});
+// Respect a tab named directly in the URL on load -- #help opens
+// straight to How To rather than always starting on Multi-Scan.
+(function(){
+  const target=(location.hash||'').replace('#','');
+  if(target && document.getElementById(target)) switchToView(target);
+})();
 
-<footer>
-  <p>CardGauge Business is in beta. Prices come from completed eBay sales and are a guide, not an appraisal — check anything flagged before you price off it.</p>
-  <p><a href="https://scan.cardgauge.com/business.html">scan.cardgauge.com/business.html</a></p>
-</footer>
+document.getElementById('photo').onchange=async e=>{
+  sourceFile=e.target.files[0]; if(!sourceFile)return;
+  const src=document.getElementById('source');src.src=URL.createObjectURL(sourceFile);src.style.display='block';
+  document.getElementById('detectBtn').disabled=false;document.getElementById('scanBtn').disabled=true;document.getElementById('addAllBtn').disabled=true;
+  document.getElementById('scanStatus').textContent='Photo loaded. Tap Detect cards.';
+};
 
-</div>
+document.getElementById('backBtn').onclick=()=>document.getElementById('backPhoto').click();
+
+/* GREEDY NEAREST-NEIGHBOR MATCHING BY ACTUAL POSITION.
+
+   The old version paired front[i] with back[i] purely by array index --
+   it assumed OpenCV's reading-order sort would land in the identical
+   order on two SEPARATE detection runs against two separate photos.
+   That is not guaranteed: a slightly different card gap, one missed
+   detection, or a card nudged while flipping it over is enough to
+   silently attach the wrong back to the wrong front, with nothing in
+   the UI to reveal it happened.
+
+   This instead uses each card's normalized (nx,ny) center -- captured
+   in detectCards() -- and greedily pairs the closest front/back centers
+   first, one-to-one. It still relies on the user keeping cards roughly
+   in place while flipping them (the UI already asks for that), but it
+   verifies proximity instead of assuming index order, and it degrades
+   honestly: a front or back that has no good match just doesn't get
+   paired, rather than being forced onto whatever index happened to be
+   next. */
+function matchBacksToFronts(fronts, backs){
+  const pairs=[];
+  fronts.forEach((f,fi)=>{
+    backs.forEach((b,bi)=>{
+      const d=Math.hypot((f.nx??0)-(b.nx??0),(f.ny??0)-(b.ny??0));
+      pairs.push({fi,bi,d});
+    });
+  });
+  pairs.sort((a,b)=>a.d-b.d);
+  const usedFront=new Set(), usedBack=new Set();
+  const matches=new Array(fronts.length).fill(null);
+  for(const p of pairs){
+    if(usedFront.has(p.fi)||usedBack.has(p.bi)) continue;
+    matches[p.fi]=p.bi;
+    usedFront.add(p.fi); usedBack.add(p.bi);
+  }
+  return matches;
+}
+
+document.getElementById('backPhoto').onchange=async e=>{
+  backSourceFile=e.target.files[0]; if(!backSourceFile)return;
+  setStatus('Detecting backs…');
+  try{
+    backCards=await detectCards(backSourceFile);
+    document.getElementById('backsDetected').textContent=backCards.length;
+    results.forEach(r=>delete r.back);
+    const matches=matchBacksToFronts(results,backCards);
+    let matched=0;
+    matches.forEach((bi,fi)=>{
+      if(bi!=null){ results[fi].back=backCards[bi]; matched++; }
+    });
+    const unmatchedBacks=backCards.length-matched;
+    if(matched===results.length && matched===backCards.length){
+      setStatus(`Matched ${matched} back card(s) by position. They will be sent with their fronts.`,'ok');
+    }else{
+      setStatus(`Matched ${matched} of ${results.length} front(s) to a back by position.`
+        +(results.length-matched?` ${results.length-matched} front(s) will scan front-only.`:'')
+        +(unmatchedBacks>0?` ${unmatchedBacks} detected back(s) did not match any front.`:''),'warn');
+    }
+    renderResults();
+  }catch(e){setStatus('Back detection error: '+e.message,'err')}
+};
+
+
+document.getElementById('detectBtn').onclick=async()=>{
+  if(!sourceFile)return;
+  setStatus('Detecting card-shaped regions…');
+  try{
+    detectedCards=await detectCards(sourceFile);
+    document.getElementById('detected').textContent=detectedCards.length;
+    // A fresh front detection starts a new batch -- any backs counted
+    // from a previous photo no longer apply to these fronts.
+    backCards=[]; document.getElementById('backsDetected').textContent=0;
+    results=detectedCards.map((x,i)=>({id:'scan-'+Date.now()+'-'+i,...x,status:'Detected'}));
+    renderResults();
+    document.getElementById('scanBtn').disabled=!results.length;
+    document.getElementById('backBtn').disabled=!results.length;
+
+    // Compare against what the person said to expect, if they said
+    // anything. A card that is fully missed (not just badly cropped)
+    // produces nothing else to flag it -- this is the only check that
+    // catches that case, so it takes priority over the plain count
+    // message when a mismatch exists.
+    const expectedRaw=document.getElementById('expectedCount').value;
+    const expected=expectedRaw?parseInt(expectedRaw,10):null;
+
+    if(!results.length){
+      setStatus('No reliable card regions found. Try more spacing/light.','err');
+    }else if(expected && results.length<expected){
+      const missing=expected-results.length;
+      setStatus(`Detected ${results.length} of the ${expected} card${expected===1?'':'s'} you expected — `
+        +`${missing} may not have been found (often glare on a shiny card). Check the photo before scanning, `
+        +`or retake with less direct light on any card that's missing.`,'warn');
+    }else if(expected && results.length>expected){
+      setStatus(`Detected ${results.length} regions, more than the ${expected} you expected — `
+        +`something other than a card may have been picked up. Review the crops below before scanning.`,'warn');
+    }else{
+      setStatus(`Detected ${results.length} card region${results.length===1?'':'s'}.`
+        +(expected?' Matches what you expected.':''),'ok');
+    }
+  }catch(e){setStatus('Detection error: '+e.message,'err')}
+};
+
+// Sends a single flagged card to the scan API anyway -- for when the
+// person looks at the crop, decides the flag was a false alarm (a
+// genuinely tight but complete crop, say), and wants it scanned
+// without re-detecting the whole batch. Shares the exact same request
+// shape as the main loop below, just for one card instead of all of
+// them.
+async function scanOneCard(i){
+  const r=results[i];
+  if(!r) return;
+  r.status='Scanning…';renderResults();
+  try{
+    const fd=new FormData();fd.append('front',r.file,'card-'+i+'.jpg');
+    if(r.back?.file) fd.append('back',r.back.file,'card-'+i+'-back.jpg');
+    const resp=await fetch(API+'/api/scan-card',{method:'POST',body:fd});
+    if(!resp.ok)throw new Error('Server '+resp.status);
+    const d=await resp.json();if(!d.success)throw new Error(d.error||'Scan failed');
+    r.data=d;r.status='Scanned';
+  }catch(e){r.status='Failed: '+e.message}
+  renderResults();
+  document.getElementById('addAllBtn').disabled=!results.some(x=>x.data);
+}
+
+document.getElementById('scanBtn').onclick=async()=>{
+  let done=0;document.getElementById('scanBtn').disabled=true;document.getElementById('addAllBtn').disabled=true;
+  for(const r of results){
+    // A crop already flagged as likely-wrong (too small relative to its
+    // batch-mates, or touching the frame edge) skips the API call
+    // entirely rather than spending a real scan on a fragment neither
+    // of us trusts yet. The person can still send it anyway with the
+    // per-card button this status renders -- this only removes it from
+    // the AUTOMATIC batch, it doesn't block it outright.
+    if(r.sizeOutlier || r.touchesEdge){
+      r.status='Needs review';renderResults();
+      done++;document.getElementById('scanned').textContent=done;document.getElementById('bar').style.width=(done/results.length*100)+'%';
+      continue;
+    }
+    r.status='Scanning…';renderResults();
+    try{
+      const fd=new FormData();fd.append('front',r.file,'card-'+done+'.jpg');
+      if(r.back?.file) fd.append('back',r.back.file,'card-'+done+'-back.jpg');
+      const resp=await fetch(API+'/api/scan-card',{method:'POST',body:fd});
+      if(!resp.ok)throw new Error('Server '+resp.status);
+      const d=await resp.json();if(!d.success)throw new Error(d.error||'Scan failed');
+      r.data=d;r.status='Scanned';
+    }catch(e){r.status='Failed: '+e.message}
+    done++;document.getElementById('scanned').textContent=done;document.getElementById('bar').style.width=(done/results.length*100)+'%';renderResults();
+  }
+  document.getElementById('addAllBtn').disabled=!results.some(r=>r.data);
+  const skipped=results.filter(r=>r.status==='Needs review').length;
+  setStatus('Batch scan finished.'+(skipped?` ${skipped} flagged card(s) were skipped -- review them and scan individually if they look correct.`:'')+' Review the results before adding inventory.','ok');
+};
+
+// Same shop_inventory row shape addAllBtn writes -- see that handler's
+// comments for why each field is null-coalesced the way it is. Nothing
+// downstream can tell a manually typed card apart from a scanned one,
+// which is the point: Inventory, Dashboard, Labels and Break Manager
+// all already work off shop_inventory regardless of source.
+async function addManualCard(){
+  if(!currentShopId){
+    alert('Sign in and create or join a shop first -- see the panel at the top of the page.');
+    return;
+  }
+  const name=(document.getElementById('manName').value||'').trim();
+  if(!name){ alert('Card name is required.'); return; }
+
+  const yr=parseInt(document.getElementById('manYear').value,10);
+  const cost=Number(document.getElementById('manCost').value)||0;
+  const ask=Number(document.getElementById('manAsk').value)||0;
+
+  const row={
+    shop_id:currentShopId,
+    card_name:name,
+    year:(yr>=1860&&yr<=2100)?yr:null,
+    brand:document.getElementById('manBrand').value.trim()||null,
+    set_name:document.getElementById('manSet').value.trim()||null,
+    card_number:document.getElementById('manNumber').value.trim()||null,
+    team:document.getElementById('manTeam').value.trim()||null,
+    parallel:document.getElementById('manParallel').value.trim()||null,
+    serial_number:document.getElementById('manSerial').value.trim()||null,
+    is_auto:document.getElementById('manAuto').checked,
+    is_patch:document.getElementById('manPatch').checked,
+    // There's no real sold-comps data behind a hand-typed card the way
+    // there is for a scan, so it can't honestly claim "Sold" the way
+    // a scanned card sometimes can. But leaving market_price genuinely
+    // null would render as a bare $0.00 in the inventory table with no
+    // explanation -- worse than saying plainly what this number is.
+    // Matching the same "Ask only" labeling already used for scanned
+    // cards with no sold data is the honest, consistent choice: the
+    // market figure IS the typed ask price, clearly marked as such.
+    market_price:ask||null,price_basis:ask?'ask':null,
+    cost,ask,
+    status:'Available',image_url:null,source:'Manual',
+    added_by:load(LS_STAFF,'')||null
+  };
+
+  try{
+    const {error}=await SB.from('shop_inventory').insert(row);
+    if(error) throw error;
+    // Clear the form so it's obviously ready for the next card, same
+    // spirit as the scan flow resetting between batches.
+    ['manName','manYear','manBrand','manSet','manNumber','manTeam','manParallel','manSerial']
+      .forEach(id=>document.getElementById(id).value='');
+    document.getElementById('manCost').value='0';
+    document.getElementById('manAsk').value='0';
+    document.getElementById('manAuto').checked=false;
+    document.getElementById('manPatch').checked=false;
+    await refreshShopInventory();
+  }catch(e){
+    alert('Could not add card: '+e.message);
+  }
+}
+
+document.getElementById('addAllBtn').onclick=async ()=>{
+  // Signed out, or signed in with no shop resolved yet: refuse rather
+  // than silently falling back to a local save nobody else could see.
+  // See the panel at the top of the page.
+  if(!currentShopId){
+    setStatus('Sign in and create or join a shop first -- see the panel at the top of the page.','err');
+    return;
+  }
+  const rows=[];
+  results.filter(r=>r.data).forEach(r=>{
+    const d=r.data;const card=d.card||d;
+    const variant=getCardVariant(d);
+    const reviewFlag=getReviewFlag(d);
+    const yr=parseInt(d.year||card.year,10);
+    rows.push({
+      shop_id:currentShopId,
+      card_name:d.cardName||card.cardName||card.name||'Scanned card',
+      year:(yr>=1860&&yr<=2100)?yr:null,
+      brand:d.brand||card.brand||null,set_name:d.set||card.set||null,
+      card_number:d.cardNumber||card.cardNumber||null,team:getTeam(d)||null,
+      // Carried through so inventory and labels can show what the scan
+      // grid already shows -- an auto/patch/parallel is a different
+      // card than its base version, not a display detail to drop here.
+      parallel:variant.parallel||null,serial_number:variant.serial||null,
+      is_auto:variant.isAuto,is_patch:variant.isPatch,
+      // Not blocking the add -- same principle as everything else here,
+      // the flag is for a human to weigh, not for the app to decide for
+      // them -- but it has to survive into inventory or a flagged scan
+      // becomes an unflagged, unreviewable row the moment it's added.
+      needs_review:reviewFlag.needsReview,review_reasons:reviewFlag.reasons,
+      market_price:getMarketPrice(d)||null,price_basis:getPriceBasis(d)||null,
+      cost:0,ask:getMarketPrice(d)||null,
+      status:'Available',image_url:r.url||null,source:'Multi-Scan',
+      // The staffName field from earlier tonight was forward-compatible
+      // plumbing with nothing real behind it -- this is the real shared
+      // storage it was always waiting on.
+      added_by:load(LS_STAFF,'')||null
+    });
+  });
+  if(!rows.length)return;
+  setStatus('Saving to shop inventory…','loading');
+  try{
+    const {error}=await SB.from('shop_inventory').insert(rows);
+    if(error) throw error;
+    document.getElementById('added').textContent=rows.length;
+    await refreshShopInventory();
+    setStatus(`${rows.length} card(s) added to ${esc(currentShopName)}'s shared inventory.`,'ok');
+  }catch(e){
+    setStatus('Could not save to shop inventory: '+e.message,'err');
+  }
+};
+
+async function detectCards(file){
+  await waitForCV();
+
+  const img=await imageFromFile(file);
+  const c=document.createElement('canvas');
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  const max=2200, scale=Math.min(1,max/Math.max(img.width,img.height));
+  c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
+  ctx.drawImage(img,0,0,c.width,c.height);
+
+  const src=cv.imread(c);
+  const gray=new cv.Mat(), blur=new cv.Mat(), edge=new cv.Mat();
+  cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+  /* STRONGER BLUR + EDGE-CLOSING DILATE.
+
+     Confirmed directly against a real batch photo: with a light (5,5)
+     blur, shiny/refractor cards (Bowman/Topps Finest, chrome parallels)
+     produced ZERO valid card candidates -- not a wrong crop, no
+     candidate at all. Their foil/prism pattern generates so much fine
+     internal edge noise under Canny that the card's own true outer
+     border either never closes into one contour or gets lost among
+     hundreds of smaller internal ones. Two plain matte cards in the
+     same photo, at the same distance and lighting, detected perfectly.
+
+     Fix verified empirically (not guessed) against that exact photo:
+     a stronger (11,11) blur suppresses the fine foil texture while
+     leaving the card's true outer edge intact, and dilating the edge
+     map afterward bridges any small remaining gaps in that border so
+     it closes into one contour. Same photo, same five real cards,
+     went from 2-of-5 detected to 5-of-5.
+
+     Trade-off, stated plainly: dilation rounds the corners enough that
+     approxPolyDP finds a clean 4-point quad on fewer cards, so more
+     cards fall back to a plain axis-aligned crop instead of the
+     perspective-corrected warp. For cards laid flat and shot roughly
+     overhead -- which this tool already asks for -- that fallback crop
+     is nearly indistinguishable from a corrected one. Actually finding
+     the card is the bigger win. */
+  /* PARAMETERS RE-TUNED AFTER A REAL RESOLUTION MISMATCH.
+
+     The first pass at this fix ((11,11) blur, 3x3 dilate x2) was
+     verified against a screenshot-derived test image at ~1000-1300px --
+     but the app's real working canvas runs at up to 2200px (see the
+     resize two lines above). At that higher resolution the same fixed
+     blur kernel no longer smoothed the foil/refractor texture enough,
+     and testing also caught a SECOND failure mode that a simple
+     detected-count check would have missed: at some parameter
+     combinations, all 5 cards were "found," but one box was a small
+     internal fragment (a graphic element inside a busy-but-matte card),
+     not the actual card. Area size, not just count, had to be checked.
+
+     This configuration was grid-searched and verified against the
+     actual working resolution range (900px-2200px) AND against two
+     independently taken real photos, checking both correct count AND
+     that every selected box falls in a consistent card-sized range
+     (no box under half the median size of the others) -- catching
+     exactly the false-small-box failure mode above. */
+  cv.GaussianBlur(gray,blur,new cv.Size(9,9),0);
+  cv.Canny(blur,edge,25,120,3);
+  // Kept separate from the dilated map below -- used later to find a
+  // genuine split point between two merged cards. See the split-check
+  // block after candidate selection for why this needs to be the RAW,
+  // undilated edges specifically.
+  const edgeRaw=new cv.Mat();
+  cv.Canny(blur,edgeRaw,25,120,3);
+  const edgeCloseKernel=cv.Mat.ones(5,5,cv.CV_8U);
+  cv.dilate(edge,edge,edgeCloseKernel,new cv.Point(-1,-1),2);
+  edgeCloseKernel.delete();
+
+  const contours=new cv.MatVector(), hierarchy=new cv.Mat();
+  cv.findContours(edge,contours,hierarchy,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
+
+  const imageArea=c.width*c.height;
+  const candidates=[];
+
+  for(let i=0;i<contours.size();i++){
+    const cnt=contours.get(i);
+    const rect=cv.boundingRect(cnt);
+    const area=rect.width*rect.height;
+    const ratio=rect.width/rect.height;
+    const ar=Math.max(ratio,1/ratio);
+
+    // Deliberately broad candidate gate. We use size + aspect ratio rather
+    // than contour fill because glossy card borders can be broken.
+    //
+    // The upper bound was .30 -- tuned entirely against multi-card batch
+    // photos, where several cards spread on a table meant no single card
+    // ever filled much of the frame. A single card photographed up close
+    // (a real, legitimate case -- checking one auto or patch card) can
+    // easily exceed 30% of the frame and get rejected outright, which is
+    // exactly what happened: "No card-shaped regions found" on a shot
+    // with exactly one real card in it. Raised to .85 -- the aspect-ratio
+    // gate below (1.22-1.72) is still doing the real work of rejecting
+    // non-card shapes, so this mainly stops throwing away a legitimate
+    // close-up of a single card. Only a candidate at or near 100% of the
+    // frame (almost certainly the table/background itself, not a card)
+    // still gets rejected.
+    if(area > imageArea*.010 &&
+       area < imageArea*.85 &&
+       ar > 1.22 && ar < 1.72 &&
+       rect.width > 105 && rect.height > 150){
+
+      const peri=cv.arcLength(cnt,true);
+      const approx=new cv.Mat();
+      cv.approxPolyDP(cnt,approx,Math.max(2,.025*peri),true);
+
+      let quad=false;
+      if(approx.rows===4 && cv.isContourConvex(approx)){
+        const qa=Math.abs(cv.contourArea(approx));
+        if(qa > area*.45) quad=true;
+      }
+
+      // Prefer larger candidates and true quads, but do not require either.
+      const sizeScore=Math.min(1,area/(imageArea*.055));
+      const aspectScore=Math.max(0,1-Math.abs(ar-1.40)/.30);
+      const score=.62*sizeScore+.18*aspectScore+(quad?.20:0);
+
+      let points=null;
+      if(quad){
+        points=[];
+        for(let j=0;j<4;j++){
+          const q=approx.intPtr(j,0);
+          points.push({x:q[0],y:q[1]});
+        }
+        points=orderCorners(points);
+      }
+      candidates.push({
+        x:rect.x,y:rect.y,width:rect.width,height:rect.height,
+        area,score,quad,points
+      });
+      approx.delete();
+    }
+    cnt.delete();
+  }
+
+  // Sort strongest first and suppress only candidates that are truly
+  // duplicates of the same physical card.
+  candidates.sort((a,b)=>b.score-a.score || b.area-a.area);
+  const selected=[];
+
+  for(const b of candidates){
+    let duplicate=false;
+    for(const o of selected){
+      const ix=Math.max(0,Math.min(b.x+b.width,o.x+o.width)-Math.max(b.x,o.x));
+      const iy=Math.max(0,Math.min(b.y+b.height,o.y+o.height)-Math.max(b.y,o.y));
+      const inter=ix*iy;
+      const smaller=Math.min(b.area,o.area);
+      const overlap=smaller ? inter/smaller : 0;
+
+      const bc={x:b.x+b.width/2,y:b.y+b.height/2};
+      const oc={x:o.x+o.width/2,y:o.y+o.height/2};
+      const centerDist=Math.hypot(bc.x-oc.x,bc.y-oc.y);
+
+      if(overlap>.55 || centerDist<Math.sqrt(smaller)*.30){
+        duplicate=true;
+        break;
+      }
+    }
+    if(!duplicate) selected.push(b);
+  }
+
+  /* SPLIT CHECK -- catches two adjacent cards merged into one candidate
+     by the dilation step above. Real bug, found by testing: two portrait
+     cards placed close together often combine into a bounding box whose
+     OWN aspect ratio (roughly double-width, same height) still falls
+     inside the normal single-card aspect gate by mathematical
+     coincidence, so the shape check above can't catch it on its own.
+
+     First attempt: match the gap's colour against the photo's general
+     background (reusing the approach already built for boundary
+     recovery). Failed on a real photo -- the visible strip between two
+     raised card cases sits in their own cast shadow, which genuinely
+     changes its measured colour, not just its brightness, so it didn't
+     match the general background closely enough.
+
+     Switched to the RAW (undilated) edge map instead: a shadow boundary
+     is still a real luminance edge even when its colour doesn't match
+     open background, so Canny catches it either way regardless of
+     lighting.
+
+     A raw density peak alone isn't enough by itself, though -- tested
+     directly against a real single shiny card (an Optic refractor) and
+     its OWN internal foil pattern produced a STRONGER false peak (4.19x
+     its own baseline) than the genuine merge case (3.15x). Peak height
+     can't tell a real seam from foil noise.
+
+     What actually discriminates: whether splitting AT that peak
+     produces two halves that BOTH still look card-shaped. Verified
+     against three real photos -- correctly splits a genuine merge,
+     correctly refuses to split a real shiny card whose own texture
+     produced a stronger peak, correctly refuses to split a different
+     real shiny card too. The split point doesn't need to be exact --
+     each resulting half still goes through the normal growth/crop step
+     afterward, which can correct a slightly imprecise seam.
+
+     Deliberately single-pass: this doesn't recursively re-check its own
+     output for a THIRD merged card. No real test photo tonight showed a
+     3-way merge, and guessing at that without evidence is exactly the
+     kind of speculation this fix was built to avoid. */
+  const edgeRawData=edgeRaw.data, edgeRawCols=edgeRaw.cols, edgeRawRows=edgeRaw.rows;
+  const splitCandidates=[];
+  for(const cand of selected){
+    const {x:bx,y:by,width:bw,height:bh}=cand;
+    const scanY0=Math.max(0,by+Math.round(bh*0.2)), scanY1=Math.min(edgeRawRows,by+Math.round(bh*0.8));
+    const midStart=Math.round(bw*0.15), midEnd=Math.round(bw*0.85);
+
+    const density=new Array(bw).fill(0);
+    for(let dx=0;dx<bw;dx++){
+      const scanX=bx+dx;
+      if(scanX<0||scanX>=edgeRawCols) continue;
+      let count=0;
+      for(let sy=scanY0;sy<scanY1;sy++) if(edgeRawData[sy*edgeRawCols+scanX]>0) count++;
+      density[dx]=count;
+    }
+
+    const win=5, half=Math.floor(win/2);
+    const smoothed=density.map((_,i)=>{
+      let sum=0,n=0;
+      for(let k=-half;k<=half;k++){const idx=i+k; if(idx>=0&&idx<bw){sum+=density[idx];n++}}
+      return n?sum/n:0;
+    });
+
+    let peakIdx=midStart, peakVal=-1;
+    for(let i=midStart;i<midEnd;i++) if(smoothed[i]>peakVal){peakVal=smoothed[i];peakIdx=i}
+
+    const leftW=peakIdx, rightW=bw-peakIdx;
+    if(leftW<40||rightW<40){ splitCandidates.push(cand); continue }
+
+    const leftAr=Math.max(leftW/bh,bh/leftW), rightAr=Math.max(rightW/bh,bh/rightW);
+    const bothCardLike=(leftAr>1.05&&leftAr<1.95)&&(rightAr>1.05&&rightAr<1.95);
+
+    if(bothCardLike){
+      splitCandidates.push({x:bx,y:by,width:leftW,height:bh,area:leftW*bh,score:cand.score,quad:false,points:null});
+      splitCandidates.push({x:bx+peakIdx,y:by,width:rightW,height:bh,area:rightW*bh,score:cand.score,quad:false,points:null});
+    }else{
+      splitCandidates.push(cand);
+    }
+  }
+  edgeRaw.delete();
+
+  // Reading order.
+  splitCandidates.sort((a,b)=>{
+    const ay=a.y+a.height/2, by=b.y+b.height/2;
+    const rowTolerance=Math.min(a.height,b.height)*.50;
+    if(Math.abs(ay-by)>rowTolerance) return ay-by;
+    return (a.x+a.width/2)-(b.x+b.width/2);
+  });
+
+  /* CONTENT CHECK -- rejects a candidate whose interior doesn't actually
+     look like a real card, even though its outer shape passed every gate
+     above. Real failure found in testing: on a photo with pencil
+     scribbles on the background and a reflective plastic case, a large
+     region combining mostly-empty background, a scribble mark, and a
+     sliver of case-edge reflection closed into ONE contour with
+     card-like proportions purely by coincidence -- passing size and
+     aspect-ratio checks despite being almost entirely empty table.
+
+     Tried checking what fraction of the interior colour-matches the
+     photo's background first (reusing the approach built for boundary
+     recovery). Didn't hold up: tested against several real, correctly-
+     detected cards and their background-match fraction ranged from 14%
+     to 44% -- and the actual false positive measured 47%, sitting
+     essentially inside that same range. No safe threshold exists between
+     "real card" and "background" on that specific signal.
+
+     What actually separates them cleanly: real printed card content has
+     far more visual detail than empty table or a soft pencil mark, even
+     under blur. Measured via Laplacian variance (a standard "how much
+     genuine detail is here" measure) -- tested against real photos,
+     TWICE catching genuine mistakes in my own test coordinates along the
+     way (a box that looked right but was actually sampling background
+     next to the card, not the card itself; verified by looking at each
+     one directly before trusting its number). With coordinates verified
+     correct, every real card measured 387-1470; both real false
+     positives measured under 180 -- a clean, wide gap, not a close call.
+
+     Dropped outright, not just flagged like the size-outlier check below:
+     that check can still be a genuine (if oddly cropped) card worth a
+     human look, but a region this textureless isn't a card at all --
+     sending it to the scan API would just waste a real request on
+     nothing. */
+  const contentChecked=splitCandidates.filter(b=>{
+    const cx=Math.max(0,Math.min(c.width-1,b.x)), cy=Math.max(0,Math.min(c.height-1,b.y));
+    const cw=Math.min(b.width,c.width-cx), ch=Math.min(b.height,c.height-cy);
+    if(cw<10||ch<10) return false;
+    const roi=gray.roi(new cv.Rect(cx,cy,cw,ch));
+    const lap=new cv.Mat();
+    cv.Laplacian(roi,lap,cv.CV_64F);
+    const mean=new cv.Mat(), stddev=new cv.Mat();
+    cv.meanStdDev(lap,mean,stddev);
+    const variance=stddev.data64F[0]**2;
+    roi.delete();lap.delete();mean.delete();stddev.delete();
+    return variance>250;
+  });
+
+  const finalBoxes=contentChecked.slice(0,20);
+
+  if(!finalBoxes.length){
+    [src,gray,blur,edge,contours,hierarchy].forEach(x=>x.delete());
+    throw new Error('No card-shaped regions found. Try moving the cards farther apart.');
+  }
+
+  /* SIZE-OUTLIER CHECK.
+
+     A real failure mode found in testing: the count of detected boxes
+     can be exactly right (5 found, 5 cards on the table) while one box
+     is actually a small fragment INSIDE a busy card's artwork, not the
+     card itself -- a wrong result that a simple "did we find enough
+     boxes" check cannot catch, only comparing box sizes to each other
+     can. Cards in one batch are the same physical size, so a real
+     outlier here means a bad crop, not a smaller card. Flagged, not
+     dropped -- the crop still gets used, but the UI can warn the person
+     to double check that one before scanning. */
+  const boxAreas=finalBoxes.map(b=>b.width*b.height).sort((a,b)=>a-b);
+  const medianArea=boxAreas[Math.floor(boxAreas.length/2)]||0;
+
+  const sourceCanvas=sourceCanvasForCrop(src);
+  // Computed once per photo, not per candidate -- the background doesn't
+  // change between cards in the same shot, and this is real per-pixel
+  // work across four corner patches.
+  const bgProfile=backgroundColorProfile(sourceCanvas);
+  const output=finalBoxes.map((b,i)=>{
+    const pad=Math.max(3,Math.round(Math.min(b.width,b.height)*.015));
+    const x=Math.max(0,Math.floor(b.x-pad));
+    const y=Math.max(0,Math.floor(b.y-pad));
+    const right=Math.min(c.width,Math.ceil(b.x+b.width+pad));
+    const bottom=Math.min(c.height,Math.ceil(b.y+b.height+pad));
+    const w=Math.max(1,right-x), h=Math.max(1,bottom-y);
+
+    // Try to recover any part of the real card this contour missed --
+    // see backgroundColorProfile()/growBoxToBackground() above.
+    // Every OTHER candidate box in this same photo, so growth can be
+    // hard-bounded away from them -- see the neighbour clamp inside
+    // growBoxToBackground(). Passed as the raw contour boxes, which is
+    // the tightest honest estimate of where each other card actually is.
+    const neighborBoxes=finalBoxes.filter((_,j)=>j!==i);
+    const grown=growBoxToBackground(sourceCanvas,{x,y,width:w,height:h},bgProfile,neighborBoxes);
+
+    // Perspective warp deliberately NOT used, even when the contour
+    // offered a clean 4-point quad. The quad and the bounding box come
+    // from the SAME contour -- if that contour is actually an internal
+    // panel boundary rather than the card's true outer edge, warping
+    // to its 4 points would permanently discard everything outside
+    // them, with no way to recover it afterward. A plain rectangular
+    // crop of the GROWN box can still be corrected; a warp already
+    // committed to the wrong 4 points cannot. This is the second half
+    // of the fix -- growth alone recovers the missing pixels, but a
+    // warp running on the original wrong quad would have thrown them
+    // away before growth ever got a chance to run.
+    const canvas=document.createElement('canvas');
+    canvas.width=grown.width; canvas.height=grown.height;
+    canvas.getContext('2d').drawImage(sourceCanvas,grown.x,grown.y,grown.width,grown.height,0,0,grown.width,grown.height);
+    const data=canvas.toDataURL('image/jpeg',.94);
+
+    // Normalized (0..1) center position within THIS photo. Used later to
+    // match this card's back to the same physical card in a separately
+    // detected back photo -- see matchBacksToFronts().
+    const area=b.width*b.height;
+    const sizeOutlier=medianArea>0 && area < medianArea*0.4;
+
+    // A candidate whose box touches the very edge of the photo almost
+    // certainly isn't showing the card's true outer boundary -- a
+    // closed rectangle can't be found for a shape that exits the frame,
+    // so what got selected here is very likely a smaller shape INSIDE
+    // the real card (an insert panel, a memorabilia swatch) standing in
+    // for it. Real case: a patch card photographed edge-to-edge cropped
+    // to just the swatch panel instead of the whole card. Threshold
+    // tuning can't fix this -- the true edge genuinely isn't in the
+    // photo -- so this flags it instead of silently returning a wrong
+    // crop. EDGE_MARGIN in source-canvas pixels, not normalized, so it
+    // scales sensibly whether the working image is 900px or 2200px.
+    const EDGE_MARGIN=6;
+    const touchesEdge = b.x<=EDGE_MARGIN || b.y<=EDGE_MARGIN
+      || (b.x+b.width)>=c.width-EDGE_MARGIN || (b.y+b.height)>=c.height-EDGE_MARGIN;
+
+    return {
+      index:i+1,
+      url:data,
+      file:dataURLtoFile(data,'card-'+(i+1)+'.jpg'),
+      nx:(b.x+b.width/2)/c.width,
+      ny:(b.y+b.height/2)/c.height,
+      sizeOutlier,
+      touchesEdge
+    };
+  });
+
+  [src,gray,blur,edge,contours,hierarchy].forEach(x=>x.delete());
+  return output;
+}
+
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+
+function orderCorners(pts){
+  const sums=pts.map(p=>p.x+p.y), diffs=pts.map(p=>p.x-p.y);
+  return [
+    pts[sums.indexOf(Math.min(...sums))],
+    pts[diffs.indexOf(Math.max(...diffs))],
+    pts[sums.indexOf(Math.max(...sums))],
+    pts[diffs.indexOf(Math.min(...diffs))]
+  ];
+}
+
+function nonOverlappingCandidates(list){
+  const out=[];
+  for(const c of list){
+    const cx=c.pts.reduce((s,p)=>s+p.x,0)/4, cy=c.pts.reduce((s,p)=>s+p.y,0)/4;
+    let overlaps=false;
+    for(const o of out){
+      const ox=o.pts.reduce((s,p)=>s+p.x,0)/4, oy=o.pts.reduce((s,p)=>s+p.y,0)/4;
+      const centerDist=Math.hypot(cx-ox,cy-oy);
+      const scale=Math.sqrt(Math.min(c.area,o.area));
+      if(centerDist < scale*.62){overlaps=true;break}
+    }
+    if(!overlaps) out.push(c);
+  }
+  return out;
+}
+
+function warpCard(source, pts){
+  const tl=pts[0],tr=pts[1],br=pts[2],bl=pts[3];
+  const width=Math.max(dist(tl,tr),dist(bl,br));
+  const height=Math.max(dist(tl,bl),dist(tr,br));
+  const outW=420;
+  const outH=Math.max(588,Math.round(outW*(height/width)));
+
+  const srcPts=cv.matFromArray(4,1,cv.CV_32FC2,[
+    tl.x,tl.y,tr.x,tr.y,br.x,br.y,bl.x,bl.y
+  ]);
+  const dstPts=cv.matFromArray(4,1,cv.CV_32FC2,[
+    0,0,outW-1,0,outW-1,outH-1,0,outH-1
+  ]);
+  const M=cv.getPerspectiveTransform(srcPts,dstPts);
+  const warped=new cv.Mat();
+
+  cv.warpPerspective(
+    source,warped,M,new cv.Size(outW,outH),
+    cv.INTER_LINEAR,cv.BORDER_REPLICATE
+  );
+
+  const canvas=sourceCanvasForCrop(warped);
+  srcPts.delete();dstPts.delete();M.delete();warped.delete();
+  return canvas;
+}
+
+/* BOUNDARY GROWTH -- a real failure mode, verified against an actual
+   failing photo, not theoretical. A candidate's bounding box can be
+   geometrically valid (right aspect ratio, right size) while still
+   being the WRONG box: an internal color-block boundary inside the
+   card, not the card's true outer edge. A two-tone memorabilia card
+   (a black/white text panel next to a gold foil panel) produced a
+   clean, confident-looking 4-sided contour AT THE SEAM BETWEEN THE
+   TWO PANELS -- the crop stopped there and the gold panel was cut
+   off entirely, well within a normal, well-framed photo.
+
+   Two earlier attempts at fixing this, both tested against that same
+   real photo, both failed:
+     - comparing raw pixel colour to the background stopped growing
+       immediately, because the gold foil's brightness happened to be
+       close enough to the grey table's;
+     - comparing local texture (Laplacian variance) never stopped at
+       all, because the table's own scratches and speckling are busy
+       enough to look "still card" by that measure alone.
+   Saturation is what actually worked when tested: a gold foil panel
+   is genuinely more colourful than a plain grey table even when their
+   brightness is similar, and table texture doesn't fool a saturation
+   check the way it fooled the texture check. Requiring TWO consecutive
+   background-reading bands before stopping (not one) is what kept it
+   from stopping on a single noisy band mid-card.
+
+   This is validated against one real case, not proven universally --
+   different lighting or a genuinely saturated table surface could
+   still fool it. It is a real improvement over trusting the raw
+   contour, not a guaranteed fix for every card design. */
+/* Real bug found testing this against the actual failing photo: pooling
+   all four corners' pixels into one array and taking a single mean/std
+   looked reasonable, but one corner (bottom-left, in the test photo) had
+   a meaningfully different baseline than the other three -- ordinary
+   uneven lighting/shadow across a real photo, not a broken corner. Pooled
+   together, that mismatch alone inflated the overall std from ~2 (what
+   any single clean corner actually looks like) to 14, which pushed the
+   threshold high enough that the gold foil panel read as "already
+   background" and growth never ran at all -- confirmed directly: the
+   grown box came back identical to the input box, zero growth.
+
+   Fixed by using the MEDIAN of the four corners' own means, and the
+   AVERAGE of their own internal stds -- median because it ignores
+   whichever single corner is the outlier, average-of-internal-stds
+   because it measures pixel noise WITHIN a patch of real background,
+   not the lighting difference BETWEEN corners, which is a different
+   thing entirely and was what broke the pooled version. */
+/* Real, stress-tested history worth keeping, because each version's
+   failure taught something the next one needed:
+     - raw pixel colour: stopped growing immediately when a bright gold
+       panel's brightness happened to match the grey table's;
+     - local texture (Laplacian variance): never stopped at all, table
+       scratches read as "still card";
+     - saturation alone (pooled 4 corners): worked for that gold-panel
+       card, then failed on a SECOND real card -- a sepia-toned photo
+       panel next to a yellow folder. Saturation-only can only test
+       "is this band MORE saturated than background" (catches gold
+       foil); a card whose own content is LESS saturated than the
+       background triggers the identical false-stop in the opposite
+       direction, which is exactly what happened: growth stopped
+       immediately, cutting off roughly 40% of the card.
+   Fixed by testing SIMILARITY to background on both hue and
+   saturation together, not a one-sided saturation ceiling -- a band
+   only counts as background if it's close to the local background in
+   BOTH dimensions, which correctly rejects a card region regardless
+   of whether that region happens to be more or less saturated than
+   the table.
+
+   Background sampling itself went through the same lesson twice, in
+   two different directions:
+     - pooling all 4 corners' raw pixels into one array let one
+       corner's different lighting blow up the overall spread;
+     - sampling narrow strips LOCAL to each box (right above/below it)
+       fixed that, but on a card near the frame edge those strips can
+       clip a sliver of the card itself, which inflated the hue spread
+       enough to make the similarity check pass almost anything.
+   Landed on: 4 corners, far from any card, MEDIAN of each corner's own
+   mean (one outlier corner can't skew a median the way it skews a
+   pooled average), AVERAGE of each corner's own internal std (real
+   pixel noise within clean background, not lighting difference
+   BETWEEN corners).
+
+   Validated against both real failures together, not just the one
+   this fixed most recently -- both the original gold-panel card and
+   the sepia-panel/yellow-folder card grow to their full, correct
+   extent with this same code, at the same time. Two real cases is
+   still not "works on everything"; a third card design could still
+   find a way to fool it. */
+function backgroundColorProfile(canvas){
+  const ctx=canvas.getContext('2d');
+  const cw=canvas.width, ch=canvas.height;
+  const size=Math.max(20,Math.round(Math.min(cw,ch)*.03));
+  const corners=[[0,0],[cw-size*2,0],[0,ch-size*2],[cw-size*2,ch-size*2]];
+  const stats=[];
+  for(const [cx,cy] of corners){
+    const x0=Math.max(0,cx),y0=Math.max(0,cy);
+    const x1=Math.min(cw,x0+size*2),y1=Math.min(ch,y0+size*2);
+    if(x1<=x0||y1<=y0) continue;
+    const data=ctx.getImageData(x0,y0,x1-x0,y1-y0).data;
+    const hues=[],sats=[];
+    for(let i=0;i<data.length;i+=4){
+      const hs=rgbToHueSat(data[i],data[i+1],data[i+2]);
+      hues.push(hs.h); sats.push(hs.s);
+    }
+    if(!hues.length) continue;
+    const hMean=circularMeanDeg(hues);
+    const hStd=Math.sqrt(hues.reduce((a,h)=>{const d=angDiff(h,hMean);return a+d*d},0)/hues.length);
+    const sMean=sats.reduce((a,b)=>a+b,0)/sats.length;
+    const sStd=Math.sqrt(sats.reduce((a,b)=>a+(b-sMean)**2,0)/sats.length);
+    stats.push({hMean,hStd,sMean,sStd});
+  }
+  if(!stats.length) return {hue:0,hueStd:30,sat:0,satStd:30};
+  const hues=stats.map(s=>s.hMean).sort((a,b)=>a-b);
+  const sats=stats.map(s=>s.sMean).sort((a,b)=>a-b);
+  return {
+    hue:hues[Math.floor(hues.length/2)],
+    hueStd:stats.reduce((a,s)=>a+s.hStd,0)/stats.length,
+    sat:sats[Math.floor(sats.length/2)],
+    satStd:stats.reduce((a,s)=>a+s.sStd,0)/stats.length,
+  };
+}
+// Hue in degrees (0-360, HSV convention), saturation 0-255 to match the
+// scale the earlier saturation-only version already used.
+function rgbToHueSat(r,g,b){
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  const s=max===0?0:(d/max)*255;
+  let h=0;
+  if(d!==0){
+    if(max===r) h=60*(((g-b)/d)%6);
+    else if(max===g) h=60*((b-r)/d+2);
+    else h=60*((r-g)/d+4);
+  }
+  if(h<0) h+=360;
+  return {h,s};
+}
+function angDiff(a,b){ const d=Math.abs(a-b)%360; return d>180?360-d:d; }
+function circularMeanDeg(vals){
+  let sx=0,sy=0;
+  for(const v of vals){ const r=v*Math.PI/180; sx+=Math.cos(r); sy+=Math.sin(r); }
+  let deg=Math.atan2(sy/vals.length,sx/vals.length)*180/Math.PI;
+  if(deg<0) deg+=360;
+  return deg;
+}
+/* Rebuilt with real safety rails after review caught what the first
+   version was missing: it correctly avoided cutting off either real
+   card, but nothing stopped it from growing enormously -- it could
+   turn a well-formed candidate into a box covering most of the photo,
+   which technically satisfies "don't cut off the card" while
+   producing a crop too full of table to actually read. That's a real
+   gap between "doesn't lose the card" and "usable," and this version
+   closes it without giving back the fix that made both real cases
+   pass:
+     - hard cap on how far any side can move, as a fraction of the
+       ORIGINAL detected box, not the growing one -- so growth can't
+       compound into something enormous;
+     - each side decided from three separate sample points along that
+       edge, not one wide averaged band -- a single strip can blend
+       real card content and real background into a misleading middle
+       reading; three independent points voting is harder to fool;
+     - the whole refinement gets rejected and the original candidate
+       kept if the grown box's proportions stop looking like a card
+       (roughly 2.5:3.5) -- a legitimate 25%-per-side cap can still
+       occasionally produce something too wide or too tall, and a
+       shape check catches that even when every individual edge
+       decision was locally reasonable. */
+function growBoxToBackground(canvas, box, bg, neighbors){
+  const ctx=canvas.getContext('2d');
+  const cw=canvas.width, ch=canvas.height;
+  const step=Math.max(8,Math.round(Math.min(box.width,box.height)*.02));
+  // No artificial floor on either tolerance -- a floor of 20 tried
+  // earlier silently broke the gold-panel case, whose background is
+  // naturally very tight (std~2.7); a floor that wide swallowed a real
+  // gold-foil edge value that was only 14.6 away from the background
+  // mean. Real background noise, whatever it happens to be for THIS
+  // photo, is what the tolerance should track, not a guessed constant.
+  const hueTol=bg.hueStd*1.5;
+  const satTol=bg.satStd*1.5;
+  const SAT_FLOOR=40;
+  // 25% of the ORIGINAL box's own dimension per side -- generous enough
+  // to have recovered the real ~40%-of-card miss this was built for,
+  // but bounded so a bad read on one side can't compound into a crop
+  // that's mostly background.
+  const maxGrowX=box.width*0.25;
+  const maxGrowY=box.height*0.25;
+
+  /* NEIGHBOUR CLAMP -- the failure this was added for, seen on a real
+     3-card batch photo (Caglianone / Murakami / Ohtani, 2026-08-28):
+     every one of the three crops came back containing slices of the
+     other two cards. The 25%-per-side cap is bounded relative to the
+     card, but it knows nothing about what is NEXT TO the card, and on
+     a normally-spaced table 25% of a card's height is wider than the
+     gap between two cards. Whenever the background stop-test failed to
+     fire for any reason -- glare, an off background profile, a tight
+     tolerance -- growth simply ran to its cap and walked straight into
+     the neighbour.
+
+     This does not try to make the stop-test smarter. It adds a hard
+     geometric bound that does not depend on the test being right at
+     all: detection already knows where every other candidate box in
+     this photo is, so a box is never allowed to grow into another
+     detected card's territory, full stop. A wrong colour reading can
+     now cost at most the empty gap between two cards, never a slice of
+     the neighbour itself.
+
+     Only neighbours that actually sit in the direction of growth AND
+     overlap on the perpendicular axis constrain a side -- a card
+     diagonally offset with no shared rows doesn't block downward
+     growth, because growth downward would never reach it. */
+  const NEIGHBOR_GAP=2;
+  const OVERLAP_MIN=0.15;
+  function sharesSpan(aStart,aEnd,bStart,bEnd,ref){
+    return (Math.min(aEnd,bEnd)-Math.max(aStart,bStart)) > ref*OVERLAP_MIN;
+  }
+  let limRight=cw, limLeft=0, limBottom=ch, limTop=0;
+  for(const n of (neighbors||[])){
+    if(!n || !n.width || !n.height) continue;
+    if(sharesSpan(box.y,box.y+box.height,n.y,n.y+n.height,Math.min(box.height,n.height))){
+      if(n.x>=box.x+box.width)     limRight=Math.min(limRight, n.x-NEIGHBOR_GAP);
+      if(n.x+n.width<=box.x)       limLeft =Math.max(limLeft,  n.x+n.width+NEIGHBOR_GAP);
+    }
+    if(sharesSpan(box.x,box.x+box.width,n.x,n.x+n.width,Math.min(box.width,n.width))){
+      if(n.y>=box.y+box.height)    limBottom=Math.min(limBottom, n.y-NEIGHBOR_GAP);
+      if(n.y+n.height<=box.y)      limTop   =Math.max(limTop,    n.y+n.height+NEIGHBOR_GAP);
+    }
+  }
+  const capRight =Math.min(maxGrowX, Math.max(0, limRight -(box.x+box.width)));
+  const capLeft  =Math.min(maxGrowX, Math.max(0, box.x - limLeft));
+  const capBottom=Math.min(maxGrowY, Math.max(0, limBottom-(box.y+box.height)));
+  const capTop   =Math.min(maxGrowY, Math.max(0, box.y - limTop));
+
+  function bandColor(x0,y0,x1,y1){
+    x0=Math.max(0,Math.round(x0));y0=Math.max(0,Math.round(y0));
+    x1=Math.min(cw,Math.round(x1));y1=Math.min(ch,Math.round(y1));
+    if(x1<=x0||y1<=y0) return null;
+    const data=ctx.getImageData(x0,y0,x1-x0,y1-y0).data;
+    const hues=[]; let sSum=0,n=0;
+    for(let i=0;i<data.length;i+=4){
+      const hs=rgbToHueSat(data[i],data[i+1],data[i+2]);
+      hues.push(hs.h); sSum+=hs.s; n++;
+    }
+    if(!n) return null;
+    return {h:circularMeanDeg(hues), s:sSum/n};
+  }
+  // Similarity to background, not a one-sided ceiling -- catches a
+  // card region whether it's more OR less saturated than the table.
+  // Hue is SKIPPED (not just weighted less) when either side is
+  // near-neutral: traced directly against a real photo, the same
+  // physical grey table read as hue=207 in one corner and hue=16-26
+  // (nearly the opposite side of the colour wheel) across 140+ pixels
+  // of a different region of that same table -- a real, known
+  // instability in near-grey hue, not a fluke. Below the saturation
+  // floor, only saturation-closeness decides, matching what the
+  // original saturation-only version already did correctly there.
+  function looksLikeBackground(band){
+    const dSat=Math.abs(band.s-bg.sat);
+    if(band.s<SAT_FLOOR || bg.sat<SAT_FLOOR) return dSat<satTol;
+    return angDiff(band.h,bg.hue)<hueTol && dSat<satTol;
+  }
+  // Three independent points along the edge (20%/50%/80% of its
+  // length) rather than one wide band spanning the whole edge -- a
+  // single averaged strip can blend real card content on one part of
+  // it with real background on another into a reading that matches
+  // neither. Requires 2 of 3 to agree before treating the edge as
+  // background, so one contaminated sample point can't decide it alone.
+  function edgeIsBackground(x0,y0,x1,y1,vertical){
+    const length=vertical?(y1-y0):(x1-x0);
+    const segment=Math.max(20,Math.round(length/8));
+    const fracs=[0.2,0.5,0.8];
+    let votes=0;
+    for(const f of fracs){
+      let b;
+      if(vertical) b=bandColor(x0,y0+length*f,x1,y0+length*f+segment);
+      else b=bandColor(x0+length*f,y0,x0+length*f+segment,y1);
+      if(b && looksLikeBackground(b)) votes++;
+    }
+    return votes>=2;
+  }
+
+  /* REVERT-ON-CAP -- the second half of the same real failure. Growth
+     is a RECOVERY step: it exists to find the card's true edge when
+     the contour stopped early, and it is only trustworthy when it
+     actually FOUND that edge, i.e. when it stopped because it read
+     background. A side that ran the whole way to its cap without ever
+     reading background didn't find anything -- it just ran out of
+     rope, and the pixels it collected on the way are unexplained.
+     Keeping them is what produced crops full of neighbouring cards.
+
+     So each side is now all-or-nothing: growth is kept only on a side
+     that terminated at background, and a side that hit its cap is put
+     back exactly where the contour had it. The cost is real and worth
+     naming: a card that genuinely needed MORE than 25% recovery on one
+     side used to get a partial recovery and now gets none. For a
+     multi-card shop scan that trade is right -- an under-cropped card
+     is still that card and still scans, while an over-grown crop feeds
+     two cards into one identification request and returns a confidently
+     wrong answer.
+
+     Each side is measured against the ORIGINAL box rather than the
+     partially-grown one, so the four decisions are independent and the
+     result no longer depends on which side happened to be evaluated
+     first. */
+  function growSide(cap, probe){
+    let grown=0, foundBackground=false;
+    for(;;){
+      if(probe(grown)){ foundBackground=true; break; }
+      if(grown>=cap) break;
+      // Land the final probe exactly ON the cap rather than stopping a
+      // whole step short of it -- caught in testing, where a box that
+      // needed recovery of exactly its cap distance came back with no
+      // growth at all because the last probe was never taken.
+      grown=Math.min(grown+step,cap);
+    }
+    return foundBackground?grown:0;
+  }
+
+  const dRight = growSide(capRight,  g=>edgeIsBackground(box.x+box.width+g, box.y, box.x+box.width+g+step, box.y+box.height, true));
+  const dLeft  = growSide(capLeft,   g=>edgeIsBackground(box.x-g-step, box.y, box.x-g, box.y+box.height, true));
+  const dBottom= growSide(capBottom, g=>edgeIsBackground(box.x, box.y+box.height+g, box.x+box.width, box.y+box.height+g+step, false));
+  const dTop   = growSide(capTop,    g=>edgeIsBackground(box.x, box.y-g-step, box.x+box.width, box.y-g, false));
+
+  const x=box.x-dLeft, y=box.y-dTop;
+  const width=box.width+dLeft+dRight, height=box.height+dTop+dBottom;
+
+  const result={x:Math.max(0,x), y:Math.max(0,y), width, height};
+
+  // Shape sanity check: a real card is roughly 2.5:3.5. If the grown
+  // box no longer looks card-shaped, something about this particular
+  // photo fooled the per-edge checks even though each stayed within
+  // its own cap -- safer to hand back the original OpenCV candidate
+  // than trust a refinement that's stopped looking like a card.
+  const ar=result.height?result.width/result.height:0;
+  const arNorm=ar?Math.max(ar,1/ar):999;
+  if(!(1.15<arNorm && arNorm<1.85)) return box;
+
+  return result;
+}
+function sourceCanvasForCrop(mat){
+  const canvas=document.createElement('canvas');
+  canvas.width=mat.cols; canvas.height=mat.rows;
+  const ctx=canvas.getContext('2d');
+  const rgba=new Uint8ClampedArray(mat.data);
+  ctx.putImageData(new ImageData(rgba,mat.cols,mat.rows),0,0);
+  return canvas;
+}
+function mergeBoxes(bs){
+  const out=[];
+  for(const b of bs){let merged=false;for(const o of out){const ix=Math.max(0,Math.min(b.x+b.width,o.x+o.width)-Math.max(b.x,o.x));const iy=Math.max(0,Math.min(b.y+b.height,o.y+o.height)-Math.max(b.y,o.y));if(ix*iy>Math.min(b.width*b.height,o.width*o.height)*.35){const x=Math.min(b.x,o.x),y=Math.min(b.y,o.y),r=Math.max(b.x+b.width,o.x+o.width),bot=Math.max(b.y+b.height,o.y+o.height);o.x=x;o.y=y;o.width=r-x;o.height=bot-y;merged=true;break}}if(!merged)out.push({...b})}return out}
+function waitForCV(){
+  return new Promise((res,rej)=>{
+    let n=0;
+    (function f(){
+      if(window.cv && typeof cv.Mat==='function') return res();
+      if(n++>300) return rej(new Error('OpenCV did not load. Refresh the page and try again.'));
+      setTimeout(f,100);
+    })();
+  });
+}
+function imageFromFile(file){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file)})}
+function dataURLtoFile(u,name){const [h,b]=u.split(',');const mime=h.match(/:(.*?);/)[1];const bin=atob(b);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new File([a],name,{type:mime})}
+function setStatus(t,c=''){const el=document.getElementById('scanStatus');el.textContent=t;el.className='status '+c}
+/* FIELDS THE FIELD AUDIT FOUND WERE NEVER READ.
+
+   The backend returns parallel, isAutograph, isPatch, and serialNumber
+   on every scan -- none of them were ever displayed. That's not
+   cosmetic for a shop tool: an autograph or patch is not the same
+   card as its base version and can be worth 10-100x more, and a
+   parallel name or serial number is often the single biggest driver
+   of a card's actual price. Pricing and labeling a patch/auto exactly
+   like its base version because the flag was sitting in the response
+   unused is a real correctness gap, the same category as everything
+   else fixed tonight -- just in fields nobody had wired up yet. */
+function getCardVariant(d){
+  const card=getScanCard(d);
+  const isAuto=!!(d?.isAutograph ?? card?.isAutograph);
+  const isPatch=!!(d?.isPatch ?? card?.isPatch);
+  const parallel=String(d?.parallel ?? card?.parallel ?? '').trim();
+  const serial=String(d?.serialNumber ?? card?.serialNumber ?? '').trim();
+  return { isAuto, isPatch, parallel, serial };
+}
+function variantBadgesHtml(v){
+  let out='';
+  if(v.isAuto) out+='<span class="pill bad" style="margin-left:6px">AUTO</span>';
+  if(v.isPatch) out+='<span class="pill warn" style="margin-left:6px">PATCH</span>';
+  return out;
+}
+/* CONFIDENCE + CATALOG VERIFICATION, NEVER SURFACED UNTIL NOW.
+
+   The backend already does real work to flag a likely misread before
+   this app ever sees the result: confidence ('Low' means the AI itself
+   was unsure), and verified (a catalog cross-check -- exists===false
+   means the card number the AI read does not exist in that set at all,
+   the clearest possible sign of a misread; exists===true with a low
+   verification confidence means the catalog found a DIFFERENT player
+   on that card number than the AI reported).
+
+   None of that reached the UI. A misread card was being priced and
+   added to inventory exactly like a clean one, with the very signal
+   that could have caught it sitting unused in the response. This
+   surfaces it as a review flag -- visible, not blocking, matching
+   every other honesty check in this file: the person decides, the
+   app's job is making sure they're not deciding blind. */
+/* LISTING-YEAR CROSS-CHECK.
+
+   Found from a real miss (Munetaka Murakami, 2026-08-28): the scan
+   returned "2023 Topps Series Two ... #503" with confidence High and
+   parallelCertain true, while every single one of the six eBay listings
+   it priced from had 2026 in the title. His MLB rookie card is 2026
+   Topps Series 2. Set and card number were both right -- only the year
+   was invented, and nothing in the response caught it.
+
+   That mistake wasn't free. The sold-comps query was built from the
+   same wrong year, matched nothing (soldCount 0), and the card silently
+   fell back to an asking price -- so a hallucinated year turns into a
+   worse number on the shelf, not just a wrong label.
+
+   The listings are the check, and they cost nothing: they're already in
+   the response, and they're real marketplace titles written by people
+   holding the card. When the year the AI claims appears in NONE of them
+   and a different year appears in most, the listings are the better
+   evidence.
+
+   Deliberately strict, because a false "your year is wrong" on a
+   correctly-read card is worse than a missed catch:
+     - needs 3+ listings that actually contain a year;
+     - a single listing supporting the claimed year cancels the whole
+       check, no argument;
+     - the disagreeing year has to carry 70% of the listings that have
+       one, not just be the most common.
+   A card that legitimately carries two years in its titles (a modern
+   set using a throwback design, a reprint) will usually have at least
+   one listing backing the real year, which cancels this outright.
+
+   This flags, it does not correct. The right fix lives in the backend:
+   re-run the sold query with the year the listings agree on, which
+   would have found real sold comps here instead of falling back to
+   asks. This just makes sure the wrong year stops being invisible. */
+function listingYearMismatch(d){
+  const card=getScanCard(d);
+  const claimed=String(d?.year ?? card?.year ?? '').trim();
+  if(!/^(?:19|20)\d{2}$/.test(claimed)) return null;
+  const listings=Array.isArray(d?.listings)?d.listings:(Array.isArray(card?.listings)?card.listings:[]);
+  if(listings.length<3) return null;
+  let withYears=0, supporting=0;
+  const tally={};
+  for(const l of listings){
+    const found=String(l?.title||'').match(/\b(?:19|20)\d{2}\b/g);
+    if(!found || !found.length) continue;
+    const years=Array.from(new Set(found));
+    withYears++;
+    if(years.indexOf(claimed)!==-1){ supporting++; continue; }
+    for(const y of years) tally[y]=(tally[y]||0)+1;
+  }
+  if(withYears<3) return null;
+  if(supporting>0) return null;
+  let best=null, bestN=0;
+  for(const y in tally){ if(tally[y]>bestN){ best=y; bestN=tally[y]; } }
+  if(!best || bestN < Math.ceil(withYears*0.7)) return null;
+  return { claimedYear:claimed, listingYear:best, agreeing:bestN, total:withYears };
+}
+function getReviewFlag(d){
+  const card=getScanCard(d);
+  const confidence=String(d?.confidence ?? card?.confidence ?? '').trim().toLowerCase();
+  const verified=d?.verified ?? card?.verified ?? null;
+  const reasons=[];
+  if(confidence==='low') reasons.push('AI identification confidence was Low');
+  if(verified && verified.checked){
+    if(verified.exists===false){
+      reasons.push(verified.note || 'This card number could not be found in the catalog for this set');
+    }else if(verified.exists===true && String(verified.confidence||'').toLowerCase()==='low'){
+      reasons.push(verified.note || 'The catalog lists a different player for this card number');
+    }else if(verified.exists===null || verified.exists===undefined){
+      /* THIRD STATE, previously silent. The catalog check ran and came
+         back unable to answer -- exists:null, note "That set isn't in
+         the card catalog, so we couldn't confirm it." Both branches
+         above test for a definite answer, so an inconclusive result
+         fell through and displayed identically to a card the catalog
+         had positively confirmed.
+
+         That's exactly backwards on the case it matters most. The
+         Murakami scan couldn't be confirmed BECAUSE the set it claimed
+         (2023 Series Two) doesn't exist -- the catalog was reporting
+         the real problem and the UI dropped it on the floor. "Couldn't
+         check" is not "checked and fine," and a shop pricing off this
+         deserves to know which one it got. */
+      reasons.push(verified.note || 'The catalog could not confirm this card');
+    }
+  }
+  const ym=listingYearMismatch(d);
+  if(ym){
+    reasons.push('Listings for this card say '+ym.listingYear+', not '+ym.claimedYear
+      +' ('+ym.agreeing+' of '+ym.total+') — the year is probably wrong, and the sold-price search used the wrong year');
+  }
+  return { needsReview: reasons.length>0, reasons };
+}
+function reviewBadgeHtml(rf){
+  if(!rf.needsReview) return '';
+  return '<div class="pill bad" style="margin-top:6px" title="'+esc(rf.reasons.join('; '))+'">⚠ Needs review — '+esc(rf.reasons[0])+'</div>';
+}
+function renderResults(){
+  const el=document.getElementById('results');el.innerHTML=results.map((r,i)=>{
+    const d=r.data||{};const card=getScanCard(d);const name=d.cardName||card.cardName||card.name||'Unidentified';const price=getMarketPrice(d);const basis=getPriceBasis(d);
+    // Label WHICH kind of number this is -- a real sold median, or an
+    // asking-price fallback -- rather than showing one bare figure that
+    // could silently be either. See getMarketPrice()/getPriceBasis().
+    const basisLabel=basis==='sold'?'<span class="pill ok" style="margin-left:6px">Sold</span>'
+      :basis==='sold_mixed'?'<span class="pill warn" style="margin-left:6px">Mixed comps</span>'
+      :basis==='ask'?'<span class="pill warn" style="margin-left:6px">Ask only</span>':'';
+    // A box that came back much smaller than the others in the same
+    // batch is very likely a fragment of a card's artwork, not the
+    // card itself -- see the sizeOutlier check in detectCards(). Flag
+    // it visibly rather than silently scanning a bad crop.
+    const outlierWarning=r.sizeOutlier?'<div class="pill bad" style="margin-top:6px">⚠ Crop looks too small — re-detect this one</div>':'';
+    // See touchesEdge in detectCards() -- a box touching the frame edge
+    // means the real card's boundary likely wasn't fully in the photo,
+    // so this crop may be a fragment (an insert panel, a swatch) rather
+    // than the whole card. Distinct warning from sizeOutlier: that one
+    // fires when a fragment is small relative to its batch-mates; this
+    // one fires from the box's own position, so it also catches a
+    // single-card scan where there's nothing to compare against.
+    const edgeWarning=r.touchesEdge?'<div class="pill bad" style="margin-top:6px">⚠ Card touched the edge of the photo — this crop may be incomplete. Leave a margin around it and re-detect.</div>':'';
+    const variant=getCardVariant(d);
+    const reviewFlag=getReviewFlag(d);
+    const metaParts=[d.year||card.year,d.set||card.set,d.cardNumber||card.cardNumber,getTeam(d)];
+    if(variant.parallel) metaParts.push(variant.parallel);
+    if(variant.serial) metaParts.push(variant.serial);
+    // DIAGNOSTIC: shows exactly what /api/scan-card actually returned for
+    // this card, with no dev tools needed. This is how "Unknown" fields get
+    // told apart -- either the raw JSON already says "Unknown" (a backend/AI
+    // read problem) or it has real values the display is failing to pick up
+    // (a frontend field-mapping bug, the same class of issue as the
+    // avgSoldPrice mislabeling fixed earlier). Off by default, one tap to
+    // see, easy to screenshot and send back.
+    const debugId='dbg-'+r.id;
+    const debugToggle=r.data?`<div class="pill" style="margin-top:6px;cursor:pointer;opacity:.6" onclick="toggleDebug('${debugId}')">🔍 Raw response</div>
+      <pre id="${debugId}" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.4;background:#0008;padding:10px;border-radius:8px;margin-top:6px">${esc(JSON.stringify(r.data,null,2))}</pre>`:'';
+    // Same reveal pattern as the raw-response toggle -- off by default so
+    // the grid stays scannable, one tap to check the actual back crop
+    // that got matched and sent, e.g. to confirm the position-matcher
+    // paired the right physical back to this front.
+    // Shown directly rather than behind a tap toggle -- less to go wrong,
+    // and unlike the raw JSON dump this is short enough it doesn't need
+    // hiding by default.
+    const backToggle=r.back?.url?`<div class="pill ok">Front + Back matched</div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <div style="flex:1"><div style="font-size:10px;opacity:.6;margin-bottom:3px">FRONT (sent)</div><img src="${r.url}" alt="" style="width:100%;border-radius:8px;border:1px solid var(--surface3,#212d42)"></div>
+        <div style="flex:1"><div style="font-size:10px;opacity:.6;margin-bottom:3px">BACK (sent)</div><img src="${r.back.url}" alt="" style="width:100%;border-radius:8px;border:1px solid var(--surface3,#212d42)"></div>
+      </div>`:'';
+    // Only shown for a card the batch skipped over -- the flag warnings
+    // above already explain WHY; this is the way to say "I looked, it's
+    // actually fine" without having to re-detect the whole photo.
+    const scanAnywayBtn=r.status==='Needs review'?`<button class="btn" style="margin-top:6px;font-size:11px;padding:5px 10px" onclick="scanOneCard(${i})">Scan anyway</button>`:'';
+    return `<div class="item"><img src="${r.url}" alt=""><div class="body"><div class="name">${esc(name)}${variantBadgesHtml(variant)}</div><div class="meta">${esc(metaParts.filter(Boolean).join(' · '))}</div><div class="pill ${r.status==='Scanned'?'ok':r.status.startsWith('Failed')?'bad':'warn'}">${esc(r.status)}</div>${outlierWarning}${edgeWarning}${scanAnywayBtn}${reviewBadgeHtml(reviewFlag)}${price?`<div style="margin-top:7px;font-weight:900;color:var(--green)">${money(price)}${basisLabel}</div>`:''}
+      ${backToggle}${debugToggle}</div></div>`
+  }).join('');
+}
+function toggleDebug(id){
+  const el=document.getElementById(id);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+/* How many rows are put on screen at once.
+
+   Every row carries four inputs and a select. Rendering the whole
+   shelf meant a shop with 3,000 cards built roughly 15,000 DOM nodes
+   on every keystroke, edit and status change -- the tab would simply
+   stop responding, and there was no way to find one card among them
+   anyway.
+
+   The cap is on RENDERING, never on the data: search, filters, sort,
+   totals, CSV export and the Dashboard all still see every card. Only
+   the visible slice is limited, and the count line always says how
+   many matched so a shop can tell "I have 100" from "I am seeing the
+   first 100 of 847". */
+const INV_PAGE = 100;
+let invShown = INV_PAGE;
+function invShowMore(){ invShown += INV_PAGE; renderInventory(); }
+
+function renderInventory(){
+  const all=shopInventory;
+  const el=document.getElementById('inventoryTable');
+  const countEl=document.getElementById('invCount');
+
+  if(!all.length){
+    countEl.textContent='0 cards';
+    el.innerHTML='<div class="empty">No inventory yet. Run a Multi-Scan batch and add the results.</div>';
+    return;
+  }
+
+  const qEl=document.getElementById('invSearch');
+  const sEl=document.getElementById('invStatus');
+  const oEl=document.getElementById('invSort');
+  const q=(qEl?qEl.value:'').trim().toLowerCase();
+  const status=sEl?sEl.value:'';
+  const sort=oEl?oEl.value:'added_desc';
+
+  /* Searches the same fields a person would read off the row, joined
+     into one string: a shop looking for "murakami 503" or "dodgers"
+     should not have to know which column the word lives in. Every term
+     must match somewhere, so extra words narrow rather than widen. */
+  const terms=q?q.split(/\s+/).filter(Boolean):[];
+  const hay=x=>[x.name,x.year,x.set,x.number,x.team,x.parallel,x.serial,x.status]
+    .filter(Boolean).join(' ').toLowerCase();
+
+  let inv=all.filter(x=>{
+    if(status && String(x.status||'')!==status) return false;
+    if(!terms.length) return true;
+    const h=hay(x);
+    return terms.every(t=>h.indexOf(t)!==-1);
+  });
+
+  const val=x=>Number(x.ask)||Number(x.market)||0;
+  const prof=x=>(Number(x.ask)||0)-(Number(x.cost)||0);
+  const added=x=>x.createdAt?new Date(x.createdAt).getTime():0;
+  const sorters={
+    added_desc:(a,b)=>added(b)-added(a),
+    added_asc:(a,b)=>added(a)-added(b),
+    value_desc:(a,b)=>val(b)-val(a),
+    value_asc:(a,b)=>val(a)-val(b),
+    profit_desc:(a,b)=>prof(b)-prof(a),
+    name_asc:(a,b)=>String(a.name||'').localeCompare(String(b.name||''))
+  };
+  inv=inv.slice().sort(sorters[sort]||sorters.added_desc);
+
+  const matched=inv.length;
+  // Totals describe every card that matched, not just the page shown.
+  const totVal=inv.reduce((a,x)=>a+val(x),0);
+  const totCost=inv.reduce((a,x)=>a+(Number(x.cost)||0),0);
+
+  countEl.textContent = (terms.length||status)
+    ? matched+' of '+all.length+' cards'
+    : all.length+' cards';
+
+  if(!matched){
+    el.innerHTML='<div class="empty">No cards match that search. Clear the box or change the status filter.</div>';
+    return;
+  }
+
+  if(invShown<INV_PAGE) invShown=INV_PAGE;
+  const page=inv.slice(0,invShown);
+  const more=matched-page.length;
+
+  const summary='<div class="sub" style="margin:8px 0 2px">Showing '+page.length+' of '+matched
+    +' · asking '+money(totVal)+' · cost '+money(totCost)+'</div>';
+  const moreBtn=more>0
+    ? '<div class="actions"><button class="btn" onclick="invShowMore()">Show '+Math.min(more,INV_PAGE)+' more ('+more+' left)</button></div>'
+    : '';
+
+  el.innerHTML=summary+`<div class="tblscroll"><table><thead><tr><th>Card</th><th>Market</th><th>Team</th><th>Cost</th><th>Ask</th><th>Profit</th><th>Status</th><th></th></tr></thead><tbody>${page.map((x,i)=>{
+    const variantMeta=[x.parallel,x.serial].filter(Boolean).join(' · ');
+    const variantBadges=(x.isAuto?'<span class="pill bad">AUTO</span> ':'')+(x.isPatch?'<span class="pill warn">PATCH</span> ':'');
+    const reviewBadge=x.needsReview?`<br><span class="pill bad" title="${esc((x.reviewReasons||[]).join('; '))}">⚠ Needs review</span>`:'';
+    const addedByLine=x.addedBy?`<br><span class="sub" style="opacity:.7">Added by ${esc(x.addedBy)}</span>`:'';
+    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${esc(x.team||'')}" onchange="editInv('${x.id}','team',this.value)" placeholder="Team" style="min-width:96px"></td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="this.value==='Sold'?openSaleForm('${x.id}',this):editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td><td><button class="btn danger" style="padding:8px 10px" title="Remove this card" onclick="delInv('${x.id}')">Remove</button></td></tr>`;
+  }).join('')}</tbody></table></div>`+moreBtn;
+}
+// Takes the row's real id (a Supabase uuid), not an array index --
+// an index breaks the moment another staff member's scan reorders
+// the list underneath you, a real risk once this is genuinely shared.
+/* REMOVING ONE CARD.
+
+   Until now the only way to get rid of a single row was "Clear
+   inventory", which deletes the shop's entire shelf. A miscounted
+   duplicate, or a card the scanner priced at $19,000 off a bad
+   identification, left a shop choosing between living with it and
+   wiping everything. That is not a real choice.
+
+   Sold cards are deleted too, deliberately. The sale row survives --
+   sale.inventory_item_id is ON DELETE SET NULL, so card name, price,
+   cost basis and both profit columns stay intact and Realized Profit
+   is unaffected. The same is true of Break Proof: verification
+   snapshots the card's name and image into the break itself, so a
+   deleted card stays visible on the spot it was pulled for.
+
+   Both of those are worth stating in the confirmation rather than
+   leaving somebody to guess, because "will this wipe my sales?" is
+   exactly the question that stops people using a delete button. */
+async function delInv(id){
+  if(!sbReady()||!currentShopId) return;
+  const row=shopInventory.find(x=>x.id===id);
+  if(!row) return;
+  const sold=String(row.status||'')==='Sold';
+  const msg='Remove "'+(row.name||'this card')+'" from inventory?'
+    + (sold ? '\n\nIts recorded sale and profit are kept -- only the inventory row goes.' : '')
+    + '\n\nAny break proof already verified against it stays intact.';
+  if(!confirm(msg)) return;
+  try{
+    const {error}=await SB.from('shop_inventory').delete().eq('id',id);
+    if(error) throw error;
+    shopInventory=shopInventory.filter(x=>x.id!==id);
+    renderInventory(); renderDashboard(); renderAssignments();
+  }catch(e){ alert('Could not remove that card: '+(e&&e.message?e.message:e)); }
+}
+async function editInv(id,k,v){
+  if(!sbReady()||!currentShopId)return;
+  /* Team is editable because auto-assign depends on it and the scanner
+     frequently does not return one -- four consecutive real scans came
+     back with team null. Before this, a card the model failed to tag
+     could never be assigned to a break spot by any route: auto-assign
+     was the only path, and it needed a field nobody could fill in.
+     Blank is stored as null rather than an empty string, so "no team"
+     stays a single value everywhere downstream. */
+  const value = (k==='cost'||k==='ask') ? Number(v)
+              : (k==='team') ? (String(v||'').trim() || null)
+              : v;
+  const dbField=k;   // 'cost' / 'ask' / 'status' / 'team' all match the column name directly
+  try{
+    const {error}=await SB.from('shop_inventory')
+      .update({[dbField]:value,updated_at:new Date().toISOString()})
+      .eq('id',id);
+    if(error) throw error;
+    const row=shopInventory.find(x=>x.id===id);
+    if(row) row[k]=value;
+    renderDashboard();
+  }catch(e){alert('Could not save that change: '+e.message)}
+}
+// REAL SALE CAPTURE. Selecting "Sold" in the status dropdown used to
+// just flip a label -- editInv() would write status='Sold' and stop
+// there, with nothing recording what it actually sold for, on which
+// marketplace, or what fees applied. That meant "today's profit" was
+// never actually computable, only estimated from ask price. This
+// captures a real sale event instead, with cost basis snapshotted at
+// the moment of sale -- same reasoning as Break Proof's snapshot -- so
+// a later edit to the item's cost can't silently rewrite a past sale's
+// recorded profit.
+function openSaleForm(id,selectEl){
+  const item=shopInventory.find(x=>x.id===id);
+  if(!item){ if(selectEl) selectEl.value='Available'; return; }
+  const el=document.getElementById('saleFormArea');
+  el.innerHTML=`<div class="panel" style="margin-top:10px;border-color:var(--gold,#f59e0b)">
+    <h2>Record sale — ${esc(item.name)}</h2>
+    <div class="formgrid">
+      <div><label class="small">Sale price</label><input id="saleSalePrice" type="number" min="0" step="0.01" value="${item.ask||0}"></div>
+      <div><label class="small">Marketplace</label><input id="saleMarketplace" placeholder="eBay, Whatnot, in-store..."></div>
+      <div><label class="small">Fees</label><input id="saleFees" type="number" min="0" step="0.01" value="0"></div>
+      <div><label class="small">Shipping</label><input id="saleShipping" type="number" min="0" step="0.01" value="0"></div>
+    </div>
+    <div class="sub" style="margin-top:6px">Cost basis (locked in at time of sale): ${money(item.cost)}</div>
+    <div class="actions row"><button class="btn primary" onclick="confirmSale('${id}')">Confirm sale</button><button class="btn" onclick="cancelSaleForm('${id}')">Cancel</button></div>
+  </div>`;
+}
+function cancelSaleForm(id){
+  document.getElementById('saleFormArea').innerHTML='';
+  renderInventory(); // resets the dropdown back to the item's real, unchanged status
+}
+async function confirmSale(id){
+  const item=shopInventory.find(x=>x.id===id);
+  if(!item)return;
+  const salePrice=Number(document.getElementById('saleSalePrice').value)||0;
+  const marketplace=document.getElementById('saleMarketplace').value.trim()||null;
+  const fees=Number(document.getElementById('saleFees').value)||0;
+  const shipping=Number(document.getElementById('saleShipping').value)||0;
+  if(salePrice<=0){ alert('Enter a real sale price.'); return; }
+  /* ONE TRANSACTION, NOT TWO WRITES.
+
+     This used to insert the sale, then update the card to Sold, as two
+     separate round trips. If the second one failed -- dropped
+     connection, RLS, a tab closed mid-save -- the shop was left holding
+     a recorded sale against a card that still read Available. Pressing
+     Sold again then wrote a SECOND sale for the same card, and nothing
+     in the data said which one was real.
+
+     record_sale() does the whole thing inside one database transaction:
+     it locks the inventory row, checks the card belongs to this shop,
+     refuses if it is already Sold, snapshots the cost basis, writes the
+     sale and flips the status. Either all of that happened or none of
+     it did. The already-Sold check also means a double press is
+     rejected by the database rather than trusted to the UI. */
+  try{
+    const {data,error}=await SB.rpc('record_sale',{
+      p_inventory_item_id:id,
+      p_sale_price:salePrice,
+      p_fees:fees,
+      p_shipping_cost:shipping,
+      p_marketplace:marketplace,
+      p_sold_by:load(LS_STAFF,'')||null
+    });
+    if(error) throw error;
+    if(!data) throw new Error('The sale was not recorded.');
+    item.status='Sold';
+    document.getElementById('saleFormArea').innerHTML='';
+    renderInventory();
+    renderDashboard();
+    alert('Sale recorded.');
+  }catch(e){ alert('Could not record sale: '+(e&&e.message?e.message:e)); }
+}
+async function clearInventory(){
+  if(!currentShopId){alert('No shop selected.');return}
+  if(!confirm(`Clear ALL of ${currentShopName}'s inventory? This deletes it for every staff member and cannot be undone.`))return;
+  try{
+    const {error}=await SB.from('shop_inventory').delete().eq('shop_id',currentShopId);
+    if(error) throw error;
+    await refreshShopInventory();
+  }catch(e){alert('Could not clear inventory: '+e.message)}
+}
+function exportInventory(){const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Market','Cost','Ask','Profit','Status'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.market,x.cost,x.ask,x.ask-x.cost,x.status])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
+
+async function createBreak(){
+  if(!currentShopId){alert('Sign in and create or join a shop first -- see the panel at the top of the page.');return}
+  const n=Math.max(1,Math.min(100,Number(document.getElementById('spotCount').value)||10));
+  const name=document.getElementById('breakName').value||'Untitled break';
+  const rule=document.getElementById('breakRule').value;
+  const spots=Array.from({length:n},(_,i)=>({spot:i+1,customer:'',team:'',cards:[],price:0}));
+  try{
+    // Seeded from the shop's own saved defaults, not zero -- a real
+    // shop's fee % and shipping cost don't change break to break, so
+    // starting blank every time was pure repeated typing for no reason.
+    const {data,error}=await SB.from('shop_breaks').insert({
+      shop_id:currentShopId,name,rule,spots,
+      shipping_cost:shopProfile.shippingCost,
+      platform_fee_percent:shopProfile.feePercent
+    }).select().single();
+    if(error) throw error;
+    activeBreak={id:data.id,name:data.name,rule:data.rule,spots:data.spots,
+      waxCost:Number(data.wax_cost||0),shippingCost:Number(data.shipping_cost||0),feePercent:Number(data.platform_fee_percent||0)};
+    renderBreaks();
+  }catch(e){alert('Could not create break: '+e.message)}
+}
+function renderBreaks(){
+  const ed=document.getElementById('breakEditor'), br=activeBreak;
+  if(!br){ed.innerHTML='<div class="empty">No break created yet.</div>';document.getElementById('breakAssignments').innerHTML='<div class="empty">Create a break first.</div>';return}
+  ed.innerHTML=`<div class="notice"><b>${esc(br.name)}</b> · ${esc(br.rule)} · ${br.spots.length} spots</div><div class="spotgrid">${br.spots.map((s,i)=>`<div class="spot"><strong>Spot ${s.spot}</strong><label class="small" style="margin-top:9px">Customer</label><input value="${esc(s.customer)}" onchange="editSpot(${i},'customer',this.value)" placeholder="Customer name"><label class="small" style="margin-top:7px">Team / Player</label><input value="${esc(s.team)}" onchange="editSpot(${i},'team',this.value)" placeholder="Dodgers"><label class="small" style="margin-top:7px">Spot price</label><input type="number" min="0" step="0.01" value="${s.price||0}" onchange="editSpot(${i},'price',Number(this.value)||0)" placeholder="0.00"></div>`).join('')}</div>`;
+  renderAssignments();
+  renderBreakAnalytics();
+}
+async function editSpot(i,k,v){
+  if(!activeBreak)return;
+  activeBreak.spots[i][k]=v;
+  if(k==='price') renderBreakAnalytics();
+  try{
+    const {error}=await SB.from('shop_breaks')
+      .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
+      .eq('id',activeBreak.id);
+    if(error) throw error;
+  }catch(e){alert('Could not save that change: '+e.message)}
+}
+// VERIFY VIEW -- lets a breaker hold the physical pile of cards next
+// to the screen and confirm it actually matches what auto-assign put
+// in each spot, before shipping. Real gap this fills: auto-assign
+// (above) can silently mis-assign a card if two players share a last
+// name, or if a card's team never resolved -- nothing before this
+// caught that except reading the raw list of names. Thumbnails plus a
+// serial number (when the card has one) make a visual/physical check
+// actually fast, and a spot only reads as done when a person has
+// looked and said so -- this never marks itself verified.
+function renderAssignments(){
+  const el=document.getElementById('breakAssignments');if(!activeBreak){el.innerHTML='';return}
+  const inv=shopInventory;
+  /* Cards not already on some spot in this break. Manual assignment
+     exists because auto-assign matches on team, and the scanner
+     routinely returns no team at all -- four consecutive real scans
+     came back null. The alert already told people manual assignment
+     was supported; until now there was no control anywhere that did
+     it. Team stays the fast path; this is the one that always works. */
+  const takenIds=new Set(activeBreak.spots.flatMap(sp=>sp.cards||[]));
+  const unassigned=inv.filter(z=>!takenIds.has(z.id));
+
+  el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${!unassigned.length?'<div class="sub" style="margin-top:6px">Every card in inventory is already on a spot.</div>':''}${activeBreak.spots.map((s,i)=>{
+    const verified=!!s.verified;
+    /* A VERIFIED SPOT RENDERS FROM ITS OWN SNAPSHOT, NOT FROM INVENTORY.
+
+       This used to look every card id up in the shop's current
+       inventory. Which meant that the moment a card was removed --
+       exactly the case Break Proof exists to survive -- the spot
+       rendered as "0 assigned card(s) (1 missing from inventory)" and
+       "Nothing assigned yet", while a complete snapshot of that card,
+       name and image included, sat untouched in the same object.
+
+       The data was never lost. The screen just refused to read it. For
+       a feature whose entire purpose is settling a dispute about what
+       a customer received, showing nothing while holding the evidence
+       is the worst possible failure.
+
+       Unverified spots still read from live inventory on purpose: they
+       are a work-in-progress list, and a card removed before
+       verification genuinely should disappear from it. The snapshot is
+       the record; inventory is the working set. */
+    const snap=Array.isArray(s.verifiedSnapshot)?s.verifiedSnapshot:[];
+    const cards=(verified&&snap.length)
+      ? snap
+      : s.cards.map(id=>inv.find(z=>z.id===id)).filter(Boolean);
+    // Only meaningful while unverified -- see above.
+    const missing=verified?0:(s.cards.length-cards.length);
+    // Local, readable timestamp -- an ISO string is technically correct
+    // but nobody reads "2026-08-27T18:49:52Z" at a glance while holding
+    // a stack of cards. toLocaleString() with no options picks up
+    // whatever the browser's own locale/timezone already is.
+    const verifiedWhen=s.verifiedAt?new Date(s.verifiedAt).toLocaleString():'';
+    return `<div class="panel" style="margin:10px 0;${verified?'border-color:var(--green,#22c55e)':''}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}
+          <div class="sub">${cards.length} assigned card(s)${missing>0?` (${missing} missing from inventory)`:''}${verified&&snap.length?' · from the verified record':''}</div>
+          ${verified?`<div class="sub" style="color:var(--green,#22c55e)">✓ Verified by ${esc(s.verifiedBy||'Unknown')} · ${esc(verifiedWhen)}</div>`:''}
+        </div>
+        <button class="btn ${verified?'':'blue'}" style="flex-shrink:0" onclick="toggleSpotVerified(${i})">${verified?'Undo verify':'Mark verified'}</button>
+      </div>
+      ${verified?'':`<div class="row" style="margin-top:9px;gap:6px">
+        <select id="manualPick${i}" style="flex:1;min-width:150px">
+          <option value="">Assign a card manually…</option>
+          ${unassigned.map(u=>`<option value="${esc(u.id)}">${esc(u.name)}${u.team?' · '+esc(u.team):''}</option>`).join('')}
+        </select>
+        <button class="btn" style="flex-shrink:0" onclick="manualAssign(${i})">Add</button>
+      </div>`}
+      ${cards.length?`<div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${cards.map(x=>`
+        <div style="width:72px;text-align:center">
+          ${x.image?`<img src="${esc(x.image)}" style="width:72px;height:100px;object-fit:contain;border-radius:6px;background:#0002" alt="">`:`<div style="width:72px;height:100px;border-radius:6px;background:#0002;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted,#94a3b8)">no image</div>`}
+          <div style="font-size:9px;margin-top:3px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.name)}">${esc(x.name)}</div>
+          ${x.serial?`<div style="font-size:9px;color:var(--gold,#f59e0b)">${esc(x.serial)}</div>`:''}
+        </div>`).join('')}</div>`
+      :'<div class="sub" style="margin-top:5px">Nothing assigned yet.</div>'}
+    </div>`;
+  }).join('')}`;
+}
+// Records WHO verified a spot and WHEN, not just a bare true/false --
+// the actual thing that makes this a real record for dispute
+// resolution later (Break Proof), not just a checkbox. Reuses the
+// same staff-name field already used for scanned cards (LS_STAFF)
+// rather than inventing a second identity system. Unverifying clears
+// both -- a checkbox that's been toggled off shouldn't still claim
+// someone verified it.
+async function toggleSpotVerified(i){
+  if(!activeBreak)return;
+  const spot=activeBreak.spots[i];
+  const wasVerified=!!spot.verified;
+  spot.verified=!wasVerified;
+  if(spot.verified){
+    spot.verifiedBy=load(LS_STAFF,'')||'Unknown';
+    spot.verifiedAt=new Date().toISOString();
+    // SNAPSHOT, not a live reference. This is the actual difference
+    // between "a checkbox" and "a permanent record" -- s.cards only
+    // holds inventory IDs, and a live ID lookup would silently change
+    // or vanish if that inventory row is later edited or deleted,
+    // which defeats the entire point of a dispute record. Copying the
+    // real values (name, image, serial, year, set) at the moment of
+    // verification means this stays accurate regardless of what
+    // happens to inventory afterward.
+    spot.verifiedSnapshot=spot.cards
+      .map(id=>shopInventory.find(z=>z.id===id))
+      .filter(Boolean)
+      .map(x=>({name:x.name,image:x.image,serial:x.serial,year:x.year,set:x.set,team:x.team}));
+  }else{
+    spot.verifiedBy=null;
+    spot.verifiedAt=null;
+    spot.verifiedSnapshot=null;
+  }
+  renderAssignments();
+  try{
+    const {error}=await SB.from('shop_breaks')
+      .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
+      .eq('id',activeBreak.id);
+    if(error){ alert('Marked locally, but could not save to the shared break: '+error.message); }
+  }catch(e){ alert('Could not save verification status: '+(e&&e.message?e.message:e)); }
+}
+// Real, printable dispute record -- one section per customer, using
+// ONLY the permanent snapshot captured at verification time, never a
+// live inventory lookup. A spot that hasn't been verified yet has no
+// snapshot and is shown as explicitly unverified rather than silently
+// left out, so nobody mistakes an incomplete break for a clean one.
+function buildBreakProof(){
+  if(!activeBreak){ alert('No active break.'); return; }
+  const el=document.getElementById('proofArea');
+  el.style.display='block';
+  const when=d=>d?new Date(d).toLocaleString():'';
+  el.innerHTML=`<div style="font-family:Arial;color:#000;background:#fff;padding:6px">
+    <h2 style="margin-bottom:4px">${esc(activeBreak.name)}</h2>
+    <div style="font-size:11px;color:#555;margin-bottom:16px">Break Proof · Generated ${esc(new Date().toLocaleString())}</div>
+    ${activeBreak.spots.map(s=>{
+      if(!s.verified || !s.verifiedSnapshot){
+        return `<div class="proof-unverified"><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}<br>⚠ Not yet verified. No proof record exists for this spot.</div>`;
+      }
+      return `<div class="proof-spot">
+        <div class="proof-head">
+          <div><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}</div>
+          <div style="font-size:11px;text-align:right">Verified by ${esc(s.verifiedBy||'Unknown')}<br>${esc(when(s.verifiedAt))}</div>
+        </div>
+        <div class="proof-cards">${s.verifiedSnapshot.map(x=>`
+          <div class="proof-card">
+            ${x.image?`<img src="${esc(x.image)}" alt="">`:`<div style="width:90px;height:126px;border:1px solid #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#999">no image</div>`}
+            <div style="margin-top:3px">${esc(x.name)}</div>
+            <div style="color:#777">${esc([x.year,x.set].filter(Boolean).join(' · '))}</div>
+            ${x.serial?`<div style="font-weight:700">${esc(x.serial)}</div>`:''}
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+// BREAK PROFITABILITY -- revenue is deliberately computed, never typed
+// in directly. Summing each spot's own price means the number always
+// matches what was actually entered per spot rather than being a
+// separate figure someone has to remember to keep in sync -- the same
+// reasoning that made Break Proof use a snapshot instead of a live
+// reference, applied here to keep the two numbers from drifting apart.
+function computeBreakFinancials(br){
+  const revenue=br.spots.reduce((sum,s)=>sum+(Number(s.price)||0),0);
+  const wax=Number(br.waxCost)||0;
+  const shipping=Number(br.shippingCost)||0;
+  const feePercent=Number(br.feePercent)||0;
+  const fees=revenue*(feePercent/100);
+  const profit=revenue-wax-fees-shipping;
+  return {revenue,wax,shipping,feePercent,fees,profit};
+}
+function renderBreakAnalytics(){
+  const el=document.getElementById('breakAnalytics');
+  if(!el)return;
+  if(!activeBreak){ el.innerHTML=''; return; }
+  // Populate the cost inputs from the actual saved break -- without
+  // this, switching breaks (or a page reload) would show blank fields
+  // even though real values already exist in the database.
+  const waxInput=document.getElementById('waxCost'), shipInput=document.getElementById('shippingCost'), feeInput=document.getElementById('feePercent');
+  if(waxInput && document.activeElement!==waxInput) waxInput.value=activeBreak.waxCost||0;
+  if(shipInput && document.activeElement!==shipInput) shipInput.value=activeBreak.shippingCost||0;
+  if(feeInput && document.activeElement!==feeInput) feeInput.value=activeBreak.feePercent||0;
+
+  const f=computeBreakFinancials(activeBreak);
+  const profitColor=f.profit>=0?'var(--green,#22c55e)':'var(--red,#ef4444)';
+  el.innerHTML=`<div class="panel" style="margin-top:14px;background:var(--panel2,#162236)">
+    <div class="row" style="justify-content:space-between"><span>Revenue (sum of spot prices)</span><b>${money(f.revenue)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Wax cost</span><b>-${money(f.wax)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Platform fees (${f.feePercent}%)</span><b>-${money(f.fees)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Shipping</span><b>-${money(f.shipping)}</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--line,#293b57)"><span><b>Profit</b></span><b style="color:${profitColor}">${money(f.profit)}</b></div>
+  </div>`;
+}
+async function saveBreakCosts(){
+  if(!activeBreak){ alert('No active break.'); return; }
+  activeBreak.waxCost=Number(document.getElementById('waxCost').value)||0;
+  activeBreak.shippingCost=Number(document.getElementById('shippingCost').value)||0;
+  activeBreak.feePercent=Number(document.getElementById('feePercent').value)||0;
+  renderBreakAnalytics();
+  try{
+    const {error}=await SB.from('shop_breaks')
+      .update({
+        wax_cost:activeBreak.waxCost,
+        shipping_cost:activeBreak.shippingCost,
+        platform_fee_percent:activeBreak.feePercent,
+        updated_at:new Date().toISOString()
+      })
+      .eq('id',activeBreak.id);
+    if(error) throw error;
+    alert('Break costs saved.');
+  }catch(e){ alert('Could not save break costs: '+(e&&e.message?e.message:e)); }
+}
+/* Places one card on one spot, by hand. Deliberately writes the same
+   shape auto-assign writes -- an id appended to spot.cards -- so Break
+   Proof, verification and the "missing from inventory" count all treat
+   a manually placed card identically to a matched one. Nothing
+   downstream needs to know which route put it there. */
+async function manualAssign(i){
+  if(!sbReady()||!activeBreak) return;
+  const sel=document.getElementById('manualPick'+i);
+  const id=sel&&sel.value;
+  if(!id){ alert('Pick a card first.'); return; }
+  const spot=activeBreak.spots[i];
+  if(!spot){ return; }
+  spot.cards=Array.isArray(spot.cards)?spot.cards:[];
+  if(spot.cards.indexOf(id)!==-1){ alert('That card is already on this spot.'); return; }
+  spot.cards.push(id);
+  try{
+    const {error}=await SB.from('shop_breaks')
+      .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
+      .eq('id',activeBreak.id);
+    if(error) throw error;
+    renderAssignments();
+  }catch(e){
+    // Put the local copy back if the write failed, so the screen never
+    // shows an assignment the database does not have.
+    spot.cards=spot.cards.filter(z=>z!==id);
+    alert('Could not assign that card: '+(e&&e.message?e.message:e));
+    renderAssignments();
+  }
+}
+async function autoAssign(){
+  // Wrapped end-to-end: every normal path here already ends in an
+  // alert, which means "tapped the button, saw nothing at all" can
+  // only mean one thing -- something threw partway through and never
+  // reached any of them. A phone has no visible console for that, so
+  // surface it here instead of leaving it silent.
+  //
+  // Rewritten to pull from the shop's PERSISTED inventory instead of
+  // the current scan session's transient 'results' array. Real reason:
+  // a real break runs 100-300 cards across many separate photos (the
+  // detector caps at 20 candidates per photo, and that many cards
+  // don't fit usably in one frame anyway), but 'results' gets fully
+  // REPLACED, not accumulated, every time Detect Cards runs on a new
+  // photo -- so the old version could only ever auto-assign whichever
+  // single batch was scanned most recently. Using shopInventory instead
+  // means every card added to this shop, from any photo, at any point
+  // in the break, is available here -- not just the last one taken.
+  try{
+    if(!activeBreak){ alert('No active break -- create one first.'); return; }
+
+    const alreadyAssignedIds=new Set(activeBreak.spots.flatMap(s=>s.cards||[]));
+    const eligible=shopInventory.filter(x=>x.status!=='Sold' && !alreadyAssignedIds.has(x.id));
+    const withTeam=eligible.filter(x=>x.team);
+    const noTeam=eligible.length-withTeam.length;
+
+    let assigned=0;
+    for(const item of withTeam){
+      const team=item.team.toLowerCase();
+      const spot=activeBreak.spots.find(s=>s.team&&s.team.toLowerCase()===team);
+      if(spot){ spot.cards.push(item.id); assigned++; }
+    }
+
+    if(assigned){
+      const {error}=await SB.from('shop_breaks')
+        .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
+        .eq('id',activeBreak.id);
+      if(error){ alert('Assigned locally, but could not save to the shared break: '+error.message); }
+    }
+    renderAssignments();
+
+    if(assigned){
+      alert(`Assigned ${assigned} card(s) from inventory.${noTeam?` ${noTeam} unassigned card(s) had no team data.`:''}`);
+    }else if(noTeam && !withTeam.length){
+      alert('No unassigned inventory has team data yet, so automatic team assignment cannot run. Manual assignment is still supported.');
+    }else if(!eligible.length){
+      alert('No unassigned inventory available -- everything in stock is either already assigned to a spot or marked Sold.');
+    }else{
+      alert('No team matches were available for the unassigned inventory. Manual assignment is still supported.');
+    }
+  }catch(e){
+    alert('Auto-assign hit an error: '+(e && e.message ? e.message : e));
+  }
+}
+function renderDashboard(){
+  const inv=shopInventory;document.getElementById('mCards').textContent=inv.length;document.getElementById('mValue').textContent=money(inv.reduce((a,x)=>a+Number(x.market||0),0));document.getElementById('mProfit').textContent=money(inv.reduce((a,x)=>a+Number(x.ask||0)-Number(x.cost||0),0));document.getElementById('mSpots').textContent=activeBreak?activeBreak.spots.length:0;
+  const pm=document.getElementById('profTargetMargin'), pf=document.getElementById('profFeePercent'), ps=document.getElementById('profShippingCost');
+  if(pm && document.activeElement!==pm) pm.value=shopProfile.targetMargin;
+  if(pf && document.activeElement!==pf) pf.value=shopProfile.feePercent;
+  if(ps && document.activeElement!==ps) ps.value=shopProfile.shippingCost;
+  loadAllBreaksHistory();
+  renderMarginGuide();
+  loadRealizedProfit();
+}
+// REALIZED PROFIT -- Today/Week/Month, from the real sale table, not
+// an estimate. Buckets client-side using the browser's own local time
+// rather than a UTC day-boundary query, since "today" should mean the
+// shop's actual today, not UTC's. Fetches a 31-day window (safe margin
+// past any calendar month) and buckets in JS rather than three
+// separate queries -- one round trip, same data, less to keep in sync.
+async function loadRealizedProfit(){
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+  if(!sbReady()||!currentShopId){ set('salesToday',money(0)); set('salesWeek',money(0)); set('salesMonth',money(0)); set('salesCountMonth','0'); return; }
+  try{
+    const since=new Date(); since.setDate(since.getDate()-31);
+    const {data,error}=await SB.from('sale')
+      .select('net_profit,sold_at')
+      .eq('shop_id',currentShopId)
+      .gte('sold_at',since.toISOString());
+    if(error) throw error;
+
+    const now=new Date();
+    const startOfToday=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const startOfWeek=new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate()-7);
+    const startOfMonth=new Date(now.getFullYear(),now.getMonth(),1);
+
+    let today=0,week=0,month=0,monthCount=0;
+    (data||[]).forEach(s=>{
+      const t=new Date(s.sold_at), p=Number(s.net_profit)||0;
+      if(t>=startOfToday) today+=p;
+      if(t>=startOfWeek) week+=p;
+      if(t>=startOfMonth){ month+=p; monthCount++; }
+    });
+    set('salesToday',money(today));
+    set('salesWeek',money(week));
+    set('salesMonth',money(month));
+    set('salesCountMonth',String(monthCount));
+  }catch(e){ console.warn('[realized profit] load failed:',e.message); }
+}
+// Saves the real defaults everything else now reads from. RLS already
+// restricts writes to the shops table to its owner -- a staff member
+// attempting this gets a real error back, not a silent no-op, since
+// the try/catch surfaces whatever Supabase actually returns.
+async function saveShopProfile(){
+  if(!currentShopId){ alert('No shop signed in.'); return; }
+  const targetMargin=Number(document.getElementById('profTargetMargin').value)||0;
+  const feePercent=Number(document.getElementById('profFeePercent').value)||0;
+  const shippingCost=Number(document.getElementById('profShippingCost').value)||0;
+  try{
+    const {error}=await SB.from('shops').update({
+      default_target_margin:targetMargin,
+      default_fee_percent:feePercent,
+      default_shipping_cost:shippingCost
+    }).eq('id',currentShopId);
+    if(error) throw error;
+    shopProfile={targetMargin,feePercent,shippingCost};
+    alert('Business defaults saved.');
+  }catch(e){ alert('Could not save business profile: '+(e&&e.message?e.message:e)); }
+}
+// ALL-BREAKS PROFITABILITY. activeBreak only ever holds the single
+// most recent break -- a real "how much am I making from breaks"
+// question needs every break this shop has run, not just the one
+// currently open. Reuses computeBreakFinancials() (already built and
+// tested for one break) rather than a second, separate calculation
+// that could drift out of sync with it.
+async function loadAllBreaksHistory(){
+  const el=document.getElementById('allBreaksHistory');
+  if(!el)return;
+  if(!sbReady()||!currentShopId){ el.innerHTML='<div class="empty">Sign in to a shop to see break history.</div>'; return; }
+  try{
+    const {data,error}=await SB.from('shop_breaks')
+      .select('id,name,spots,wax_cost,shipping_cost,platform_fee_percent,created_at')
+      .eq('shop_id',currentShopId)
+      .order('created_at',{ascending:false});
+    if(error) throw error;
+    const breaks=(data||[]).map(b=>({
+      id:b.id,name:b.name,createdAt:b.created_at,
+      ...computeBreakFinancials({spots:b.spots||[],waxCost:b.wax_cost,shippingCost:b.shipping_cost,feePercent:b.platform_fee_percent})
+    }));
+    if(!breaks.length){ el.innerHTML='<div class="empty">No breaks yet.</div>'; return; }
+    const totalProfit=breaks.reduce((a,b)=>a+b.profit,0);
+    const totalRevenue=breaks.reduce((a,b)=>a+b.revenue,0);
+    const best=breaks.reduce((a,b)=>b.profit>a.profit?b:a,breaks[0]);
+    el.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <span>${breaks.length} break(s) · ${money(totalRevenue)} total revenue</span>
+        <b style="color:${totalProfit>=0?'var(--green,#22c55e)':'var(--red,#ef4444)'}">${money(totalProfit)} total profit</b>
+      </div>
+      <div class="sub" style="margin-bottom:10px">Best: <b>${esc(best.name)}</b> at ${money(best.profit)} profit</div>
+      <table style="width:100%;border-collapse:collapse">${breaks.map(b=>`
+        <tr style="border-top:1px solid var(--line,#293b57)">
+          <td style="padding:6px 4px">${esc(b.name)}</td>
+          <td style="padding:6px 4px;text-align:right;color:${b.profit>=0?'var(--green,#22c55e)':'var(--red,#ef4444)'}">${money(b.profit)}</td>
+        </tr>`).join('')}
+      </table>`;
+  }catch(e){ el.innerHTML=`<div class="empty">Could not load break history: ${esc(e.message)}</div>`; }
+}
+// MARGIN & DISCOUNT GUIDE. For a target margin M and a known cost C,
+// the lowest price that still hits that margin is C/(1-M) -- so the
+// most an item can be discounted off its current ask while still
+// clearing the target is 1 minus that minimum price divided by the
+// current ask. An item already priced below the minimum shows 0% safe
+// discount rather than a negative number, since there's genuinely no
+// room -- it's already under the target margin as priced.
+function renderMarginGuide(){
+  const el=document.getElementById('marginGuide');
+  if(!el)return;
+  const targetInput=document.getElementById('targetMargin');
+  // Only set from the shop's saved default if the field hasn't been
+  // touched yet this session -- once someone's actively adjusting it
+  // to test a scenario, this shouldn't keep resetting underneath them.
+  if(targetInput && !targetInput.dataset.touched) targetInput.value=shopProfile.targetMargin;
+  const targetPct=Number(targetInput?.value)||20;
+  const target=targetPct/100;
+  const priced=shopInventory.filter(x=>Number(x.cost)>0 && Number(x.ask)>0);
+  if(!priced.length){ el.innerHTML='<div class="empty">No inventory has both a cost and an ask price set yet.</div>'; return; }
+  /* FEES AND SHIPPING BELONG IN THE MARGIN, NOT BESIDE IT.
+
+     Found in a real sale, 2026-08-28. An Elly De La Cruz cost $3 and
+     was asking $5. This guide reported "40% margin, 25% safe discount"
+     — so, room to come down to $3.75. The card then sold at the full
+     $5 ask and netted EXACTLY $0.00, because a $2 marketplace fee came
+     out of it. Every dollar of the advertised discount would have been
+     a loss on a card the guide called healthy.
+
+     The old maths was cost vs ask and nothing else. But a shop does
+     not keep the ask — it keeps the ask minus what the marketplace
+     takes and minus what shipping costs. Those numbers are already
+     saved in Business Profile and were simply never read here.
+
+     Fee is a PERCENTAGE OF THE SALE PRICE, which is why the floor is
+     solved for rather than added on: at price P the shop nets
+     P*(1-fee) - ship, and that has to clear cost/(1-target). Adding a
+     flat "fee amount" to the cost instead would understate the floor
+     at every price above the ask, which is the direction that loses
+     money.
+
+     Break-even is shown next to the target-margin floor on purpose.
+     A shop discounting under pressure at a show needs to know the
+     point where it stops making anything at all, not only the point
+     where it dips under target. */
+  const feePct  = Math.min(0.95, Math.max(0, Number(shopProfile.feePercent||0)/100));
+  const shipping= Math.max(0, Number(shopProfile.shippingCost||0));
+  // Net to the shop at a given sticker price, after the marketplace's
+  // cut and the cost of posting it.
+  const netAt = p => p*(1-feePct) - shipping;
+  // Lowest price whose NET still clears `floorNet`. Solving rather than
+  // iterating keeps this exact.
+  const priceForNet = n => (n + shipping)/(1-feePct);
+
+  const rows=priced.map(x=>{
+    const cost=Number(x.cost), ask=Number(x.ask);
+    // Margin on what's actually kept, not on the sticker.
+    const net=netAt(ask);
+    const currentMargin= ask>0 ? ((net-cost)/ask)*100 : 0;
+    // Floor that still earns the target margin, and the floor where
+    // the shop merely stops losing money.
+    const minPrice     = priceForNet(cost/(1-target));
+    const breakEven    = priceForNet(cost);
+    const safeDiscountPct=Math.max(0,(1-(minPrice/ask))*100);
+    // Priced at or under break-even: the item cannot be discounted at
+    // all and is not making money as it stands.
+    const underwater = net <= cost;
+    return {name:x.name,cost,ask,net,currentMargin,safeDiscountPct,minPrice,breakEven,underwater};
+  }).sort((a,b)=>b.safeDiscountPct-a.safeDiscountPct);
+  // Stated plainly, because a 0% fee and $0 shipping produce the same
+  // numbers the old version showed -- somebody comparing the two needs
+  // to know whether fees were actually part of it.
+  const basisNote = (feePct>0 || shipping>0)
+    ? `After ${(feePct*100).toFixed(0)}% marketplace fee${shipping>0?` and ${money(shipping)} shipping`:''}.`
+    : `No marketplace fee or shipping set in Business Profile &mdash; these figures assume you keep the full sale price.`;
+
+  el.innerHTML=`<div class="sub" style="margin-bottom:6px">${basisNote}</div>
+  <table style="width:100%;border-collapse:collapse">
+    <tr style="font-size:11px;color:var(--muted,#94a3b8)"><td>Card</td><td style="text-align:right">Margin after fees</td><td style="text-align:right">Don't go below</td><td style="text-align:right">Break-even</td><td style="text-align:right">Safe discount</td></tr>
+    ${rows.slice(0,30).map(r=>`
+      <tr style="border-top:1px solid var(--line,#293b57)">
+        <td style="padding:6px 4px">${esc(r.name)}${r.underwater?' <span class="pill bad" style="margin-top:0">⚠ no room</span>':''}</td>
+        <td style="padding:6px 4px;text-align:right;color:${r.currentMargin>0?'inherit':'var(--red,#ef4444)'}">${r.currentMargin.toFixed(0)}%</td>
+        <td style="padding:6px 4px;text-align:right">${money(r.minPrice)}</td>
+        <td style="padding:6px 4px;text-align:right;color:var(--muted,#94a3b8)">${money(r.breakEven)}</td>
+        <td style="padding:6px 4px;text-align:right;color:${r.safeDiscountPct>0?'var(--green,#22c55e)':'var(--red,#ef4444)'}">${r.safeDiscountPct.toFixed(0)}%</td>
+      </tr>`).join('')}
+  </table>${rows.length>30?`<div class="sub" style="margin-top:6px">Showing top 30 of ${rows.length} priced items.</div>`:''}`;
+}
+function buildLabels(){
+  const inv=shopInventory;const el=document.getElementById('labelArea');el.style.display='block';el.innerHTML='<div class="label-sheet">'+inv.slice(0,60).map(x=>`<div class="label"><b>${esc(x.name)}</b><small>${esc([x.year,x.set,x.number].filter(Boolean).join(' · '))}</small><small>Market ${money(x.market)} · Ask ${money(x.ask)}</small></div>`).join('')+'</div>';
+}
+function renderAll(){renderInventory();renderBreaks();renderDashboard()}
+renderAll();
+
+// Restore the remembered name, and save it as it's typed -- no submit
+// button, no friction, just persists like everything else in this app.
+document.getElementById('staffName').value=load(LS_STAFF,'');
+document.getElementById('staffName').oninput=e=>save(LS_STAFF,e.target.value.trim().slice(0,60));
+</script>
 </body>
 </html>
