@@ -166,7 +166,26 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
         <button id="backBtn" class="btn" disabled>Capture backs</button>
         <button id="addAllBtn" class="btn gold" disabled>Add all to inventory</button>
       </div>
-      <div class="sub" style="margin-top:10px">Recommended workflow: <b>Detect fronts → Capture backs → Scan all</b>. Back scanning is optional.</div>
+      <div class="sub" style="margin-top:10px">Workflow: <b>Detect fronts → Capture backs → Scan all</b>.</div>
+      <!-- BACKS ARE NOT OPTIONAL, WHATEVER THE BUTTON ORDER SUGGESTS.
+
+           Five real batches over one weekend, same cards each time. With
+           backs captured: correct years and card numbers. Without: year
+           blank, card number "Unknown", and a price that is a median for
+           the PLAYER rather than for the card. The cleanest test had two
+           cards in one photo -- the one with a back came back fully
+           identified, the one without came back Unknown.
+
+           This line used to end "Back scanning is optional." It was
+           accurate about the software and wrong about the outcome, and it
+           sat directly above the step that decides whether a shop gets a
+           real price or a confident wrong one. Saying "optional" about
+           the single highest-impact action on the page is the copy
+           equivalent of hiding it. -->
+      <div class="notice" style="border-color:var(--green);margin-top:10px">
+        <b>Capture backs before you scan.</b>
+        <div class="sub" style="margin-top:4px">The year and card number are printed on the back &mdash; the front is artwork. Skip it and cards come back with an unknown year and a price for the <b>player</b>, not the card. It works without, but the answers are much weaker.</div>
+      </div>
       <div id="scanStatus" class="status"></div>
       <div class="progress"><div id="bar" class="bar"></div></div>
       <div id="results" class="grid"></div>
@@ -358,7 +377,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
         <li><b>Lay your cards out with real space between them</b> &mdash; this matters more than it sounds like it should. Cards touching or nearly touching can get detected as one merged region instead of two. A couple inches of visible table between each card is enough.</li>
         <li>Tap <b>Detect cards</b>. It'll find each card and show you the crops it captured.</li>
         <li><b>Check the crops before moving on.</b> Each one should show the whole card. If a card is flagged <b>"Needs review"</b> &mdash; usually because it's too close to the edge of the photo, or the crop looks too small &mdash; don't just trust it. Look at it, and either re-take the photo with more margin, or tap <b>Scan anyway</b> if it actually looks fine to you.</li>
-        <li>Optionally tap <b>Capture backs</b> &mdash; same idea, lay the backs out and photograph them. The app matches each back to its front by position, not by order, so it doesn't matter if you flip them in a different arrangement.</li>
+        <li>Tap <b>Capture backs</b> &mdash; flip every card where it lies, without sliding them around, and photograph them again from the same distance. Backs are matched to fronts <b>by position</b>, so the cards have to stay where they are. (An earlier version of this said the arrangement didn't matter. It does &mdash; moving them is how a back ends up matched to the wrong card.)</li>
         <li>Tap <b>Scan all detected</b>. Each card gets identified and priced. This happens one at a time, so a big batch takes a little while &mdash; that's normal, not stuck.</li>
         <li>Review the results, then tap <b>Add all to inventory</b>.</li>
       </ol>
@@ -1242,6 +1261,32 @@ async function scanOneCard(i){
 
 document.getElementById('scanBtn').onclick=async()=>{
   if(!requireWrite('scanning')) return;
+
+  /* ASK ONCE, BEFORE THE SCAN IS SPENT.
+
+     Scanning without backs is allowed and always will be -- a shop with
+     one card in a sleeve should not be forced to flip it. But it is
+     worth a single question, because the cost is invisible until it is
+     too late: the batch comes back, the years say Unknown, and the only
+     way to fix it is to scan the whole lot again. Two API calls per
+     card instead of one, and the second batch is the one that should
+     have happened first.
+
+     Deliberately a confirm rather than a block, and deliberately once
+     per batch rather than per card. Anyone who means it clicks through
+     in a second; anyone who forgot gets the one reminder that saves
+     them a re-scan. */
+  const noBacks = !backCards || !backCards.length;
+  if(noBacks && results.length){
+    const go = confirm(
+      'Scan ' + results.length + ' card' + (results.length===1?'':'s') + ' without backs?\n\n'
+      + 'The year and card number are printed on the back. Without them these cards will '
+      + 'usually come back with an unknown year and a price for the player rather than the card.\n\n'
+      + 'Cancel, tap Capture backs, then scan.'
+    );
+    if(!go) return;
+  }
+
   let done=0;document.getElementById('scanBtn').disabled=true;document.getElementById('addAllBtn').disabled=true;
   for(const r of results){
     // A crop already flagged as likely-wrong (too small relative to its
