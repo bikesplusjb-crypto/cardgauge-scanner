@@ -78,6 +78,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
        shop_inventory until a shop is resolved: signed in, and either
        already staff of a shop or one just created. -->
   <div class="panel" id="authPanel" style="padding:14px 18px;margin-bottom:14px"></div>
+  <div id="planBanner"></div>
 
   <div class="modal" id="authModal" style="display:none;position:fixed;inset:0;background:#000a;z-index:999;align-items:center;justify-content:center">
     <div class="panel" style="max-width:360px;width:90%;padding:20px">
@@ -492,12 +493,92 @@ async function activateShop(id,opts){
   };
   save(LS_SHOP,shop.id);
   invSelected&&invSelected.clear&&invSelected.clear();
+  await refreshShopAccess();
   await refreshShopInventory();
   await refreshShopBreak();
   renderAuthPanel();
   if(!(opts&&opts.silent)) renderDashboard();
 }
 async function switchShop(id){ await activateShop(id); }
+
+/* ── BUSINESS PLAN ACCESS ──────────────────────────────────────
+   Two months free from the day the shop was created, then $49.99/mo.
+   The server decides -- shop_access() computes it from the shop row on
+   every call, so this cannot be argued with by editing the page.
+
+   When the trial runs out the shop goes READ-ONLY rather than dark.
+   That is a deliberate choice and worth stating: a shop can still open
+   their inventory, search it, and export the whole thing to CSV. They
+   simply cannot scan, add or sell until they subscribe.
+
+   The reasoning is not softness. What costs money is scanning -- vision
+   calls and comps lookups -- and that stops either way, so locking them
+   out of their own list buys nothing. Meanwhile a shop that can see
+   exactly what a year of catalogued inventory looks like is a shop with
+   a reason to pay, and one that can still get its data out is a shop
+   that felt safe handing it over in the first place. Holding somebody's
+   inventory hostage is how you get told about, not paid.
+
+   Fails OPEN. If the check errors -- network, function missing, bad
+   deploy -- the shop keeps working. Wrongly locking out a paying shop
+   is far worse than a few hours of unbilled use. */
+let shopAccess={ok:true,state:'unknown'};
+const CAN_WRITE=()=>shopAccess.ok!==false;
+
+async function refreshShopAccess(){
+  if(!sbReady()||!currentShopId){ shopAccess={ok:true,state:'unknown'}; return; }
+  try{
+    const {data,error}=await SB.rpc('shop_access',{target_shop_id:currentShopId});
+    if(error) throw error;
+    shopAccess=data||{ok:true,state:'unknown'};
+  }catch(e){
+    console.warn('[plan] check failed, allowing:',e.message);
+    shopAccess={ok:true,state:'unknown'};
+  }
+  renderPlanBanner();
+}
+
+function renderPlanBanner(){
+  const el=document.getElementById('planBanner');
+  if(!el) return;
+  if(!currentShopId||shopAccess.state==='unknown'){ el.innerHTML=''; return; }
+
+  if(shopAccess.state==='active'){ el.innerHTML=''; return; }
+
+  if(shopAccess.state==='trial'){
+    const d=Number(shopAccess.days_left)||0;
+    // Quiet for most of the trial. A countdown from day one is nagging;
+    // a countdown in the last fortnight is useful.
+    if(d>14){ el.innerHTML=''; return; }
+    el.innerHTML='<div class="notice" style="border-color:var(--gold)">'
+      +'<b>'+d+' day'+(d===1?'':'s')+' left in your free trial.</b> '
+      +'<span class="sub">Everything keeps working until then. After that you can still read and export your inventory, but scanning, adding and selling need a subscription.</span>'
+      +'<div class="actions"><button class="btn gold" onclick="openBilling()">See pricing</button></div></div>';
+    return;
+  }
+
+  el.innerHTML='<div class="notice" style="border-color:#6b2525;color:#ff9b9b">'
+    +'<b>Your free trial has ended.</b> '
+    +'<span class="sub" style="color:var(--muted)">Your inventory is still here and Export CSV still works. Scanning, adding cards and recording sales need CardGauge Business &mdash; $49.99/month for your whole shop, staff included.</span>'
+    +'<div class="actions"><button class="btn gold" onclick="openBilling()">Subscribe</button>'
+    +'<button class="btn" onclick="exportInventory()">Export CSV</button></div></div>';
+}
+
+function openBilling(){
+  alert('CardGauge Business — $49.99/month.\n\n'
+    +'Covers your whole shop: every staff member, shared inventory, breaks, and consumer Pro included.\n\n'
+    +'Checkout is not wired up yet during beta. Reply to your invite email and it will be set up manually.');
+}
+
+/* One guard for every action that costs money or changes the shelf.
+   Read paths -- search, sort, export, the dashboard -- never call it. */
+function requireWrite(what){
+  if(CAN_WRITE()) return true;
+  alert('Your free trial has ended, so '+(what||'that')+' is paused.\n\n'
+    +'Your inventory is still here and Export CSV still works.\n\n'
+    +'CardGauge Business is $49.99/month for your whole shop.');
+  return false;
+}
 // In-memory mirror of the shop_inventory table. Every read call site
 // in the app (renderInventory, the break assigner, the dashboard
 // totals, label printing, CSV export) reads THIS, synchronously --
@@ -594,24 +675,56 @@ async function resolveShop(){
 // file already reads from, so nothing downstream (renderBreaks,
 // renderAssignments, autoAssign) needs to know or care that the source
 // changed from localStorage. Just the most recent break for the shop --
-// this app only ever edits one break at a time, matching what the UI
-// already offered before this migration; older breaks aren't lost,
-// they're just not the one loaded here.
+/* EVERY BREAK, NOT JUST THE NEWEST ONE.
+
+   This used to be .limit(1). It matched what the UI offered at the
+   time, and for a shop running one break it was invisible. For a shop
+   running a break a week it is a real defect: create Saturday's break
+   and Friday's becomes unreachable -- still in the database, still
+   counted on the Dashboard, but impossible to open, edit or verify.
+
+   Verification is the part that matters. Break Proof exists to settle
+   "did my card get sent", and a customer asking that question is
+   asking about a break that finished days ago. Being unable to reopen
+   last week's break means being unable to answer.
+
+   Every break for the shop is loaded now, newest first, with a picker.
+   The chosen one is remembered per shop -- a breaker who switches to
+   check Friday's break and comes back tomorrow should land where they
+   left off, not be silently moved. */
+let shopBreaks=[];
+const LS_BREAK='cg_biz_active_break';
+
+function breakFromRow(r){
+  return {id:r.id, name:r.name, rule:r.rule, spots:r.spots||[],
+    createdAt:r.created_at,
+    waxCost:Number(r.wax_cost||0), shippingCost:Number(r.shipping_cost||0),
+    feePercent:Number(r.platform_fee_percent||0)};
+}
+
 async function refreshShopBreak(){
-  if(!sbReady()||!currentShopId){activeBreak=null;renderBreaks();return}
+  if(!sbReady()||!currentShopId){shopBreaks=[];activeBreak=null;renderBreaks();return}
   try{
     const {data,error}=await SB.from('shop_breaks')
       .select('*')
       .eq('shop_id',currentShopId)
-      .order('created_at',{ascending:false})
-      .limit(1);
+      .order('created_at',{ascending:false});
     if(error) throw error;
-    activeBreak=(data&&data[0])
-      ? {id:data[0].id, name:data[0].name, rule:data[0].rule, spots:data[0].spots||[],
-         waxCost:Number(data[0].wax_cost||0), shippingCost:Number(data[0].shipping_cost||0),
-         feePercent:Number(data[0].platform_fee_percent||0)}
-      : null;
+    shopBreaks=(data||[]).map(breakFromRow);
+    // Remembered per shop, so switching shops does not carry a break id
+    // across to a shop that has never heard of it.
+    const remembered=load(LS_BREAK+':'+currentShopId,'');
+    activeBreak=shopBreaks.find(b=>b.id===remembered)||shopBreaks[0]||null;
+    if(activeBreak) save(LS_BREAK+':'+currentShopId,activeBreak.id);
   }catch(e){console.warn('[break] refresh failed:',e.message)}
+  renderBreaks();
+}
+
+function selectBreak(id){
+  const b=shopBreaks.find(x=>x.id===id);
+  if(!b) return;
+  activeBreak=b;
+  save(LS_BREAK+':'+currentShopId,b.id);
   renderBreaks();
 }
 
@@ -1055,6 +1168,7 @@ document.getElementById('backPhoto').onchange=async e=>{
 
 
 document.getElementById('detectBtn').onclick=async()=>{
+  if(!requireWrite('scanning')) return;
   if(!sourceFile)return;
   setStatus('Detecting card-shaped regions…');
   try{
@@ -1116,6 +1230,7 @@ async function scanOneCard(i){
 }
 
 document.getElementById('scanBtn').onclick=async()=>{
+  if(!requireWrite('scanning')) return;
   let done=0;document.getElementById('scanBtn').disabled=true;document.getElementById('addAllBtn').disabled=true;
   for(const r of results){
     // A crop already flagged as likely-wrong (too small relative to its
@@ -1151,6 +1266,7 @@ document.getElementById('scanBtn').onclick=async()=>{
 // which is the point: Inventory, Dashboard, Labels and Break Manager
 // all already work off shop_inventory regardless of source.
 async function addManualCard(){
+  if(!requireWrite('adding cards')) return;
   if(!currentShopId){
     alert('Sign in and create or join a shop first -- see the panel at the top of the page.');
     return;
@@ -1206,6 +1322,7 @@ async function addManualCard(){
 }
 
 document.getElementById('addAllBtn').onclick=async ()=>{
+  if(!requireWrite('adding cards to inventory')) return;
   // Signed out, or signed in with no shop resolved yet: refuse rather
   // than silently falling back to a local save nobody else could see.
   // See the panel at the top of the page.
@@ -2285,6 +2402,7 @@ function invSelectAll(ids){ ids.forEach(id=>invSelected.add(id)); renderInventor
 function invClearSel(){ invSelected.clear(); renderInventory(); }
 
 async function bulkSet(field){
+  if(!requireWrite('bulk editing')) return;
   const ids=[...invSelected];
   if(!ids.length||!sbReady()) return;
   const labels={location:'box, case or shelf',condition:'condition',status:'status'};
@@ -2314,6 +2432,7 @@ async function bulkSet(field){
 }
 
 async function bulkRemove(){
+  if(!requireWrite('removing cards')) return;
   const ids=[...invSelected];
   if(!ids.length||!sbReady()) return;
   if(!confirm('Remove '+ids.length+' card(s) from inventory?\n\nRecorded sales and verified break proof are kept.')) return;
@@ -2455,6 +2574,7 @@ function renderInventory(){
    leaving somebody to guess, because "will this wipe my sales?" is
    exactly the question that stops people using a delete button. */
 async function delInv(id){
+  if(!requireWrite('removing cards')) return;
   if(!sbReady()||!currentShopId) return;
   const row=shopInventory.find(x=>x.id===id);
   if(!row) return;
@@ -2471,6 +2591,7 @@ async function delInv(id){
   }catch(e){ alert('Could not remove that card: '+(e&&e.message?e.message:e)); }
 }
 async function editInv(id,k,v){
+  if(!requireWrite('editing cards')){ renderInventory(); return; }
   if(!sbReady()||!currentShopId)return;
   /* Team is editable because auto-assign depends on it and the scanner
      frequently does not return one -- four consecutive real scans came
@@ -2514,6 +2635,7 @@ async function editInv(id,k,v){
 // a later edit to the item's cost can't silently rewrite a past sale's
 // recorded profit.
 function openSaleForm(id,selectEl){
+  if(!requireWrite('recording a sale')){ if(selectEl) selectEl.value='Available'; return; }
   const item=shopInventory.find(x=>x.id===id);
   if(!item){ if(selectEl) selectEl.value='Available'; return; }
   const el=document.getElementById('saleFormArea');
@@ -2586,6 +2708,7 @@ async function clearInventory(){
 function exportInventory(){const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Condition','Location','Market','Cost','Ask','Potential profit','Status','Added'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.condition,x.location,x.market,x.cost,x.ask,x.ask-x.cost,x.status,String(x.createdAt||'').slice(0,10)])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
 
 async function createBreak(){
+  if(!requireWrite('creating breaks')) return;
   if(!currentShopId){alert('Sign in and create or join a shop first -- see the panel at the top of the page.');return}
   const n=Math.max(1,Math.min(100,Number(document.getElementById('spotCount').value)||10));
   const name=document.getElementById('breakName').value||'Untitled break';
@@ -2601,15 +2724,27 @@ async function createBreak(){
       platform_fee_percent:shopProfile.feePercent
     }).select().single();
     if(error) throw error;
-    activeBreak={id:data.id,name:data.name,rule:data.rule,spots:data.spots,
-      waxCost:Number(data.wax_cost||0),shippingCost:Number(data.shipping_cost||0),feePercent:Number(data.platform_fee_percent||0)};
+    // Into the list as well as active, so the picker appears straight
+    // away for a shop that now has two rather than only after a reload.
+    activeBreak=breakFromRow(data);
+    shopBreaks.unshift(activeBreak);
+    save(LS_BREAK+':'+currentShopId,activeBreak.id);
     renderBreaks();
   }catch(e){alert('Could not create break: '+e.message)}
 }
 function renderBreaks(){
   const ed=document.getElementById('breakEditor'), br=activeBreak;
   if(!br){ed.innerHTML='<div class="empty">No break created yet.</div>';document.getElementById('breakAssignments').innerHTML='<div class="empty">Create a break first.</div>';return}
-  ed.innerHTML=`<div class="notice"><b>${esc(br.name)}</b> · ${esc(br.rule)} · ${br.spots.length} spots</div><div class="spotgrid">${br.spots.map((s,i)=>`<div class="spot"><strong>Spot ${s.spot}</strong><label class="small" style="margin-top:9px">Customer</label><input value="${esc(s.customer)}" onchange="editSpot(${i},'customer',this.value)" placeholder="Customer name"><label class="small" style="margin-top:7px">Team / Player</label><input value="${esc(s.team)}" onchange="editSpot(${i},'team',this.value)" placeholder="Dodgers"><label class="small" style="margin-top:7px">Spot price</label><input type="number" min="0" step="0.01" value="${s.price||0}" onchange="editSpot(${i},'price',Number(this.value)||0)" placeholder="0.00"></div>`).join('')}</div>`;
+  /* Only a picker once there is something to pick between. One break
+     needs no dropdown, and a dropdown of one is just a worse label. */
+  const picker = shopBreaks.length>1
+    ? `<div class="row" style="margin-bottom:10px;gap:8px;align-items:center">
+        <label class="small" style="margin:0">Break</label>
+        <select onchange="selectBreak(this.value)" style="width:auto;min-width:230px">${shopBreaks.map(b=>`<option value="${esc(b.id)}" ${b.id===br.id?'selected':''}>${esc(b.name||'Untitled break')} — ${new Date(b.createdAt).toLocaleDateString()}</option>`).join('')}</select>
+        <span class="sub">${shopBreaks.length} breaks</span>
+      </div>`
+    : '';
+  ed.innerHTML=picker+`<div class="notice"><b>${esc(br.name)}</b> · ${esc(br.rule)} · ${br.spots.length} spots</div><div class="spotgrid">${br.spots.map((s,i)=>`<div class="spot"><strong>Spot ${s.spot}</strong><label class="small" style="margin-top:9px">Customer</label><input value="${esc(s.customer)}" onchange="editSpot(${i},'customer',this.value)" placeholder="Customer name"><label class="small" style="margin-top:7px">Team / Player</label><input value="${esc(s.team)}" onchange="editSpot(${i},'team',this.value)" placeholder="Dodgers"><label class="small" style="margin-top:7px">Spot price</label><input type="number" min="0" step="0.01" value="${s.price||0}" onchange="editSpot(${i},'price',Number(this.value)||0)" placeholder="0.00"></div>`).join('')}</div>`;
   renderAssignments();
   renderBreakAnalytics();
 }
