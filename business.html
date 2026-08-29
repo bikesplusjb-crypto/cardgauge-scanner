@@ -462,6 +462,31 @@ function sbReady(){
 }
 
 let currentUser=null, currentShopId=null, currentShopName=null;
+let myShops=[];
+const LS_SHOP='cg_biz_active_shop';
+
+/* Switching shops reloads everything shop-scoped. Nothing is merged or
+   carried over: inventory, the active break and the shop's own margin
+   and fee defaults all belong to one shop, and leaking any of them
+   across would be worse than the bug this replaces. */
+async function activateShop(id,opts){
+  const shop=myShops.find(x=>x.id===id);
+  if(!shop) return;
+  currentShopId=shop.id;
+  currentShopName=shop.name;
+  shopProfile={
+    targetMargin:Number(shop.default_target_margin??20),
+    feePercent:Number(shop.default_fee_percent??0),
+    shippingCost:Number(shop.default_shipping_cost??0)
+  };
+  save(LS_SHOP,shop.id);
+  invSelected&&invSelected.clear&&invSelected.clear();
+  await refreshShopInventory();
+  await refreshShopBreak();
+  renderAuthPanel();
+  if(!(opts&&opts.silent)) renderDashboard();
+}
+async function switchShop(id){ await activateShop(id); }
 // In-memory mirror of the shop_inventory table. Every read call site
 // in the app (renderInventory, the break assigner, the dashboard
 // totals, label printing, CSV export) reads THIS, synchronously --
@@ -525,21 +550,29 @@ async function resolveShop(){
     const {error:inviteErr}=await SB.rpc('accept_pending_invites');
     if(inviteErr) console.warn('[invites] accept failed:',inviteErr.message);
 
+    /* EVERY SHOP THIS PERSON IS STAFF ON, NOT JUST ONE.
+
+       This used to be .limit(1) with no ORDER BY. For somebody on a
+       single shop that worked by accident. For anybody on two -- a
+       breaker who also helps at a friend's store on weekends, which is
+       an ordinary thing in this hobby -- it picked whichever row
+       Postgres returned first, gave no way to switch, and, with no
+       ordering, was not even stable between logins. The failure is
+       silent and expensive: cards added to the wrong shop's shelf, and
+       nothing on screen saying so.
+
+       Ordered by name so the list reads the same every time, and the
+       last choice is remembered per user. */
     const {data,error}=await SB.from('shop_staff')
       .select('shop_id, shops(id,name,default_target_margin,default_fee_percent,default_shipping_cost)')
-      .eq('user_id',currentUser.id)
-      .limit(1);
+      .eq('user_id',currentUser.id);
     if(error) throw error;
-    if(data&&data.length&&data[0].shops){
-      currentShopId=data[0].shops.id;
-      currentShopName=data[0].shops.name;
-      shopProfile={
-        targetMargin:Number(data[0].shops.default_target_margin??20),
-        feePercent:Number(data[0].shops.default_fee_percent??0),
-        shippingCost:Number(data[0].shops.default_shipping_cost??0)
-      };
-      await refreshShopInventory();
-      await refreshShopBreak();
+    myShops=(data||[]).map(r=>r.shops).filter(Boolean)
+      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    if(myShops.length){
+      const remembered=load(LS_SHOP,'');
+      const pick=myShops.find(x=>x.id===remembered)||myShops[0];
+      await activateShop(pick.id,{silent:true});
     }
   }catch(e){console.warn('[shop] resolve failed:',e.message)}
   renderAuthPanel();
@@ -584,6 +617,11 @@ async function createShop(){
     console.log('[createShop] currentUser.id =',currentUser.id,'session=',await SB.auth.getSession());
     const {data,error}=await SB.from('shops').insert({name,owner_user_id:currentUser.id}).select().single();
     if(error) throw error;
+    // Add it to the list so the picker appears immediately for anybody
+    // who now has two, rather than only after the next sign-in.
+    if(!myShops.some(x=>x.id===data.id)) myShops.push(data);
+    myShops.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    save(LS_SHOP,data.id);
     currentShopId=data.id;currentShopName=data.name;
     await refreshShopInventory();
     renderAuthPanel();
@@ -596,7 +634,7 @@ async function createShop(){
 
 async function logOutShop(){
   if(sbReady()) await SB.auth.signOut();
-  currentUser=null;currentShopId=null;currentShopName=null;shopInventory=[];
+  currentUser=null;currentShopId=null;currentShopName=null;myShops=[];shopInventory=[];
   renderAuthPanel();renderAll();
 }
 
@@ -713,7 +751,14 @@ function renderAuthPanel(){
   }else if(!currentShopId){
     el.innerHTML=`<b>Signed in as ${esc(currentUser.email)}.</b> <span class="sub">No shop yet.</span> <button class="btn gold" onclick="createShop()">Create a shop</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
   }else{
-    el.innerHTML=`<b>${esc(currentShopName)}</b> <span class="sub">· ${esc(currentUser.email)} · shared inventory</span> <button class="btn gold" onclick="inviteStaff()">+ Invite staff</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
+    /* With one shop the name is just shown -- a dropdown of one is
+       noise. With two or more it becomes a real picker, because at
+       that point knowing which shelf you are writing to matters more
+       than saving a line of screen. */
+    const picker = myShops.length>1
+      ? `<select onchange="switchShop(this.value)" style="width:auto;min-width:160px;padding:6px 8px">${myShops.map(sh=>`<option value="${esc(sh.id)}" ${sh.id===currentShopId?'selected':''}>${esc(sh.name)}</option>`).join('')}</select>`
+      : `<b>${esc(currentShopName)}</b>`;
+    el.innerHTML=`${picker} <span class="sub">· ${esc(currentUser.email)} · shared inventory</span> <button class="btn gold" onclick="inviteStaff()">+ Invite staff</button> <button class="btn" onclick="logOutShop()">Sign out</button>`;
   }
 }
 
@@ -2435,6 +2480,16 @@ async function editInv(id,k,v){
     if(error) throw error;
     const row=shopInventory.find(x=>x.id===id);
     if(row) row[k]=value;
+    /* Redraw the table, not just the dashboard. Editing Ask used to
+       save correctly and leave the Profit cell showing the old figure
+       until something else happened to redraw -- so a shop could raise
+       an asking price from $2 to $10 and still be looking at -$3.00.
+       The stored number was right and the one on screen was wrong,
+       which is the worst way round for the column people price from.
+
+       Cheap here because rendering is already capped at INV_PAGE rows;
+       redrawing a hundred rows costs nothing. */
+    renderInventory();
     renderDashboard();
   }catch(e){alert('Could not save that change: '+e.message)}
 }
