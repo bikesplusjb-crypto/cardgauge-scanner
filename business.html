@@ -2398,8 +2398,31 @@ function renderAssignments(){
   const unassigned=inv.filter(z=>!takenIds.has(z.id));
 
   el.innerHTML=`<div class="actions row"><button class="btn blue" onclick="autoAssign()">Auto-assign scanned cards</button><button class="btn" onclick="renderAssignments()">Refresh</button></div>${!unassigned.length?'<div class="sub" style="margin-top:6px">Every card in inventory is already on a spot.</div>':''}${activeBreak.spots.map((s,i)=>{
-    const cards=s.cards.map(id=>inv.find(z=>z.id===id)).filter(Boolean);
     const verified=!!s.verified;
+    /* A VERIFIED SPOT RENDERS FROM ITS OWN SNAPSHOT, NOT FROM INVENTORY.
+
+       This used to look every card id up in the shop's current
+       inventory. Which meant that the moment a card was removed --
+       exactly the case Break Proof exists to survive -- the spot
+       rendered as "0 assigned card(s) (1 missing from inventory)" and
+       "Nothing assigned yet", while a complete snapshot of that card,
+       name and image included, sat untouched in the same object.
+
+       The data was never lost. The screen just refused to read it. For
+       a feature whose entire purpose is settling a dispute about what
+       a customer received, showing nothing while holding the evidence
+       is the worst possible failure.
+
+       Unverified spots still read from live inventory on purpose: they
+       are a work-in-progress list, and a card removed before
+       verification genuinely should disappear from it. The snapshot is
+       the record; inventory is the working set. */
+    const snap=Array.isArray(s.verifiedSnapshot)?s.verifiedSnapshot:[];
+    const cards=(verified&&snap.length)
+      ? snap
+      : s.cards.map(id=>inv.find(z=>z.id===id)).filter(Boolean);
+    // Only meaningful while unverified -- see above.
+    const missing=verified?0:(s.cards.length-cards.length);
     // Local, readable timestamp -- an ISO string is technically correct
     // but nobody reads "2026-08-27T18:49:52Z" at a glance while holding
     // a stack of cards. toLocaleString() with no options picks up
@@ -2408,7 +2431,7 @@ function renderAssignments(){
     return `<div class="panel" style="margin:10px 0;${verified?'border-color:var(--green,#22c55e)':''}">
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div><b>Spot ${s.spot}</b> — ${esc(s.customer||'Unassigned')} — ${esc(s.team||'No team')}
-          <div class="sub">${cards.length} assigned card(s)${s.cards.length!==cards.length?` (${s.cards.length-cards.length} missing from inventory)`:''}</div>
+          <div class="sub">${cards.length} assigned card(s)${missing>0?` (${missing} missing from inventory)`:''}${verified&&snap.length?' · from the verified record':''}</div>
           ${verified?`<div class="sub" style="color:var(--green,#22c55e)">✓ Verified by ${esc(s.verifiedBy||'Unknown')} · ${esc(verifiedWhen)}</div>`:''}
         </div>
         <button class="btn ${verified?'':'blue'}" style="flex-shrink:0" onclick="toggleSpotVerified(${i})">${verified?'Undo verify':'Mark verified'}</button>
