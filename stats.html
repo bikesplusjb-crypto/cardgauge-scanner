@@ -121,6 +121,7 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
 .fstep-r{font-family:var(--fm);font-size:10px;color:var(--text3);min-width:56px;text-align:right;}
 .fstep.paid .fstep-n{color:var(--green);}
 .fstep.paid .fstep-k{color:var(--text);font-weight:700;}
+.fstep.bad .fstep-n{color:var(--red);}
 .fsrc{display:flex;justify-content:space-between;gap:12px;padding:6px 0;
   font-family:var(--fm);font-size:11px;color:var(--text3);}
 .fsrc b{color:var(--gold-warm);font-weight:600;}
@@ -150,6 +151,16 @@ td.n{text-align:right;font-family:var(--fm);font-size:12.5px;
 .eo-status{font-family:var(--fm);font-size:11px;flex-shrink:0;text-align:right;}
 .eo-status.opened{color:var(--green);}
 .eo-status.unopened{color:var(--text3);}
+
+/* Business beta — same vocabulary as the rest of the page, one new
+   row type for the per-shop roster. */
+.biz-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;}
+.biz-row:last-child{border-bottom:none;}
+.biz-row .biz-name{color:var(--text);font-weight:600;overflow-wrap:anywhere;}
+.biz-row .biz-meta{font-family:var(--fm);font-size:10.5px;color:var(--text3);
+  flex-shrink:0;text-align:right;}
+.biz-row.stale .biz-name{color:var(--text3);}
 
 .gate{max-width:400px;margin:60px auto;text-align:center;}
 .gate p{color:var(--text2);font-size:13.5px;margin:10px 0 18px;line-height:1.5;}
@@ -182,6 +193,7 @@ const app = document.getElementById('app');
 const esc = s => String(s==null?'':s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const num = n => Number(n||0).toLocaleString();
+const money = n => '$' + Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function has(o, k){ return o && Object.prototype.hasOwnProperty.call(o, k); }
 
@@ -245,10 +257,29 @@ async function load(){
       + 'Check the connection and reload.</div>';
     return;
   }
-  render(data);
+
+  /* Business stats come from a SECOND function, fetched separately and
+     deliberately allowed to fail.
+
+     cg_business_stats was added after this page existed. If it is
+     missing, out of date, or throws, the whole rest of the dashboard
+     must still render — a panel that did not ship yet is not a reason
+     to lose the traffic numbers. On any failure biz stays null and
+     businessPanel() returns nothing at all. */
+  let biz = null;
+  try{
+    const rb = await fetch(SB_URL + '/rest/v1/rpc/cg_business_stats', {
+      method:'POST',
+      headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_token: token })
+    });
+    if(rb.ok) biz = await rb.json();
+  }catch(e){ /* left null on purpose — see above */ }
+
+  render(data, biz);
 }
 
-function render(d){
+function render(d, biz){
   const t     = d.totals   || {};
   const daily = d.daily    || [];
   const cov   = d.sold_coverage || {};
@@ -438,6 +469,8 @@ function render(d){
 
     + funnelPanel(d, t)
 
+    + businessPanel(biz)
+
     + affPanel(d, t)
 
     + emailOpensPanel(d, t)
@@ -495,6 +528,151 @@ var WALL_LABEL = {
   free_strip:    'Tapped the nudge strip',
   share_locked:  'Tried the locked share panel'
 };
+
+/* ── BUSINESS BETA ──────────────────────────────────────────────
+   The shop-facing product, kept deliberately separate from the
+   consumer numbers above: different users, different failure modes,
+   and mixing them would hide both.
+
+   Leads with IDENTIFIED, not volume. A shop can scan all day and
+   still be getting nothing usable — a row with no year or a card
+   number of "Unknown" cannot be looked up, relisted or matched to a
+   break, and its price is a median for the player rather than the
+   card. On 28 Aug that ran at 50%, and every failure traced back to
+   a scan where the backs were skipped. Volume without that number is
+   just activity.
+
+   Everything here excludes the test shop, which is why zero is the
+   correct reading until a real shop signs up rather than a sign that
+   something is broken. */
+function businessPanel(biz){
+  if(!biz || !biz.totals) return '';
+  var t = biz.totals;
+
+  if(!Number(t.shops)){
+    return '<div class="card"><h2>Business beta</h2>'
+      + '<div class="empty">No beta shops yet. Your own test shop is excluded on purpose \u2014 '
+      + 'on 28 Aug it alone produced 37 API calls, 15 cards and 4 sales, which would bury the '
+      + 'first real shop completely.</div></div>';
+  }
+
+  var scanned = Number(t.scanned)||0;
+  var ident   = Number(t.identified)||0;
+  var cards   = Number(t.cards)||0;
+  var flagged = Number(t.flagged)||0;
+  var identPct = scanned ? Math.round((ident/scanned)*100) : null;
+  var flagPct  = cards   ? Math.round((flagged/cards)*100) : null;
+
+  var read;
+  if(identPct === null){
+    read = 'Nothing scanned into inventory yet, so there is no identification rate to read.';
+  } else if(identPct >= 85){
+    read = '<b>Cards are coming back properly identified.</b> Year and card number are landing, '
+         + 'which means the prices attached to them are for the card rather than the player.';
+  } else if(identPct >= 50){
+    read = '<b>' + (scanned-ident) + ' of ' + scanned + ' scanned cards have no usable year or '
+         + 'card number.</b> Those rows cannot be looked up or relisted, and their price is a '
+         + 'median across everything that player has. Almost always a skipped back photo.';
+  } else {
+    read = '<b>Most scanned cards are not properly identified.</b> Prices on those rows are for '
+         + 'the player, not the card \u2014 confident-looking and close to meaningless. Check '
+         + 'whether backs are being captured at all.';
+  }
+
+  /* A warning that fires on nearly everything trains people to click
+     past it, which is worse than no warning: the one card where it
+     matters gets dismissed along with the rest. */
+  var flagNote = '';
+  if(flagPct !== null && cards >= 5){
+    flagNote = flagPct >= 50
+      ? '<div class="fnote bad">\u26a0 <b>' + flagPct + '% of saved cards carry a review flag.</b> '
+        + 'At that rate the warning is decoration \u2014 shops will learn to click past it, '
+        + 'including on the card where it matters.</div>'
+      : '<div class="fnote"><b>' + flagPct + '%</b> of saved cards were flagged for review. '
+        + 'Low enough that the flag still means something when it appears.</div>';
+  }
+
+  var basis = biz.basis || {};
+  var bTot  = Object.keys(basis).reduce(function(a,k){ return a + Number(basis[k]||0); }, 0);
+  var bCol  = { sold:'#22c55e', ask:'#f59e0b', limited:'#ef4444', mixed:'#3b82f6', none:'#2a3a55' };
+  var basisBar = bTot
+    ? '<div class="srcbar">' + Object.keys(basis).map(function(k){
+        return '<i style="width:' + ((basis[k]/bTot)*100) + '%;background:'
+             + (bCol[k]||'#2a3a55') + '"></i>'; }).join('') + '</div>'
+      + '<div class="legend">' + Object.keys(basis).map(function(k){
+        return '<span><i class="dot" style="background:' + (bCol[k]||'#2a3a55') + '"></i>'
+             + esc(k) + ' ' + basis[k] + '</span>'; }).join('') + '</div>'
+      + '<div class="fnote"><b>ask</b> means no completed sales were found and the number is a '
+      + 'ceiling, not a value. A high ask share is a comp-data problem, which needs a different '
+      + 'fix from bad identification.</div>'
+    : '';
+
+  var shops = (biz.shops||[]).map(function(s){
+    var stale = false;
+    try{
+      stale = (Date.now() - new Date(s.last_activity).getTime()) > 7*24*3600*1000;
+    }catch(e){}
+    return '<div class="biz-row' + (stale?' stale':'') + '">'
+      + '<span class="biz-name">' + esc(s.name) + '</span>'
+      + '<span class="biz-meta">' + num(s.cards) + ' cards \u00b7 ' + num(s.sales) + ' sales \u00b7 '
+      + num(s.breaks) + ' breaks \u00b7 ' + esc(s.last_activity) + '</span></div>';
+  }).join('');
+
+  /* Breaks read $0.00 when spot prices were never entered. That is a
+     shop not filling the field in, not the tab being broken -- worth
+     separating, because they look identical from the outside. */
+  var brk = biz.breaks_detail || [];
+  var brkEmpty = brk.filter(function(b){ return Number(b.spots) > 0 && !Number(b.spots_priced); }).length;
+  var brkRows = brk.length
+    ? brk.map(function(b){
+        return '<div class="biz-row"><span class="biz-name">' + esc(b.name) + '</span>'
+          + '<span class="biz-meta">' + num(b.spots_priced) + '/' + num(b.spots) + ' priced \u00b7 '
+          + money(b.revenue) + '</span></div>'; }).join('')
+      + (brkEmpty ? '<div class="fnote bad">\u26a0 <b>' + brkEmpty + ' break'
+          + (brkEmpty===1?'':'s') + ' with spots but no prices entered.</b> Those read $0.00 on '
+          + 'the shop dashboard, which looks broken to them even though it is not.</div>' : '')
+    : '';
+
+  var sales = (biz.sales_recent||[]).map(function(s){
+    var gap = Number(s.ask_gap);
+    return '<div class="biz-row"><span class="biz-name">' + esc(s.card_name) + '</span>'
+      + '<span class="biz-meta">' + money(s.sale_price) + ' \u00b7 net ' + money(s.net_profit)
+      + (isFinite(gap) && gap !== 0
+          ? ' \u00b7 <span style="color:' + (gap < 0 ? 'var(--red)' : 'var(--green)') + '">'
+            + (gap > 0 ? '+' : '') + money(gap) + ' vs ask</span>'
+          : '')
+      + '</span></div>';
+  }).join('');
+
+  return '<div class="card"><h2>Business beta</h2>'
+    + '<div class="funnel">'
+      + '<div class="fstep"><div class="fstep-k">Shops</div><div class="fstep-n">'
+        + num(t.shops) + '</div><div class="fstep-r">' + num(t.staff) + ' staff</div></div>'
+      + '<div class="fstep"><div class="fstep-k">Cards scanned into inventory</div>'
+        + '<div class="fstep-n">' + num(scanned) + '</div>'
+        + '<div class="fstep-r">' + num(t.manual) + ' manual</div></div>'
+      + '<div class="fstep' + (identPct !== null && identPct < 50 ? ' bad' : ' paid')
+        + '"><div class="fstep-k">Properly identified</div>'
+        + '<div class="fstep-n">' + num(ident) + '</div>'
+        + '<div class="fstep-r">' + (identPct === null ? '\u2014' : identPct + '%') + '</div></div>'
+      + '<div class="fstep"><div class="fstep-k">Cost filled in</div>'
+        + '<div class="fstep-n">' + num(t.cost_entered) + '</div>'
+        + '<div class="fstep-r">of ' + num(cards) + '</div></div>'
+      + '<div class="fstep paid"><div class="fstep-k">Sold through the sale form</div>'
+        + '<div class="fstep-n">' + num(t.sales_30d) + '</div>'
+        + '<div class="fstep-r">' + money(t.net_30d) + ' net</div></div>'
+    + '</div>'
+    + '<div class="fnote">' + read + '</div>'
+    + flagNote
+    + (basisBar ? '<div class="subhead">What the prices rest on</div>' + basisBar : '')
+    + (shops    ? '<div class="subhead">Shops</div>' + shops : '')
+    + (brkRows  ? '<div class="subhead">Breaks</div>' + brkRows : '')
+    + (sales    ? '<div class="subhead">Recent sales</div>' + sales : '')
+    + '<div class="fnote">Net profit is computed by Postgres from sale price, cost, fees and '
+    + 'shipping \u2014 the app cannot write a wrong number into it. Everything else a shop sees '
+    + 'on their own dashboard is an estimate off asking prices.</div>'
+    + '</div>';
+}
 
 function setPanel(d, t){
   if(!has(t,'set_missing_30d')) return '';
