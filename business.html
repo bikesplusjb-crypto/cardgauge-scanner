@@ -2188,17 +2188,51 @@ function toggleDebug(id){
 function renderInventory(){
   const inv=shopInventory;document.getElementById('invCount').textContent=inv.length+' cards';
   if(!inv.length){document.getElementById('inventoryTable').innerHTML='<div class="empty">No inventory yet. Run a Multi-Scan batch and add the results.</div>';return}
-  document.getElementById('inventoryTable').innerHTML=`<div class="tblscroll"><table><thead><tr><th>Card</th><th>Market</th><th>Team</th><th>Cost</th><th>Ask</th><th>Profit</th><th>Status</th></tr></thead><tbody>${inv.map((x,i)=>{
+  document.getElementById('inventoryTable').innerHTML=`<div class="tblscroll"><table><thead><tr><th>Card</th><th>Market</th><th>Team</th><th>Cost</th><th>Ask</th><th>Profit</th><th>Status</th><th></th></tr></thead><tbody>${inv.map((x,i)=>{
     const variantMeta=[x.parallel,x.serial].filter(Boolean).join(' · ');
     const variantBadges=(x.isAuto?'<span class="pill bad">AUTO</span> ':'')+(x.isPatch?'<span class="pill warn">PATCH</span> ':'');
     const reviewBadge=x.needsReview?`<br><span class="pill bad" title="${esc((x.reviewReasons||[]).join('; '))}">⚠ Needs review</span>`:'';
     const addedByLine=x.addedBy?`<br><span class="sub" style="opacity:.7">Added by ${esc(x.addedBy)}</span>`:'';
-    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${esc(x.team||'')}" onchange="editInv('${x.id}','team',this.value)" placeholder="Team" style="min-width:96px"></td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="this.value==='Sold'?openSaleForm('${x.id}',this):editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td></tr>`;
+    return `<tr><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${esc(x.team||'')}" onchange="editInv('${x.id}','team',this.value)" placeholder="Team" style="min-width:96px"></td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="this.value==='Sold'?openSaleForm('${x.id}',this):editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td><td><button class="btn danger" style="padding:8px 10px" title="Remove this card" onclick="delInv('${x.id}')">Remove</button></td></tr>`;
   }).join('')}</tbody></table></div>`
 }
 // Takes the row's real id (a Supabase uuid), not an array index --
 // an index breaks the moment another staff member's scan reorders
 // the list underneath you, a real risk once this is genuinely shared.
+/* REMOVING ONE CARD.
+
+   Until now the only way to get rid of a single row was "Clear
+   inventory", which deletes the shop's entire shelf. A miscounted
+   duplicate, or a card the scanner priced at $19,000 off a bad
+   identification, left a shop choosing between living with it and
+   wiping everything. That is not a real choice.
+
+   Sold cards are deleted too, deliberately. The sale row survives --
+   sale.inventory_item_id is ON DELETE SET NULL, so card name, price,
+   cost basis and both profit columns stay intact and Realized Profit
+   is unaffected. The same is true of Break Proof: verification
+   snapshots the card's name and image into the break itself, so a
+   deleted card stays visible on the spot it was pulled for.
+
+   Both of those are worth stating in the confirmation rather than
+   leaving somebody to guess, because "will this wipe my sales?" is
+   exactly the question that stops people using a delete button. */
+async function delInv(id){
+  if(!sbReady()||!currentShopId) return;
+  const row=shopInventory.find(x=>x.id===id);
+  if(!row) return;
+  const sold=String(row.status||'')==='Sold';
+  const msg='Remove "'+(row.name||'this card')+'" from inventory?'
+    + (sold ? '\n\nIts recorded sale and profit are kept -- only the inventory row goes.' : '')
+    + '\n\nAny break proof already verified against it stays intact.';
+  if(!confirm(msg)) return;
+  try{
+    const {error}=await SB.from('shop_inventory').delete().eq('id',id);
+    if(error) throw error;
+    shopInventory=shopInventory.filter(x=>x.id!==id);
+    renderInventory(); renderDashboard(); renderAssignments();
+  }catch(e){ alert('Could not remove that card: '+(e&&e.message?e.message:e)); }
+}
 async function editInv(id,k,v){
   if(!sbReady()||!currentShopId)return;
   /* Team is editable because auto-assign depends on it and the scanner
