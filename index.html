@@ -655,6 +655,34 @@ input[type=file]{display:none;}
    So: the store, because whoever just priced a card might buy one, and
    the tip jar, because the tool is free and asking is honest. Both quiet,
    both below everything else. */
+/* THE BUSINESS LINK, AS A NOTE RATHER THAN A BANNER.
+
+   Three sizes in one day, and the reasoning changed each time for a
+   reason. It started large because nothing else pointed at Business.
+   It shrank because the footer, the guide and both scanner pages now
+   do. This is the last step: 92% of visitors never scan a card, and
+   the largest object between the headline and the capture slots was
+   aimed at card shops -- perhaps one visitor in a hundred.
+
+   A collector who taps a link from Instagram should meet the scanner,
+   not an ad for software they will never buy. A shop owner reading
+   the same line still sees it, because it sits above the fold and
+   says exactly what it is.
+
+   One line, same shape as the card-show tip below it. Gold instead of
+   blue so it is distinguishable, and the arrow keeps it obviously
+   tappable. */
+.biz-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:100px;
+  padding:9px 16px;margin:14px auto 0;max-width:44ch;
+  font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--text3);transition:all .2s;}
+.biz-note:hover{border-color:var(--gold);background:rgba(245,158,11,.14);}
+.biz-note b{color:var(--gold);}
+.biz-note-tag{flex-shrink:0;background:var(--gold);color:#1a1206;font-weight:900;
+  font-size:9px;letter-spacing:.06em;padding:2px 7px;border-radius:5px;}
+.biz-note-go{flex-shrink:0;color:var(--gold);font-weight:700;margin-left:auto;}
+@media(max-width:520px){ .biz-note{border-radius:12px;max-width:none;align-items:flex-start;} }
+
 .show-tip{display:flex;align-items:flex-start;gap:9px;text-align:left;text-decoration:none;
   background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.26);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -675,20 +703,35 @@ input[type=file]{display:none;}
 .biz-banner{display:flex;align-items:center;gap:16px;text-align:left;text-decoration:none;
   background:linear-gradient(135deg,rgba(245,158,11,.16),rgba(245,158,11,.06));
   border:2px solid var(--gold);border-radius:18px;
-  padding:18px 22px;margin:18px auto 0;max-width:640px;
+  padding:11px 16px;margin:14px auto 0;max-width:640px;
   transition:all .2s;}
 .biz-banner:hover{background:linear-gradient(135deg,rgba(245,158,11,.24),rgba(245,158,11,.1));
   transform:translateY(-1px);box-shadow:0 8px 24px rgba(245,158,11,.2);}
-.biz-banner-ico{flex-shrink:0;font-size:34px;line-height:1;}
+.biz-banner-ico{flex-shrink:0;font-size:26px;line-height:1;}
+/* SHORTER, BECAUSE IT IS AIMED AT ALMOST NOBODY WHO ARRIVES.
+
+   This was deliberately sized to compete with the headline, back when
+   nothing else pointed at the Business tool. That was the right call
+   then. It is now linked from the footer, the guide and both scanner
+   pages, so it no longer has to shout.
+
+   Meanwhile 92% of visitors never scan a card, and this was the
+   largest thing standing between the headline and the capture slots --
+   several lines of screen, on a phone, for a product aimed at card
+   shops rather than the collector who just tapped a link.
+
+   Four stacked lines become two, the icon drops, the padding halves.
+   Same link, same tracking, same BETA badge inline rather than on its
+   own row. Visible, no longer dominant. */
 .biz-banner-body{flex:1;min-width:0;}
-.biz-banner-k{font-family:var(--fm);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:3px;}
-.biz-banner-beta{display:inline-block;background:var(--gold);color:#1a1206;
+.biz-banner-k{font-family:var(--fm);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:2px;display:inline;}
+.biz-banner-beta{display:inline-block;background:var(--gold);color:#1a1206;vertical-align:middle;margin-right:7px;
   font-family:var(--fm);font-size:11px;font-weight:900;letter-spacing:.08em;
   padding:3px 9px;border-radius:6px;margin-bottom:6px;}
-.biz-banner-h{font-weight:800;font-size:16.5px;color:var(--text);line-height:1.3;margin-bottom:3px;}
-.biz-banner-p{font-size:12.5px;color:var(--text2);line-height:1.5;}
+.biz-banner-h{font-weight:800;font-size:14.5px;color:var(--text);line-height:1.35;margin-bottom:2px;}
+.biz-banner-p{font-size:11.5px;color:var(--text2);line-height:1.45;}
 .biz-banner-go{flex-shrink:0;color:var(--gold);font-weight:800;font-size:20px;align-self:center;}
-@media(max-width:520px){ .biz-banner{border-radius:14px;padding:15px 16px;gap:12px;} .biz-banner-ico{font-size:28px;} .biz-banner-h{font-size:15px;} }
+@media(max-width:520px){ .biz-banner{border-radius:12px;padding:10px 13px;gap:10px;} .biz-banner-ico{font-size:22px;} .biz-banner-h{font-size:13.5px;} .biz-banner-p{font-size:11px;} }
 
 .foot-asks{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:4px 0 14px;}
 .foot-ask{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:100px;
@@ -716,7 +759,7 @@ input[type=file]{display:none;}
    opened deliberately. */
 .hero h1{font-size:clamp(22px,5.4vw,34px);letter-spacing:-.6px;line-height:1.15;margin-bottom:8px;}
 .hero p{font-size:14px;max-width:42ch;line-height:1.5;}
-.hero{padding-top:22px;padding-bottom:12px;}
+.hero{padding-top:18px;padding-bottom:6px;}
 
 .slot-body{max-width:150px;}
 .slot-label{font-size:13.5px;font-weight:800;}
@@ -797,6 +840,12 @@ input[type=file]{display:none;}
 .save-btn:disabled{opacity:.6;cursor:not-allowed;}
 .save-btn.ghost{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);}
 .save-btn.ghost:hover{border-color:var(--gold);color:var(--gold);background:var(--surface2);}
+.scan-again{padding:16px;border-top:1px solid var(--border);text-align:center;}
+.scan-again-btn{width:100%;padding:15px;border-radius:12px;border:none;background:var(--green);
+  color:#052e16;font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;
+  transition:all .18s;}
+.scan-again-btn:hover{background:#16a34a;}
+.scan-again-sub{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:9px;}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface3);
   color:var(--text);padding:11px 22px;border-radius:8px;font-size:12px;font-weight:700;
   z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border2);}
@@ -897,54 +946,30 @@ input[type=file]{display:none;}
 
 <div class="hero" id="top">
   <div class="hero-eyebrow">CardGauge Scan &middot; Fast card pricing at the table</div>
-  <h1>Reads both sides. <span>Says when it isn't sure.</span></h1>
-  <p>The year, the set and the card number are printed on the back &mdash; the front is
-  artwork. And when the sales it finds are mixing versions, it tells you rather than
-  averaging them into a number that looks certain.</p>
+  <!-- SAME HEADLINE AS THE HOMEPAGE, DELIBERATELY.
 
-  <!-- Moved to the very top and given a real banner instead of a small
-       pill -- this is the page people actually reach for camera in
-       hand, which makes it the right place for this to be prominent,
-       not just present. multiscan's own camera capture happens inside
-       business.html, but nobody finds that page by guessing the URL. -->
-  <a class="biz-banner" href="https://scan.cardgauge.com/business.html" target="_top"
-     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'business_banner_top',content_type:'scanner_standalone'})">
-    <span class="biz-banner-ico">🏪</span>
-    <div class="biz-banner-body">
-      <div class="biz-banner-beta">BETA TEST · FREE</div>
-      <div class="biz-banner-k">CardGauge Business</div>
-      <div class="biz-banner-h">Wanna make your shop or break easier to manage? Try it free while in beta.</div>
-      <div class="biz-banner-p">Scan a whole table of cards at once — shared inventory your team sees live, on any device.</div>
-    </div>
-    <span class="biz-banner-go">→</span>
-  </a>
-  <div style="text-align:center;margin-top:6px;margin-bottom:14px">
-    <a href="https://scan.cardgauge.com/business.html#help" target="_top"
-       style="font-family:var(--fm);font-size:10.5px;color:var(--text3);text-decoration:underline;"
-       onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'business_howto_top',content_type:'scanner_standalone'})">See how it works</a>
-  </div>
+       This page carried "Reads both sides. Won't guess." on the theory
+       that whoever opens the installed app already knows what it does,
+       so the headline could spend itself on the differentiator.
 
-  <!-- High on the page because it is a REASON to be here, not a
-       footnote. Somebody heading to a show needs to know this before
-       they leave the house, and the footer is read by nobody.
+       The traffic says otherwise. 128 of last month's visits arrived
+       through the TikTok bio link, which points here rather than at the
+       homepage -- cold social traffic, landing on the page whose
+       headline assumed familiarity. One product with two headlines is
+       just inconsistent, and the instruction is what a stranger needs
+       first either way.
 
-       Worded carefully. The scanner needs a connection and the card
-       show log needs one for its first load — "no internet needed"
-       would be false on both counts, and false in a way that only
-       shows up when somebody is standing in a hall relying on it.
-       What IS true: once the page is open, logging keeps working. -->
-  <a class="show-tip" href="https://www.cardgauge.com/show-log" target="_top"
-     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'showlog_tip_top',content_type:'scanner_standalone'})">
-    <span class="show-tip-ico">&#128246;</span>
-    <span><b>At a show?</b> Log your finds in the card show log — open it before you go
-    and it keeps working when the hall&rsquo;s wifi doesn&rsquo;t.</span>
-    <span class="show-tip-go">&rarr;</span>
-  </a>
+       "Won't guess" is not lost: it is the whole subject of the note
+       under the capture slots, which is read at the moment it matters
+       rather than before anyone has decided to care. -->
+  <h1>Scan a card. <span>Know what it's worth.</span></h1>
+  <!-- This page is opened with a card already in hand, usually at a
+       table, often one-handed. Three sentences explaining the product
+       is what a stranger needs; somebody who installed this to a home
+       screen needs the slots. The full explanation lives under the
+       capture boxes, where it is read at the moment it matters. -->
+  <p>Photograph the front and back, get real sold prices in seconds.</p>
 
-  <div class="hero-free">✓ Free · No signup · Both sides read</div>
-  <div>
-    <button class="share-link" onclick="shareCardGauge()">&#128257; Share CardGauge with a friend</button>
-  </div>
 </div>
 
 <div class="wrap">
@@ -974,7 +999,16 @@ input[type=file]{display:none;}
       </label>
 
       <label class="slot back" id="slotBack" for="backInput">
-        <div class="slot-badge">Twice as accurate</div>
+        <!-- Was "Twice as accurate". That is a measured claim and
+             nothing has been measured -- no defined baseline, no
+             competitor, no test. It also invited exactly the question
+             it could not answer: twice as accurate as what?
+
+             "Front + back" is the actual differentiator and needs no
+             number behind it. The badge still marks this slot as the
+             one that matters; it just stops asserting something we
+             cannot show. -->
+        <div class="slot-badge">Front + back</div>
         <div class="slot-tag">Back</div>
         <div class="slot-body">
           <img class="slot-img" id="backThumb" alt=""/>
@@ -993,7 +1027,7 @@ input[type=file]{display:none;}
     </div>
     <input type="file" id="fileInput" accept="image/*"/>
     <input type="file" id="backInput" accept="image/*"/>
-    <div class="dual-note" id="dualNote"><b class="hot">Front only means we&rsquo;re guessing.</b><br/>The year, the card number and the set are printed on the <b>back</b> — the front is just artwork. Most scanners never ask for it. This one reads both.</div>
+    <div class="dual-note" id="dualNote"><b class="hot">Front only means we&rsquo;re guessing.</b><br/>The year, the card number and the set are printed on the <b>back</b> — the front is just artwork. Reading both sides is what makes the identification hold up.</div>
     <button class="scan-btn" id="scanBtn">🔍 Scan This Card</button>
 
     <div class="or-line">or type a card name</div>
@@ -1024,6 +1058,83 @@ input[type=file]{display:none;}
 
     <div class="status" id="status"></div>
   </div>
+
+  <!-- BELOW THE SCANNER, NOT ABOVE IT.
+
+       On the installed app these four sat between the headline and the
+       capture slots: a card-shop promo, a show-log tip, a free-tier
+       line and a share button. None of them is why somebody opened
+       this. It is the page people reach for with a card in their hand,
+       and the slots were the one thing pushed off the first screen.
+
+       Same change as the homepage, and it matters more here -- this
+       page has no other purpose. -->
+  <!-- Moved to the very top and given a real banner instead of a small
+
+       pill -- this is the page people actually reach for camera in
+
+       hand, which makes it the right place for this to be prominent,
+
+       not just present. multiscan's own camera capture happens inside
+
+       business.html, but nobody finds that page by guessing the URL. -->
+
+  <a class="biz-note" href="https://scan.cardgauge.com/business.html" target="_top"
+
+     onclick="logEvent('business_banner_click','standalone',false);if(window.ttq)ttq.track('ClickButton',{content_name:'business_banner_top',content_type:'scanner_standalone'})">
+
+    <span class="biz-note-tag">BETA</span>
+
+    <span><b>Run a card shop or breaks?</b> Scan a whole table at once &mdash; free while in beta.</span>
+
+    <span class="biz-note-go">&rarr;</span>
+
+  </a>
+
+
+
+  <!-- High on the page because it is a REASON to be here, not a
+
+       footnote. Somebody heading to a show needs to know this before
+
+       they leave the house, and the footer is read by nobody.
+
+
+
+       Worded carefully. The scanner needs a connection and the card
+
+       show log needs one for its first load — "no internet needed"
+
+       would be false on both counts, and false in a way that only
+
+       shows up when somebody is standing in a hall relying on it.
+
+       What IS true: once the page is open, logging keeps working. -->
+
+  <a class="show-tip" href="https://www.cardgauge.com/show-log" target="_top"
+
+     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'showlog_tip_top',content_type:'scanner_standalone'})">
+
+    <span class="show-tip-ico">&#128246;</span>
+
+    <span><b>At a show?</b> Log your finds in the card show log — open it before you go
+
+    and it keeps working when the hall&rsquo;s wifi doesn&rsquo;t.</span>
+
+    <span class="show-tip-go">&rarr;</span>
+
+  </a>
+
+
+
+  <div class="hero-free">✓ Free · No signup · Both sides read</div>
+
+  <div>
+
+    <button class="share-link" onclick="shareCardGauge()">&#128257; Share CardGauge with a friend</button>
+
+  </div>
+
 
   <div class="result" id="result"></div>
 
@@ -2941,6 +3052,17 @@ function renderCta(d, rows, s){
   }
 }
 
+/* One tap back to an empty scanner. Clearing the slots matters more
+   than the scroll: leaving the previous card's photos sitting there
+   makes it look like the tool is still busy with the last one. */
+function scanAnother(){
+  try{ clearFront(); clearBack(); }catch(e){}
+  var el = document.querySelector('.scan-card');
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  logEvent('scan_another_clicked', null, false);
+  if(window.ttq) ttq.track('ClickButton',{content_name:'scan_another',content_type:'scanner_standalone'});
+}
+
 function renderResult(d){
   lastResult = d;
   fbSent = false;
@@ -3270,6 +3392,26 @@ function renderResult(d){
     }
   }
 
+  /* SCAN ANOTHER, OFFERED TO EVERYONE.
+
+     The funnel says people who scan, scan 3.4 cards a session -- the
+     loop works once somebody is in it. What was missing is the
+     invitation: this page offered a second scan only after a save, and
+     almost nobody saves. The standalone offered it nowhere at all.
+
+     So the most common path by far -- scan, read the price, leave --
+     was never asked to do the thing it was already inclined to do.
+
+     Placed after the price and the save panel, because the answer is
+     what they came for and it should not be interrupted. Clears both
+     slots on the way so the next card is one tap, not three. */
+  if(hasData){
+    html+='<div class="scan-again">'
+      +'<button class="scan-again-btn" onclick="scanAnother()">&#128247; Scan another card</button>'
+      +'<div class="scan-again-sub">Free and unlimited &mdash; no signup, no counter.</div>'
+    +'</div>';
+  }
+
   html+=buildBackAsk(d);
 
   /* ===== SCAN FEEDBACK ===== */
@@ -3551,7 +3693,36 @@ var pendingSave = false;
 /* Set when somebody taps the bench save while logged out, so the
    whole session survives making an account. */
 var pendingBench = false;
+/* THE SIGN-UP THAT FORGETS YOU.
+
+   This was a plain in-memory variable, and the funnel showed what that
+   costs: 8 people started a sign-up in a week and 2 finished. Six did
+   everything right and still ended up with nothing.
+
+   The mechanism is the traffic. Most visits arrive from Facebook,
+   Instagram and TikTok, which open links in their own in-app browser.
+   Getting the code means leaving that browser, opening Mail, and coming
+   back -- and coming back frequently reloads the page. The variable
+   died with it, the modal closed, and the code in their hand had
+   nowhere to go. verifyOtp would have been called with an empty email
+   even if they had found their way back to the box.
+
+   Persisted, and the code step is restored on load. Somebody who
+   switches to their email app and returns lands exactly where they
+   left off, with the address already filled in.
+
+   sessionStorage rather than localStorage: it should survive an app
+   switch, not sit around for a week after they gave up. */
+var AUTH_PENDING_KEY = 'cg_auth_pending';
 var authEmailPending = '';
+try{ authEmailPending = sessionStorage.getItem(AUTH_PENDING_KEY) || ''; }catch(e){}
+function setAuthPending(email){
+  authEmailPending = email || '';
+  try{
+    if(email) sessionStorage.setItem(AUTH_PENDING_KEY, email);
+    else sessionStorage.removeItem(AUTH_PENDING_KEY);
+  }catch(e){}
+}
 
 /* Supabase is deferred, so it may not exist when this first runs. */
 
@@ -3677,7 +3848,7 @@ async function sendAuthCode(isResend){
   try{
     var r = await SB.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true } });
     if(r.error) throw r.error;
-    authEmailPending = email;
+    setAuthPending(email);
     var shown=document.getElementById('authEmailShown'); if(shown) shown.textContent = email;
     var se=document.getElementById('authStepEmail'); if(se) se.style.display='none';
     var sc=document.getElementById('authStepCode'); if(sc) sc.style.display='';
@@ -3704,6 +3875,7 @@ async function verifyAuthCode(){
     if(r.error) throw r.error;
     currentUser = r.data.user || (r.data.session && r.data.session.user);
     if(!currentUser) throw new Error('Something went wrong \u2014 try again.');
+    setAuthPending('');
     await checkPro();
     var wanted = pendingSave, wantedBench = pendingBench;
     closeAuth(); renderAuth();
@@ -3839,6 +4011,23 @@ if(document.readyState === 'loading'){
 } else {
   checkAuthState();
 }
+
+/* Came back from the email app mid sign-in? Put them back on the code
+   step rather than an empty page. Only when they are not already signed
+   in -- checkAuthState may resolve a session a moment later, and this
+   closes itself if so. */
+function resumePendingAuth(){
+  if(!authEmailPending || currentUser) return;
+  var m=document.getElementById('authModal'); if(!m) return;
+  m.classList.add('show');
+  var shown=document.getElementById('authEmailShown'); if(shown) shown.textContent=authEmailPending;
+  var ef=document.getElementById('authEmail'); if(ef) ef.value=authEmailPending;
+  var se=document.getElementById('authStepEmail'); if(se) se.style.display='none';
+  var sc=document.getElementById('authStepCode'); if(sc) sc.style.display='';
+  var cf=document.getElementById('authCode'); if(cf) cf.focus();
+  logEvent('signup_resumed', null, false);
+}
+setTimeout(resumePendingAuth, 900);
 
 benchLoad();
 benchRender();   // a reload mid-session keeps the bench
