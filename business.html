@@ -127,6 +127,30 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <h2>1. Capture the batch</h2>
       <div class="sub">Best results: 3–10 cards, flat, not overlapping, camera roughly overhead, even lighting. After the fronts are detected, you can flip the cards in the same positions and capture the backs.</div>
       <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Shiny/refractor/prizm cards are harder to detect reliably than plain cards — direct glare can cause one to be missed or cropped wrong. Angling the card slightly to avoid a bright reflection, or using softer/indirect light, helps. Set the expected card count below so a miss gets flagged instead of slipping through.</div>
+
+      <!-- A HARDWARE ANSWER TO THE SOFTWARE'S WORST FAILURE.
+
+           Glare on chrome and refractor stock is the single biggest
+           cause of a missed card and a bad read, and it is the one
+           problem no prompt change fixes. A clip-on polarising filter
+           cuts specular reflection off the card's lacquer the same way
+           it does off water or glass -- it is the standard answer in
+           product photography and it works here for the same reason.
+
+           Placed inside the glare warning rather than in a shop
+           section, because that is the moment somebody has the problem
+           and would act on it. It stays a suggestion: the warning above
+           already gives two free fixes first, and this only earns its
+           place for a shop scanning shiny stock all day.
+
+           Honest about being affiliate, per the privacy policy. -->
+      <div class="notice" style="border-color:var(--gold);margin-top:8px">
+        <b>Scanning a lot of chrome or refractors?</b>
+        <div class="sub" style="margin-top:4px">A clip-on <b>circular polarising (CPL) filter</b> for your phone camera cuts reflections off the card surface &mdash; the same trick product photographers use on glass. Around $15, and it removes most of the glare that makes shiny cards get missed. Angle and softer light are free and worth trying first.</div>
+        <div class="sub" style="margin-top:6px"><b>It matters more here than on a single card.</b> One photo covers the whole table, so you cannot tilt one card away from a reflection without moving the others. A filter fixes the whole batch at once &mdash; and a shiny card that gets missed in a batch of ten is a card that never reaches your inventory at all.</div>
+        <div class="actions"><a class="btn" href="https://www.amazon.com/s?k=clip+on+CPL+polarizing+filter+for+phone+camera&amp;tag=cardgauge-20" target="_blank" rel="noopener sponsored">See CPL filters on Amazon</a></div>
+        <div class="sub" style="margin-top:6px;font-size:11px">Affiliate link &mdash; costs you nothing, and we don't set the prices.</div>
+      </div>
       <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Don't fill the whole frame with one card — leave a visible margin of background around every edge, even scanning just one. A card pressed up to the edge of the photo can get cropped wrong, since the detector needs to see all four edges to find the card.</div>
       <label class="drop" for="photo"><strong>📷 Take photo / choose image</strong><br><span class="sub">On a phone, this opens the camera or photo picker.</span></label>
       <input id="photo" type="file" accept="image/*" capture="environment">
