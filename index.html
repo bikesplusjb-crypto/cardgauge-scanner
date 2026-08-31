@@ -840,6 +840,18 @@ input[type=file]{display:none;}
 .save-btn:disabled{opacity:.6;cursor:not-allowed;}
 .save-btn.ghost{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);}
 .save-btn.ghost:hover{border-color:var(--gold);color:var(--gold);background:var(--surface2);}
+.lb{margin-top:14px;border:1px solid rgba(34,197,94,.3);border-radius:var(--radius-lg);background:linear-gradient(160deg,rgba(34,197,94,.06),rgba(17,24,39,.4));overflow:hidden;}
+.lb-top{display:flex;align-items:baseline;gap:8px;padding:13px 15px 9px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.lb-n{font-family:var(--fm);font-size:10.5px;color:var(--text3);}
+.lb-row{display:flex;justify-content:space-between;gap:10px;padding:9px 15px;border-bottom:1px solid var(--border);font-size:12.5px;}
+.lb-name{color:var(--text);min-width:0;overflow-wrap:anywhere;}
+.lb-val{font-family:var(--fm);color:var(--green);white-space:nowrap;}
+.lb-more{padding:8px 15px;font-family:var(--fm);font-size:10.5px;color:var(--text3);}
+.lb-cta{padding:13px 15px;background:rgba(0,0,0,.2);border-top:1px solid var(--border);}
+.lb-why{font-size:12px;line-height:1.6;color:var(--text2);margin-bottom:11px;}
+.lb-why b{color:var(--gold-warm);}
+.lb-btn{width:100%;padding:13px;border-radius:11px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;}
+.lb-fine{font-family:var(--fm);font-size:9.5px;color:var(--text3);text-align:center;margin-top:8px;}
 .dec{padding:16px;border-top:1px solid var(--border);}
 .dec-k{font-family:var(--fm);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;
   color:var(--text3);margin-bottom:11px;}
@@ -1179,6 +1191,7 @@ input[type=file]{display:none;}
 
   <!-- The session bench. Renders from the second lookup on. -->
   <div id="benchBox"></div>
+  <div id="localBinderBox"></div>
 
   <div class="install" id="installCard"></div>
 
@@ -2835,8 +2848,21 @@ async function benchSaveAll(){
   if(!bench.length) return;
   if(!sbReady()){ toast('Accounts unavailable right now \u2014 scanning still works'); return; }
   if(!currentUser){
-    pendingBench = true;          // remember the bench, then sign them in
-    openAuth();
+    var kept = 0, failed = 0;
+    bench.forEach(function(b){
+      if(b.saved) return;
+      var a = localBinder();
+      if(a.some(function(c){ return String(c.name||'').toLowerCase() === String(b.name||'').toLowerCase(); })){ b.saved = true; return; }
+      a.unshift({ name:b.name, image:b.image, price:b.value||null, year:b.year, brand:b.brand,
+                  set:b.set, player:b.player, number:b.number, parallel:b.parallel,
+                  sport:b.sport, query:b.query, savedAt:new Date().toISOString() });
+      if(localBinderWrite(a)){ b.saved = true; kept++; } else { failed++; }
+    });
+    if(failed && !kept){ pendingBench = true; openAuth(); return; }   // private mode
+    benchStore(); benchRender();
+    toast('\u2705 ' + kept + ' card' + (kept===1?'':'s') + ' kept on this device');
+    logEvent('bench_saved_local', String(kept), false);
+    renderLocalPrompt();
     return;
   }
 
@@ -3818,6 +3844,7 @@ function renderResult(d){
       logEvent('save_offer_shown', currentUser ? 'signed_in' : 'logged_out', false);
     }
   }
+  renderLocalPrompt();
   renderCta(d, rows, s);
   setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
   // Ask only after they've seen it work.
@@ -4241,6 +4268,7 @@ async function verifyAuthCode(){
        "not signed in" warning and the bench CTA, and leaving those
        stale is how a signed-in user ends up reading "this card won't be
        saved anywhere yet" directly above a card that just saved. */
+    try{ renderLocalPrompt(); }catch(e){}
     if(lastResult){ try{ renderResult(lastResult); }catch(e){} }
     if(wantedBench){ pendingBench = false; benchSaveAll(); }
     else if(wanted) saveToBinder();   // finish what they were trying to do
@@ -4276,12 +4304,123 @@ async function watchedCount(){
   }catch(e){ return 0; }
 }
 
+/* ── SAVING WITHOUT AN ACCOUNT ──────────────────────────────────
+
+   The measured leak: 166 sessions were offered a save, 21 started a
+   sign-up, 5 finished, 2 ended up with a card. Both save paths opened
+   with `if(!currentUser){ openAuth(); return; }` -- a hard wall in
+   front of the only thing that makes somebody come back.
+
+   The page promises "no signup, no limit" and then asks for an account
+   at the exact moment value has already been delivered. At that point
+   an account is pure cost to the person and pure benefit to us, which
+   is a bad trade to ask for and 87% of people declined it.
+
+   So the card is kept first, on the device, immediately. The account
+   ask moves to where it is genuinely worth something: keeping the
+   collection when the phone changes, and getting told when a price
+   moves. Neither is possible locally, so neither is a fake reason.
+
+   THE HONEST LIMIT, STATED EVERYWHERE IT MATTERS: a local save lives
+   in this browser. Clearing site data loses it, and it does not appear
+   on another device. Quietly implying permanence would be worse than
+   the wall it replaces -- somebody losing a catalogued collection
+   trusts nothing afterwards. Every surface says "saved on this
+   device". */
+const LOCAL_BINDER_KEY = 'cg_local_binder';
+
+function localBinder(){
+  try{ var r = localStorage.getItem(LOCAL_BINDER_KEY); var a = r ? JSON.parse(r) : []; return Array.isArray(a) ? a : []; }
+  catch(e){ return []; }
+}
+function localBinderWrite(a){
+  try{ localStorage.setItem(LOCAL_BINDER_KEY, JSON.stringify(a.slice(0,200))); return true; }
+  catch(e){ return false; }   // private mode, or quota
+}
+function localBinderHas(name){
+  var k = String(name||'').toLowerCase();
+  return localBinder().some(function(c){ return String(c.name||'').toLowerCase() === k; });
+}
+/* Same field set the authenticated insert uses, so a later migration is
+   a straight map rather than a reconstruction. */
+function localCardFrom(d, price){
+  return {
+    name: String(d.cardName||'Card').slice(0,200),
+    image: d.image || null,
+    price: price || null,
+    year: d.year || null, brand: d.brand || null, set: d.set || null,
+    player: d.player || null, number: d.cardNumber || null,
+    parallel: d.parallel || null, sport: d.sport || null,
+    query: String(d.searchQuery||'').slice(0,300),
+    savedAt: new Date().toISOString()
+  };
+}
+function localBinderSave(d, price){
+  if(localBinderHas(d.cardName)) return 'already';
+  var a = localBinder();
+  a.unshift(localCardFrom(d, price));
+  return localBinderWrite(a) ? 'saved' : 'failed';
+}
+
+/* WHAT THE ACCOUNT IS ACTUALLY FOR.
+
+   Once cards are already kept, "sign up to save" is a lie -- they are
+   saved. So the ask changes to the two things a local save genuinely
+   cannot do: survive a new phone, and email you when a price moves.
+   Both are true, both are worth an email address, and neither is
+   withheld artificially.
+
+   Shown from the first local save so the person can see their cards
+   exist. The device warning is not fine print: it is the sentence that
+   keeps this honest, and it sits next to the count rather than under
+   it. */
+function renderLocalPrompt(){
+  var el = document.getElementById('localBinderBox');
+  if(!el) return;
+  if(currentUser){ el.innerHTML = ''; return; }
+  var cards = localBinder();
+  if(!cards.length){ el.innerHTML = ''; return; }
+
+  var list = cards.slice(0, 6).map(function(c){
+    return '<div class="lb-row"><span class="lb-name">' + esc(c.name) + '</span>'
+      + '<span class="lb-val">' + (c.price ? fmtMoney(c.price) : '\u2014') + '</span></div>';
+  }).join('');
+
+  el.innerHTML = '<div class="lb">'
+    + '<div class="lb-top"><b>Your cards</b> <span class="lb-n">'
+      + cards.length + ' kept on this device</span></div>'
+    + list
+    + (cards.length > 6 ? '<div class="lb-more">and ' + (cards.length - 6) + ' more</div>' : '')
+    + '<div class="lb-cta">'
+      + '<div class="lb-why"><b>These live in this browser only.</b> '
+        + 'Clear your history or pick up a different phone and they are gone. '
+        + 'Add an email and they follow you \u2014 and we\'ll tell you when a price moves.</div>'
+      + '<button class="lb-btn" onclick="openAuth()">Keep these anywhere \u2192</button>'
+      + '<div class="lb-fine">One email and a code. No password. First '
+        + FREE_CARD_LIMIT + ' cards free.</div>'
+    + '</div>'
+  + '</div>';
+}
+
 async function saveToBinder(){
   if(!lastResult) return;
   if(!sbReady()){ toast('Accounts unavailable right now \u2014 scanning still works'); return; }
   if(!currentUser){
-    pendingSave = true;          // remember the card, then sign them in
-    openAuth();
+    /* Kept on the device, now, with no account. The sign-in offer that
+       follows is about syncing and alerts -- things a local save
+       genuinely cannot do -- rather than about storage. */
+    var st = computeStats(lastResult);
+    var pr = safeNum(lastResult.sold && lastResult.sold.soldMedian) || safeNum(st.avg);
+    var res = localBinderSave(lastResult, pr);
+    if(res === 'failed'){
+      pendingSave = true; openAuth(); return;   // private mode: fall back to the old path
+    }
+    toast(res === 'already' ? 'Already in your cards on this device'
+                            : '\u2705 Kept on this device');
+    logEvent('card_saved_local', String(lastResult.cardName||'').slice(0,200), !!lastResult.usedBack);
+    var sb = document.getElementById('saveBtn');
+    if(sb){ sb.disabled = true; sb.textContent = '\u2713 Kept on this device'; }
+    renderLocalPrompt();
     return;
   }
   var btn = document.getElementById('saveBtn');
