@@ -840,6 +840,35 @@ input[type=file]{display:none;}
 .save-btn:disabled{opacity:.6;cursor:not-allowed;}
 .save-btn.ghost{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);}
 .save-btn.ghost:hover{border-color:var(--gold);color:var(--gold);background:var(--surface2);}
+.dec{padding:16px;border-top:1px solid var(--border);}
+.dec-k{font-family:var(--fm);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;
+  color:var(--text3);margin-bottom:11px;}
+.dec-card{border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:9px;}
+.dec-card:last-child{margin-bottom:0;}
+.dec-rec{border:2px solid rgba(34,197,94,.5);background:rgba(34,197,94,.05);}
+.dec-tag{font-family:var(--fm);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--green);margin-bottom:6px;}
+.dec-h{font-size:17px;font-weight:800;color:var(--text);line-height:1.3;margin-bottom:10px;}
+.dec-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.dec-name{font-size:14.5px;font-weight:800;color:var(--text);}
+.dec-badge{margin-left:auto;font-family:var(--fm);font-size:10px;letter-spacing:.06em;
+  padding:3px 9px;border-radius:100px;}
+.dec-badge.ok{background:rgba(34,197,94,.14);color:var(--green);}
+.dec-badge.warn{background:rgba(245,158,11,.14);color:var(--gold-warm);}
+.dec-t{width:100%;font-size:13px;color:var(--text2);}
+.dec-t td{padding:2px 0;}
+.dec-t td:last-child{text-align:right;color:var(--text);font-family:var(--fm);}
+.dec-fine{font-size:11.5px;line-height:1.6;color:var(--text3);margin-top:9px;}
+.dec-off{font-size:12.5px;line-height:1.6;color:var(--gold-warm);
+  background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.3);
+  border-radius:10px;padding:11px 13px;}
+.dec-off b{color:#fff;}
+.dec-top{display:flex;align-items:center;gap:11px;margin-bottom:12px;}
+.dec-img{width:44px;height:62px;object-fit:cover;border-radius:7px;border:1px solid var(--border2);background:#000;flex-shrink:0;}
+.dec-sub{font-size:12.5px;color:var(--text2);line-height:1.35;}
+.dec-cost{display:flex;align-items:center;gap:9px;margin-top:11px;padding:11px 13px;border:1px solid var(--border);border-radius:12px;}
+.dec-cost label{font-size:13px;color:var(--text2);flex:1;}
+.dec-cost input{width:96px;padding:9px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--fm);font-size:15px;}
 .scan-again{padding:16px;border-top:1px solid var(--border);text-align:center;}
 .scan-again-btn{width:100%;padding:15px;border-radius:12px;border:none;background:var(--green);
   color:#052e16;font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;
@@ -3065,6 +3094,198 @@ function renderCta(d, rows, s){
 /* One tap back to an empty scanner. Clearing the slots matters more
    than the scroll: leaving the previous card's photos sitting there
    makes it look like the tool is still busy with the last one. */
+/* Typical marketplace cost, used only when the person has not told us
+   their own. Matches the Business defaults so a shop owner sees the
+   same maths in both places. Stated on screen rather than hidden, so a
+   seller on different terms knows what to adjust. */
+var SELL_FEE_PCT = 13, SELL_SHIP = 1;
+
+function buildDecision(d, rows, s){
+  var sold = safeNum(d.sold && d.sold.soldMedian);
+  var raw  = sold
+          || safeNum(d.raw && d.raw.count >= THIN_RESULT_N ? d.raw.median : 0)
+          || safeNum(s && s.avg);
+  if(!raw) return '';
+
+  if(spreadFlagged || (d.sold && d.sold.soldLimited)){
+    return '<div class="dec"><div class="dec-off">Not recommending a move on this one \u2014 '
+      + '<b>the sales behind that number are describing more than one version of this card.</b><br>'
+      + 'Narrow the search below and it comes back.</div></div>';
+  }
+
+  /* FEES COME OFF BOTH SIDES, OR THE COMPARISON IS RIGGED.
+
+     A graded card sells on the same marketplace as a raw one and pays
+     the same fee and postage. Subtracting them from the sell figure and
+     not from the grading figure makes grading look better than it is --
+     by about $30 at a 9 and $80 at a 10 on a card like this. That is
+     the one number on the page that talks somebody into spending $25,
+     so it is the one that has to be even-handed.
+
+     Both paths are now net of fees, and the recommendation is whichever
+     genuinely clears more. */
+  /* NO RECOMMENDATION OFF ASKING PRICES.
+
+     When no completed sales are found, raw falls back to the median of
+     what sellers are ASKING. That is a ceiling, not a value -- it is
+     what nobody has yet paid. 41% of lookups land here.
+
+     Printing "Sell it. You'd clear $34" in bold on top of that, with
+     the caveat in small grey text underneath, is exactly the move this
+     engine exists to refuse. Almost half of all decision panels would
+     have been a confident recommendation built on the weakest number
+     the pricing side produces.
+
+     So on ask-only the panel still does the arithmetic -- the figures
+     are honest and useful -- but nothing is recommended and nothing is
+     bolded as a verdict. It says what the number is and what would
+     change it. */
+  var askOnly = !sold;
+
+  var netOf = function(v){ return v - (v * SELL_FEE_PCT / 100) - SELL_SHIP; };
+  var sellNet = Math.round(netOf(raw));
+
+  var gradeRow = function(want){
+    if(!rows || !rows.length) return null;
+    for(var i=0;i<rows.length;i++){ if(Number(rows[i].grade)===want) return rows[i]; }
+    return null;
+  };
+  var top     = (rows && rows.length) ? rows[rows.length-1] : null;
+  var nine    = gradeRow(9) || top;
+  var anyReal = !!(rows && rows.some && rows.some(function(r){ return r.isReal; }));
+  var company = (rows && rows.company) || 'PSA';
+  var canGrade = anyReal && nine && nine.value > 0 && !(rows && rows.inconsistent);
+
+  /* The 9 decides it. Most cards do not come back a 10, and
+     recommending a submission on the best possible outcome is telling
+     somebody to gamble and calling it advice. The 10 is shown because
+     people want the ceiling; it does not get a vote. */
+  var gradeNet = canGrade ? Math.round(netOf(nine.value) - GRADE_COST) : 0;
+  /* A grading recommendation compares the graded price against the
+     raw one. If the raw side is an asking price, the subtraction is
+     comparing a real sale to a hope, so no verdict is offered. */
+  var gradeWins = canGrade && !askOnly && gradeNet > sellNet && nine.value >= raw * GRADE_WORTH_IT_X;
+
+  var cost = safeNum(decCost);
+  var line = function(k,v,cls){
+    return '<tr><td>'+k+'</td><td'+(cls?' class="'+cls+'"':'')+'>'+v+'</td></tr>';
+  };
+
+  /* THE USER'S CARD, NOT A GENERIC ONE.
+
+     d.image is the listing thumbnail the pricing lookup already
+     returned -- the same picture used in the result header above. It
+     makes the panel read as analysis of THIS card rather than a
+     template. Absent on plenty of thin-market cards, so the whole
+     block is conditional rather than leaving a broken frame. */
+  var img = d.image
+    ? '<img class="dec-img" src="' + esc(d.image) + '" alt="" '
+      + 'onerror="this.style.display=\'none\'">'
+    : '';
+
+  var out = '<div class="dec">'
+    + '<div class="dec-top">' + img
+      + '<div><div class="dec-k" style="margin:0 0 3px">What to do with it</div>'
+      + '<div class="dec-sub">' + esc(prettyName(d.cardName || 'this card')) + '</div></div>'
+    + '</div>';
+
+  /* SELL */
+  out += '<div class="dec-card'+((gradeWins||askOnly)?'':' dec-rec')+'">'
+    + (askOnly ? '' : (gradeWins ? '' : '<div class="dec-tag">Recommended</div>'))
+    + '<div class="dec-h">' + (askOnly
+        ? 'If it sold at the asking price, you\'d clear ' + fmtMoney(sellNet - cost) + '.'
+        : 'Sell it. You\'d clear ' + fmtMoney(sellNet - cost) + '.') + '</div>'
+    + '<table class="dec-t">'
+      + line('Sells for', fmtMoney(raw))
+      + line('Fees and shipping', '\u2212' + fmtMoney(raw - sellNet))
+      + (cost ? line('You paid', '\u2212' + fmtMoney(cost)) : '')
+    + '</table>'
+  + '</div>';
+
+  /* GRADE */
+  if(canGrade){
+    out += '<div class="dec-card'+(gradeWins?' dec-rec':'')+'">'
+      + (gradeWins ? '<div class="dec-tag">Recommended</div>' : '')
+      + '<div class="dec-row"><span class="dec-name">Grade it</span>'
+      + '<span class="dec-badge '+(gradeWins?'ok':'warn')+'">'
+      + (gradeWins ? 'Worth a look' : 'A bet') + '</span></div>'
+      + '<table class="dec-t">'
+        + line(esc(company)+' 9 sells for', fmtMoney(nine.value))
+        + (top && top!==nine ? line(esc(company)+' '+top.grade+' sells for', fmtMoney(top.value)) : '')
+        + line('Fees, shipping, grading', '\u2212' + fmtMoney(nine.value - netOf(nine.value) + GRADE_COST))
+        + (cost ? line('You paid', '\u2212' + fmtMoney(cost)) : '')
+        + line('<b>At a 9 you clear</b>', '<b>'+fmtMoney(gradeNet - cost)+'</b>')
+      + '</table>'
+      + '<div class="dec-fine">'
+        + (gradeWins
+            ? 'About ' + fmtMoney(gradeNet - sellNet) + ' more than selling it raw \u2014 if it grades a 9.'
+            : 'Less than selling it raw once the fee is paid.')
+        + ' Most cards do not come back a ' + (top ? top.grade : '10')
+        + ', so treat the top number as a ceiling rather than a plan.'
+      + '</div>'
+    + '</div>';
+  }
+
+  /* KEEP IT.
+
+     Shows only what is actually known. Current value against what the
+     person paid is real arithmetic the moment they type a cost.
+
+     A 90-day trend is NOT shown, and the reason is worth recording:
+     card_price_history holds 300 rows across 263 different cards --
+     roughly one observation each. It is written when somebody scans a
+     card, and almost nobody scans the same card twice, so it is a
+     scatter of single points rather than a series. The nightly
+     watchlist refresh is what would build a real daily series, and it
+     writes only for cards someone has SAVED.
+
+     So the honest line is that a trend needs the card in a binder and
+     time to pass. Inventing a percentage from one data point would be
+     the exact failure the rest of this engine refuses. */
+  out += '<div class="dec-card">'
+    + '<div class="dec-row"><span class="dec-name">Keep it</span></div>'
+    + '<table class="dec-t">'
+      + line('Worth now', fmtMoney(raw))
+      + (cost ? line((raw - cost >= 0 ? 'Up since you bought' : 'Down since you bought'),
+            (raw - cost >= 0 ? '+' : '\u2212') + fmtMoney(Math.abs(raw - cost)))
+          : '')
+    + '</table>'
+    + '<div class="dec-fine">No trend yet \u2014 CardGauge needs a few weeks of history '
+      + 'before it can tell you which way this card is moving. '
+      + '<b>Save it to your binder</b> and the price gets checked nightly.</div>'
+  + '</div>';
+
+  /* One optional input, and the only thing on this panel the person
+     supplies. Without it the figures are still true, they just answer
+     "what will I get" rather than "what did I make". */
+  out += '<div class="dec-cost">'
+    + '<label for="decCostIn">What did you pay for it?</label>'
+    + '<input id="decCostIn" type="number" step=".01" placeholder="0.00" value="'
+      + (cost || '') + '" oninput="setDecCost(this.value)">'
+  + '</div>';
+
+  out += askOnly
+    ? '<div class="dec-off" style="margin-top:11px">No completed sales found, so these figures '
+      + 'come from <b>what sellers are asking</b> \u2014 a ceiling, not a value. '
+      + 'CardGauge won\'t tell you what to do with a card it can\'t price from real sales. '
+      + 'Check the sold listings below, or scan the back if you haven\'t.</div>'
+    : '<div class="dec-fine" style="margin-top:10px">Assumes a ' + SELL_FEE_PCT
+      + '% marketplace fee and $' + SELL_SHIP + ' postage on any sale, graded or raw. '
+      + 'Based on completed sales.</div>';
+
+  return out + '</div>';
+}
+
+/* Held in memory only. A purchase price is the person's business, and
+   a scanner with no signup should not start remembering it. */
+var decCost = 0;
+function setDecCost(v){
+  decCost = Number(v) || 0;
+  if(lastResult){ try{ renderResult(lastResult); }catch(e){} }
+  var el = document.getElementById('decCostIn');
+  if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+}
+
 function scanAnother(){
   try{ clearFront(); clearBack(); }catch(e){}
   var el = document.querySelector('.scan-card');
@@ -3421,6 +3642,25 @@ function renderResult(d){
       +'<div class="scan-again-sub">Free and unlimited &mdash; no signup, no counter.</div>'
     +'</div>';
   }
+
+  /* WHAT TO DO WITH IT.
+
+     Placed directly under the price and above Scan another, because
+     the price is the question somebody arrived with and this is the
+     answer they actually wanted. Everything below it -- feedback, the
+     search box, the bench -- is housekeeping by comparison.
+
+     Built only from what this scan already returned. The grading
+     verdict is the same calculation renderCta has been running all
+     along: the PSA 9 rung, not the 10, minus the fee. Nothing new is
+     computed and nothing is estimated that was not already estimated.
+
+     "Keep it" is deliberately absent. It needs a 90-day trend, and
+     card_price_history only started accumulating under the current
+     logic version yesterday. A trend line drawn through two days would
+     be exactly the manufactured confidence the rest of this page
+     refuses to produce. It comes back when the data is real. */
+  if(hasData){ html+=buildDecision(d, rows, s); }
 
   html+=buildBackAsk(d);
 
