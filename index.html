@@ -852,6 +852,7 @@ input[type=file]{display:none;}
 .lb-why b{color:var(--gold-warm);}
 .lb-btn{width:100%;padding:13px;border-radius:11px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;}
 .lb-fine{font-family:var(--fm);font-size:9.5px;color:var(--text3);text-align:center;margin-top:8px;}
+.lb-no{display:block;width:100%;background:none;border:none;font-family:var(--fm);font-size:10px;letter-spacing:.08em;color:var(--text3);padding:9px 0 2px;cursor:pointer;text-decoration:underline;}
 .dec{padding:16px;border-top:1px solid var(--border);}
 .dec-k{font-family:var(--fm);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;
   color:var(--text3);margin-bottom:11px;}
@@ -4261,6 +4262,20 @@ async function verifyAuthCode(){
     if(!currentUser) throw new Error('Something went wrong \u2014 try again.');
     setAuthPending('');
     await checkPro();
+    /* BRING THE LOCAL CARDS WITH THEM.
+
+       Without this, somebody who kept five cards on the device and then
+       created an account would land on an empty binder while those five
+       sat orphaned in the browser. That is worse than the wall it
+       replaces: the wall never promised anything, whereas this would
+       look like signing up destroyed their collection.
+
+       Runs before the pending save so the counts are right, skips
+       anything already in the account by name, and only clears the
+       local copy once every row is confirmed written. A partial merge
+       keeps the local set intact and tries again next time. */
+    try{ await mergeLocalBinder(); }catch(e){ console.warn('[merge] failed:', e.message); }
+
     var wanted = pendingSave, wantedBench = pendingBench;
     closeAuth(); renderAuth();
     toast('\u2705 You\'re in');
@@ -4329,11 +4344,40 @@ async function watchedCount(){
    device". */
 const LOCAL_BINDER_KEY = 'cg_local_binder';
 
+/* PROVE THE STORAGE WORKS BEFORE PROMISING TO USE IT.
+
+   This scanner runs inside an iframe on the Wix homepage, at a
+   filesusr.com origin rather than cardgauge.com. Storage there is
+   third-party: Safari and Chrome partition or block it, and Safari's
+   ITP clears it after seven days of inactivity even when it is
+   allowed. The standalone at scan.cardgauge.com is a direct origin and
+   has none of those problems.
+
+   If storage is unavailable, offering a local save would tell somebody
+   their card was kept and then lose it -- worse than the account wall
+   it replaces, because the wall at least fails honestly. So it is
+   tested once at load, and when it fails the old sign-in path is used
+   unchanged. */
+var LOCAL_OK = (function(){
+  try{
+    var k = '__cg_probe__';
+    localStorage.setItem(k,'1');
+    var ok = localStorage.getItem(k) === '1';
+    localStorage.removeItem(k);
+    return ok;
+  }catch(e){ return false; }
+})();
+try{
+  if(!LOCAL_OK) logEvent('local_storage_unavailable', (window.top !== window.self) ? 'iframe' : 'top', false);
+}catch(e){}
+
 function localBinder(){
+  if(!LOCAL_OK) return [];
   try{ var r = localStorage.getItem(LOCAL_BINDER_KEY); var a = r ? JSON.parse(r) : []; return Array.isArray(a) ? a : []; }
   catch(e){ return []; }
 }
 function localBinderWrite(a){
+  if(!LOCAL_OK) return false;
   try{ localStorage.setItem(LOCAL_BINDER_KEY, JSON.stringify(a.slice(0,200))); return true; }
   catch(e){ return false; }   // private mode, or quota
 }
@@ -4374,6 +4418,69 @@ function localBinderSave(d, price){
    exist. The device warning is not fine print: it is the sentence that
    keeps this honest, and it sits next to the count rather than under
    it. */
+async function mergeLocalBinder(){
+  if(!LOCAL_OK || !sbReady() || !currentUser) return;
+  var cards = localBinder();
+  if(!cards.length) return;
+
+  /* Names already in the account. A card kept locally and then saved
+     again after signing in must not become two rows. */
+  var have = {};
+  try{
+    var ex = await SB.from('watchlist_items').select('card_name').eq('user_id', currentUser.id);
+    (ex.data||[]).forEach(function(r){ have[String(r.card_name||'').toLowerCase()] = 1; });
+  }catch(e){ return; }
+
+  var moved = 0, failed = 0;
+  for(var i=0;i<cards.length;i++){
+    var c = cards[i];
+    if(have[String(c.name||'').toLowerCase()]) { moved++; continue; }
+    try{
+      var yr = parseInt(c.year,10);
+      var r = await SB.from('watchlist_items').insert({
+        user_id: currentUser.id,
+        card_name: String(c.name||'Card').slice(0,200),
+        card_image_url: c.image || null,
+        price_when_added: c.price || null,
+        current_price: c.price || null,
+        status: c.status || 'watching',
+        source: 'scanner_local',
+        last_checked_at: new Date().toISOString(),
+        year: (yr >= 1860 && yr <= 2100) ? yr : null,
+        brand: c.brand || null, set_name: c.set || null, player: c.player || null,
+        card_number: c.number || null, parallel: c.parallel || null, sport: c.sport || null
+      });
+      if(r.error) throw r.error;
+      moved++;
+    }catch(e){ failed++; }
+  }
+
+  if(!failed){
+    try{ localStorage.removeItem(LOCAL_BINDER_KEY); }catch(e){}
+    logEvent('local_cards_merged', String(moved), false);
+    if(moved) toast('\u2705 ' + moved + ' card' + (moved===1?'':'s') + ' moved into your binder');
+  } else {
+    logEvent('local_cards_merge_partial', String(moved)+'/'+cards.length, false);
+  }
+}
+
+/* ASKED ONCE, NOT EVERY TIME.
+
+   The prompt exists to convert, not to nag. Somebody who declines and
+   keeps scanning has answered the question, and re-asking on every
+   save rebuilds the wall in a friendlier font. Dismissed once, it
+   stays gone for the session and comes back only after several more
+   cards -- by which point the ask means something different. */
+var LOCAL_ASK_KEY = 'cg_local_ask_dismissed';
+function localAskDismissed(){
+  try{ return sessionStorage.getItem(LOCAL_ASK_KEY) === '1'; }catch(e){ return false; }
+}
+function dismissLocalAsk(){
+  try{ sessionStorage.setItem(LOCAL_ASK_KEY,'1'); }catch(e){}
+  logEvent('local_ask_dismissed', String(localBinder().length), false);
+  renderLocalPrompt();
+}
+
 function renderLocalPrompt(){
   var el = document.getElementById('localBinderBox');
   if(!el) return;
@@ -4391,14 +4498,15 @@ function renderLocalPrompt(){
       + cards.length + ' kept on this device</span></div>'
     + list
     + (cards.length > 6 ? '<div class="lb-more">and ' + (cards.length - 6) + ' more</div>' : '')
-    + '<div class="lb-cta">'
+    + ((localAskDismissed() && cards.length < 5) ? '' : '<div class="lb-cta">'
       + '<div class="lb-why"><b>These live in this browser only.</b> '
         + 'Clear your history or pick up a different phone and they are gone. '
         + 'Add an email and they follow you \u2014 and we\'ll tell you when a price moves.</div>'
       + '<button class="lb-btn" onclick="openAuth()">Keep these anywhere \u2192</button>'
       + '<div class="lb-fine">One email and a code. No password. First '
         + FREE_CARD_LIMIT + ' cards free.</div>'
-    + '</div>'
+      + '<button class="lb-no" onclick="dismissLocalAsk()">Not now</button>'
+    + '</div>')
   + '</div>';
 }
 
