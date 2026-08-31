@@ -1809,7 +1809,26 @@ function sqEdit(){
   box.innerHTML =
     '<input class="sq-input" id="sqInput" value="'+esc(currentQuery)+'" onkeydown="if(event.key===\'Enter\')sqReprice()"/>'
     +'<button class="sq-go" id="sqGo" onclick="sqReprice()">Re-price with this search</button>'
-    +'<div class="sq-why">Tip: year + brand + player + card number + parallel gives the tightest match.</div>';
+    /* WHAT TO ACTUALLY CHANGE, NOT A GENERAL TIP.
+
+       "year + brand + player + card number + parallel" describes a good
+       query but tells nobody which part of THIS one is wrong. The two
+       things the scanner gets wrong are the year and the card number,
+       and one of them has a specific, repeating cause worth naming.
+
+       Retro-design inserts: 1991 Topps in 2026, 1987 Topps in 2022, the
+       Anniversary sets. The model reads the DESIGN year off the front
+       rather than the copyright year off the back, so a 2026 insert
+       comes back as a 1991 card and the comps vanish. Seen twice in two
+       days -- a Drew Gilbert #91B2-40 read as 2023, and a Konnor
+       Griffin read as 1987 when he was drafted in 2024.
+
+       Somebody holding the card knows the real year. Telling them where
+       to look is worth more than a generic tip. */
+    +'<div class="sq-why"><b>Usually it is the year or the card number.</b> '
+     +'If your card copies an old design &mdash; a 1991 or 1987 Topps look on a modern card &mdash; '
+     +'the scanner often reports the design year instead of the real one. '
+     +'Check the copyright line on the back and use that year.</div>';
   var inp=document.getElementById('sqInput');
   if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
   var btn=document.getElementById('sqEditBtn');
@@ -1865,6 +1884,11 @@ async function repriceQuery(q, opts){
   }
 }
 
+/* The correction write needs nothing but the public key, so it works
+   for signed-out visitors too -- which is almost everybody, and
+   exactly the population whose corrections are worth having. */
+function sbFeedbackReady(){ return !!(SB_URL && SB_KEY); }
+
 async function sqReprice(){
   var inp=document.getElementById('sqInput');
   if(!inp)return;
@@ -1874,6 +1898,42 @@ async function sqReprice(){
   // A hand-typed search becomes the new baseline; old chips no longer apply.
   refineActive = null;
   refinePrev = null;
+  /* THE CORRECTION IS THE THING WORTH KEEPING.
+
+     A thumbs-down records that a scan was wrong. It does not record
+     what the card actually was, so it cannot teach anything -- it is a
+     complaint, not a label.
+
+     This box does record it. Somebody who gets a wrong read retypes the
+     query until the right card comes back, and that produces a pair:
+     what the scanner claimed, and what the person says it is. It is the
+     only genuinely proprietary data CardGauge accumulates from ordinary
+     use, and until now it was thrown away the moment the re-price ran.
+
+     Fire and forget, before the re-price, so a failed lookup does not
+     lose the correction. No user identifier -- this is a record of the
+     scanner being wrong, not of a person. */
+  try{
+    if(lastResult && sbFeedbackReady()){
+      fetch(SB_URL+'/rest/v1/rpc/submit_scan_correction',{
+        method:'POST',
+        headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({
+          p_card_name:       String(lastResult.cardName||'').slice(0,200),
+          p_search_query:    String(currentQuery||'').slice(0,300),
+          p_corrected_query: String(q||'').slice(0,300),
+          p_ai_year:         String(lastResult.year||''),
+          p_ai_set:          String(lastResult.set||''),
+          p_ai_card_number:  String(lastResult.cardNumber||''),
+          p_ai_parallel:     String(lastResult.parallel||''),
+          p_ai_confidence:   String(lastResult.confidence||''),
+          p_used_back:       !!lastResult.usedBack
+        })
+      }).catch(function(){});
+      logEvent('scan_corrected', String(lastResult.cardName||'').slice(0,200), !!lastResult.usedBack);
+    }
+  }catch(e){}
+
   var ok = await repriceQuery(q,{
     corrected:true,
     statusText:'Re-pricing \u2014 finding sold comps\u2026',
