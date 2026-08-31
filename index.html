@@ -3178,8 +3178,25 @@ function buildDecision(d, rows, s){
      makes the panel read as analysis of THIS card rather than a
      template. Absent on plenty of thin-market cards, so the whole
      block is conditional rather than leaving a broken frame. */
-  var img = d.image
-    ? '<img class="dec-img" src="' + esc(d.image) + '" alt="" '
+  /* THE PHOTO THEY TOOK, NOT A STRANGER'S LISTING.
+
+     This was d.image -- the eBay thumbnail from the pricing lookup. On
+     a card with several parallels that is frequently a different
+     version: a Drew Gilbert silver scanned back a pink listing photo
+     sitting next to the words "your card". The scan crop is the one
+     picture on the page that is unambiguously theirs.
+
+     Falls back to the listing image when there is no scan, which is
+     the typed-search path, and to nothing at all when neither
+     exists. */
+  var ownShot = '';
+  try{
+    var ft = document.getElementById('frontThumb');
+    if(frontFile && ft && ft.src && ft.src.indexOf('blob:') === 0) ownShot = ft.src;
+  }catch(e){}
+  var imgSrc = ownShot || d.image || '';
+  var img = imgSrc
+    ? '<img class="dec-img" src="' + esc(imgSrc) + '" alt="" '
       + 'onerror="this.style.display=\'none\'">'
     : '';
 
@@ -3190,14 +3207,32 @@ function buildDecision(d, rows, s){
     + '</div>';
 
   /* SELL */
-  out += '<div class="dec-card'+((gradeWins||askOnly)?'':' dec-rec')+'">'
-    + (askOnly ? '' : (gradeWins ? '' : '<div class="dec-tag">Recommended</div>'))
-    + '<div class="dec-h">' + (askOnly
-        ? 'If it sold at the asking price, you\'d clear ' + fmtMoney(sellNet - cost) + '.'
-        : 'Sell it. You\'d clear ' + fmtMoney(sellNet - cost) + '.') + '</div>'
+  /* POSTAGE CAN COST MORE THAN THE CARD.
+
+     On a $1 card, a 13% fee plus a dollar of postage leaves about
+     minus thirteen cents. fmtMoney renders anything at or below zero
+     as an em dash, so the headline read "Sell it. You'd clear —." --
+     a real answer, told badly, on exactly the dollar-bin cards people
+     scan most.
+
+     The answer itself is useful and worth saying plainly: this one is
+     not worth posting. And nothing that clears less than nothing gets
+     recommended. */
+  var clears = sellNet - cost;
+  var notWorthPosting = clears <= 0;
+
+  out += '<div class="dec-card'+((gradeWins||askOnly||notWorthPosting)?'':' dec-rec')+'">'
+    + ((askOnly||gradeWins||notWorthPosting) ? '' : '<div class="dec-tag">Recommended</div>')
+    + '<div class="dec-h">' + (notWorthPosting
+        ? 'Not worth selling on its own \u2014 fees and postage cost more than the card.'
+        : (askOnly
+          ? 'If it sold at the asking price, you\'d clear ' + fmtMoney(clears) + '.'
+          : 'Sell it. You\'d clear ' + fmtMoney(clears) + '.')) + '</div>'
     + '<table class="dec-t">'
       + line('Sells for', fmtMoney(raw))
-      + line('Fees and shipping', '\u2212' + fmtMoney(raw - sellNet))
+      /* Two decimals here on purpose: rounding $1.13 of fees down
+         to $1 against a $1 card is what made the row look wrong. */
+      + line('Fees and shipping', '\u2212$' + (raw - sellNet).toFixed(2))
       + (cost ? line('You paid', '\u2212' + fmtMoney(cost)) : '')
     + '</table>'
   + '</div>';
@@ -3242,7 +3277,8 @@ function buildDecision(d, rows, s){
      So the honest line is that a trend needs the card in a binder and
      time to pass. Inventing a percentage from one data point would be
      the exact failure the rest of this engine refuses. */
-  out += '<div class="dec-card">'
+  out += '<div class="dec-card'+((notWorthPosting && !gradeWins && !askOnly)?' dec-rec':'')+'">'
+    + ((notWorthPosting && !gradeWins && !askOnly) ? '<div class="dec-tag">Recommended</div>' : '')
     + '<div class="dec-row"><span class="dec-name">Keep it</span></div>'
     + '<table class="dec-t">'
       + line('Worth now', fmtMoney(raw))
@@ -3411,6 +3447,19 @@ function renderResult(d){
     /* The backend sends its own "these listings vary a lot" note. When our
        spread warning has already fired we'd be telling the user the same
        thing twice in two different voices, so only one speaks at a time. */
+    /* THE DECISION, IMMEDIATELY AFTER THE PRICE.
+
+       This was sitting at the very bottom of the result -- below the
+       grade ladder, below the save prompt, below Scan another. On a
+       phone that is four or five screens of scrolling past the number
+       somebody came for, which is the same as not shipping it.
+
+       The price answers "what is it worth". This answers "so what do I
+       do", and the two belong together. Everything after it -- the eBay
+       links, the thumbnails, the grade ladder -- is supporting evidence
+       for a decision the reader has already been given. */
+    html+=buildDecision(d, rows, s);
+
     if(d.priceNote && d.matchQuality && d.matchQuality!=='exact' && !spreadFlagged){
       html+='<div class="pnote"><span class="ico">&#9888;&#65039;</span><span>'+esc(d.priceNote)+'</span></div>';
     }
@@ -3660,8 +3709,6 @@ function renderResult(d){
      logic version yesterday. A trend line drawn through two days would
      be exactly the manufactured confidence the rest of this page
      refuses to produce. It comes back when the data is real. */
-  if(hasData){ html+=buildDecision(d, rows, s); }
-
   html+=buildBackAsk(d);
 
   /* ===== SCAN FEEDBACK ===== */
