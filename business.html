@@ -424,8 +424,12 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <h2>Managing inventory</h2>
       <p>The Inventory tab shows everything in your shop's shared list &mdash; from any scan or manual entry, from any staff member signed into your shop.</p>
       <ul>
-        <li><b>Cost, Ask, and Status are editable right in the table</b> &mdash; tap a field, change it, it saves automatically.</li>
-        <li><b>Export CSV</b> if you want the raw data elsewhere.</li>
+        <li><b>Search across everything at once</b> &mdash; name, year, set, card number, team, parallel, serial, condition and location all match from the one box. Type a box name and you get that box.</li>
+        <li><b>Filter and sort</b> &mdash; Available, Listed or Sold; newest, highest value, most potential profit, or name.</li>
+        <li><b>Team, Cond, Where, Cost, Ask and Status are editable right in the table</b> &mdash; tap a field, change it, it saves automatically. <b>Where</b> is the box, case or binder the card is physically in; <b>Cond</b> is whatever grading shorthand your shop already uses.</li>
+        <li><b>Bulk edit</b> &mdash; tick rows, or select every card matching your search, then set location, condition or status on all of them at once. Marking cards Sold is deliberately not bulk: every sale needs its own price and fee.</li>
+        <li><b>Remove one card</b> &mdash; each row has its own Remove button. Recorded sales and verified break proof are kept.</li>
+        <li><b>Export CSV</b> &mdash; everything, including condition, location and the date each card was added.</li>
         <li><b>Clear inventory</b> wipes everything for your shop &mdash; this is permanent, use it deliberately, not by accident.</li>
       </ul>
     </div>
@@ -439,7 +443,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
         <li><b>Auto-assign scanned cards</b> pulls from your shop's entire unsold inventory, not just whatever you last scanned &mdash; so if a break's cards were photographed across several separate batches over the course of a stream, running this once at the end still picks up all of them, matching each card to the spot with the same team.</li>
         <li>If a card's team can't be matched automatically, you can assign it manually.</li>
       </ol>
-      <p><b>One real limitation right now:</b> only your shop's most recent break loads automatically. Older breaks aren't lost &mdash; they're just not the one shown on this tab &mdash; there's no way yet to browse or switch back to a previous one on Break Manager (though its numbers still count toward the Business Dashboard's all-breaks totals).</p>
+      <p><b>Switching between breaks:</b> a picker at the top of Break Manager lists every break you have run, by name and date, so an older one can still be opened, edited and verified. The one caveat is naming &mdash; two breaks run on the same day with the same name look identical in that list, so give them something you will recognise.</p>
     </div>
 
     <div class="panel">
@@ -466,7 +470,7 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
     <div class="panel">
       <h2>Known limitations (beta, being honest about it)</h2>
       <ul>
-        <li>No way yet to browse or switch back to a past break on the Break Manager tab itself &mdash; only the most recent one loads there, though its numbers still count in the Dashboard's all-breaks totals.</li>
+        <li>Card identification is not perfect. The same card can come back with a different year or card number on different scans, especially without a back photo &mdash; and a card that copies an old design (a 1991 or 1987 Topps look on a modern card) is often reported with the design year rather than the real one. Check anything flagged, and trust yourself over the app on a card you know.</li>
         <li>Inviting someone who already has their own personal CardGauge account won't send an email &mdash; they still get added automatically once they sign in, you'll just need to tell them directly.</li>
         <li>This is real, shared, permanent storage (not a demo) &mdash; but it's still beta software. Don't treat it as your only record of anything irreplaceable yet.</li>
       </ul>
