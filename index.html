@@ -852,6 +852,12 @@ input[type=file]{display:none;}
 .lb-why b{color:var(--gold-warm);}
 .lb-btn{width:100%;padding:13px;border-radius:11px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;}
 .lb-fine{font-family:var(--fm);font-size:9.5px;color:var(--text3);text-align:center;margin-top:8px;}
+.lb-mail{display:flex;gap:6px;margin:10px 0 4px;}
+.lb-mail input{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
+  border-radius:9px;padding:11px 12px;color:#f1f5f9;font-family:inherit;font-size:14px;}
+.lb-mail input:focus{outline:none;border-color:rgba(34,197,94,.55);}
+.lb-mail button{background:#22c55e;color:#052e16;border:none;border-radius:9px;padding:11px 15px;
+  font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer;white-space:nowrap;}
 .lb-no{display:block;width:100%;background:none;border:none;font-family:var(--fm);font-size:10px;letter-spacing:.08em;color:var(--text3);padding:9px 0 2px;cursor:pointer;text-decoration:underline;}
 .redeem{margin:0 16px 14px;padding:14px 16px;border:2px solid rgba(239,68,68,.45);border-radius:var(--radius-lg);background:rgba(239,68,68,.07);}
 .redeem-h{font-size:14.5px;font-weight:800;color:#fca5a5;margin-bottom:8px;line-height:1.35;}
@@ -4636,16 +4642,104 @@ function renderLocalPrompt(){
       + cards.length + ' kept on this device</span></div>'
     + list
     + (cards.length > 6 ? '<div class="lb-more">and ' + (cards.length - 6) + ' more</div>' : '')
+    /* TWO ASKS, SMALLEST FIRST.
+
+       This used to be one button and that button was an account: an
+       address, then leave the app, find the mail, copy a code, come
+       back. Measured over 30 days, 25 people started that and 6
+       finished -- three quarters of the intent spent on the round
+       trip rather than the decision.
+
+       So the first ask is now one field and nothing else. It buys
+       exactly one thing and says so: we email you when these move.
+       No code, no password, no login.
+
+       The account stays underneath it, unchanged, because it does
+       something the email genuinely cannot -- carry the cards to
+       another phone. That is now a real distinction rather than a
+       toll, and it is the honest reason to sign up later.
+
+       Ordered small-to-large deliberately. Somebody who gives an
+       address has already said yes once; the account ask reads very
+       differently after that than it does cold. */
     + ((localAskDismissed() && cards.length < 5) ? '' : '<div class="lb-cta">'
-      + '<div class="lb-why"><b>These live in this browser only.</b> '
-        + 'Clear your history or pick up a different phone and they are gone. '
-        + 'Add an email and they follow you \u2014 and we\'ll tell you when a price moves.</div>'
+      + (emailWatchDone()
+          ? '<div class="lb-why"><b>\u2713 We\u2019ll email you when these move.</b> '
+              + 'They\u2019re still only in this browser though \u2014 an account carries '
+              + 'them to another phone.</div>'
+          : '<div class="lb-why"><b>Want to know when these move?</b> '
+              + 'Drop an email and we\u2019ll tell you. No account, no password, nothing to click.</div>'
+            + '<div class="lb-mail">'
+              + '<input id="lbEmail" type="email" inputmode="email" autocomplete="email" '
+                + 'placeholder="you@email.com" onkeydown="if(event.key===\'Enter\')submitEmailWatch()">'
+              + '<button onclick="submitEmailWatch()">Alert me</button>'
+            + '</div>'
+            + '<div id="lbMailMsg" class="lb-fine"></div>')
+      + '<div class="lb-why" style="margin-top:14px;"><b>These live in this browser only.</b> '
+        + 'Clear your history or pick up a different phone and they are gone.</div>'
       + '<button class="lb-btn" onclick="openAuth()">Keep these anywhere \u2192</button>'
       + '<div class="lb-fine">One email and a code. No password. First '
         + FREE_CARD_LIMIT + ' cards free.</div>'
       + '<button class="lb-no" onclick="dismissLocalAsk()">Not now</button>'
     + '</div>')
   + '</div>';
+}
+
+/* Remembered per browser so the field does not keep asking somebody
+   who already answered. Deliberately NOT proof of anything -- the
+   server is the record; this only decides which of the two asks to
+   draw. */
+var EMAIL_WATCH_KEY = 'cg_email_watch';
+function emailWatchDone(){
+  try{ return !!localStorage.getItem(EMAIL_WATCH_KEY); }catch(e){ return false; }
+}
+
+/* Sends every kept card, not just the last one. Somebody who typed an
+   address after keeping eight cards meant all eight -- asking again
+   per card would be the round trip this replaces, in a new costume. */
+async function submitEmailWatch(){
+  var input = document.getElementById('lbEmail');
+  var msg   = document.getElementById('lbMailMsg');
+  if(!input) return;
+  var email = String(input.value || '').trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){
+    if(msg) msg.innerHTML = '<span style="color:#f87171">That doesn\u2019t look like an email address.</span>';
+    return;
+  }
+
+  var cards = localBinder();
+  if(!cards.length) return;
+  input.disabled = true;
+  if(msg) msg.textContent = 'Setting up alerts\u2026';
+
+  var ok = 0;
+  for(var i = 0; i < cards.length && i < 25; i++){
+    try{
+      var r = await fetch(API + '/api/watch-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          cardName: cards[i].name,
+          query: cards[i].query || cards[i].name,
+          price: cards[i].price || 0,
+          source: 'local_prompt'
+        })
+      });
+      var d = await r.json();
+      if(d && d.success) ok++;
+    }catch(e){}
+  }
+
+  if(ok){
+    try{ localStorage.setItem(EMAIL_WATCH_KEY, email); }catch(e){}
+    logEvent('email_watch_added', String(ok), false);
+    showToast('\u2705 We\u2019ll email you when these move');
+    renderLocalPrompt();
+  } else {
+    input.disabled = false;
+    if(msg) msg.innerHTML = '<span style="color:#f87171">Couldn\u2019t set that up just now.</span>';
+  }
 }
 
 async function saveToBinder(){
