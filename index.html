@@ -853,6 +853,10 @@ input[type=file]{display:none;}
 .lb-btn{width:100%;padding:13px;border-radius:11px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;}
 .lb-fine{font-family:var(--fm);font-size:9.5px;color:var(--text3);text-align:center;margin-top:8px;}
 .lb-no{display:block;width:100%;background:none;border:none;font-family:var(--fm);font-size:10px;letter-spacing:.08em;color:var(--text3);padding:9px 0 2px;cursor:pointer;text-decoration:underline;}
+.redeem{margin:0 16px 14px;padding:14px 16px;border:2px solid rgba(239,68,68,.45);border-radius:var(--radius-lg);background:rgba(239,68,68,.07);}
+.redeem-h{font-size:14.5px;font-weight:800;color:#fca5a5;margin-bottom:8px;line-height:1.35;}
+.redeem-p{font-size:12.5px;line-height:1.65;color:var(--text2);}
+.redeem-p b{color:#fff;}
 .cpl{margin:0 16px 14px;padding:13px 15px;border:1px solid rgba(245,158,11,.32);border-radius:var(--radius-lg);background:rgba(245,158,11,.06);}
 .cpl-h{font-size:14px;font-weight:800;color:var(--gold-warm);margin-bottom:6px;}
 .cpl-p{font-size:12.5px;line-height:1.65;color:var(--text2);}
@@ -3550,7 +3554,8 @@ function renderResult(d){
        do", and the two belong together. Everything after it -- the eBay
        links, the thumbnails, the grade ladder -- is supporting evidence
        for a decision the reader has already been given. */
-    html+=buildDecision(d, rows, s);
+    if(d.isRedemption === true){ html+=buildRedemptionWarning(d); }
+    else { html+=buildDecision(d, rows, s); }
     html+=buildGlareTip(d);
 
     if(d.priceNote && d.matchQuality && d.matchQuality!=='exact' && !spreadFlagged){
@@ -4504,6 +4509,46 @@ function dismissLocalAsk(){
    Affiliate, and it says so. */
 var cplShown = false;
 var SHINY_RE = /(refractor|chrome|prizm|optic|finest|holo|foil|mojo|wave|shimmer|cracked ice|sparkle|select)/i;
+
+/* A REDEMPTION IS A VOUCHER, NOT A CARD.
+
+   Raised by a real user's kid, which is where this kind of thing
+   always comes from: should he scan a redemption card?
+
+   Two reasons the answer is no, and the first one costs money.
+
+   A redemption carries a code, and that code is bearer value --
+   whoever types it into the manufacturer's site first receives the
+   card, whether or not they hold the paper. Photographing it puts the
+   code in an image that leaves the device. On an unredeemed slip that
+   is a card someone can simply take.
+
+   The second reason is that pricing it is meaningless anyway. What a
+   redemption is worth depends entirely on the card it redeems FOR, and
+   that card is not on the slip. Any number here would be priced off
+   the wrong thing.
+
+   So the panel refuses outright rather than showing a weak price with
+   a caveat. This is the one case where no answer is plainly the right
+   answer. */
+function buildRedemptionWarning(d){
+  if(!d || d.isRedemption !== true) return '';
+  logEvent('redemption_detected', null, !!d.usedBack);
+  return '<div class="redeem">'
+    + '<div class="redeem-h">\u26a0 This is a redemption card, not the card itself</div>'
+    + '<div class="redeem-p">'
+      + 'A redemption is a voucher you exchange on the manufacturer\'s site for the real card. '
+      + '<b>CardGauge won\'t price it</b> \u2014 what it is worth depends entirely on the card it redeems for, '
+      + 'and that card is not on this slip.'
+    + '</div>'
+    + '<div class="redeem-p" style="margin-top:9px"><b>If you haven\'t redeemed it yet, be careful with the photo.</b> '
+      + 'The code on a redemption works for whoever enters it first, whether or not they own the card. '
+      + 'Don\'t post it, don\'t message it, and cover the code if you photograph it. '
+      + 'We don\'t read or store the code.'
+    + '</div>'
+    + '<div class="redeem-p" style="margin-top:9px">Redeem it first. Then scan the card you actually receive \u2014 that one has a price.</div>'
+  + '</div>';
+}
 
 function buildGlareTip(d){
   if(cplShown) return '';
