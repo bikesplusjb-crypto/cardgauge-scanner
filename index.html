@@ -862,6 +862,9 @@ input[type=file]{display:none;}
 .cpl-p{font-size:12.5px;line-height:1.65;color:var(--text2);}
 .cpl-btn{display:inline-block;margin-top:10px;padding:9px 15px;border-radius:9px;border:1px solid rgba(245,158,11,.45);color:var(--gold-warm);text-decoration:none;font-family:var(--fm);font-size:11.5px;}
 .cpl-fine{font-family:var(--fm);font-size:9.5px;color:var(--text3);margin-top:8px;}
+.vline{margin:0 16px 10px;font-family:var(--fm);font-size:10.5px;line-height:1.6;}
+.vline-ok{color:var(--green);opacity:.85;}
+.vline-off{color:var(--text3);}
 .dec{padding:16px;border-top:1px solid var(--border);}
 .dec-k{font-family:var(--fm);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;
   color:var(--text3);margin-bottom:11px;}
@@ -2322,6 +2325,45 @@ function buildTitle(d){
   return out;
 }
 
+/* SAY WHEN THE CATALOG AGREED, NOT ONLY WHEN IT DIDN'T.
+
+   The warning above fires on a bad match and stays silent otherwise,
+   on the reasoning that a green tick on every correct scan becomes
+   wallpaper. That reasoning still holds for a badge.
+
+   But silence conflates two very different states. A card the catalog
+   confirmed and a card the catalog could not be asked about currently
+   look identical, and the second one is the weaker answer. It also
+   means the one independent check on identification is invisible --
+   including to the person paying for it.
+
+   So: one quiet line, in the same monospace as the search string
+   below it, saying which of the three actually happened. Not a badge,
+   not coloured, not near the price. Information, in the place where
+   someone goes looking for how the answer was reached. */
+function buildVerifyLine(d){
+  var v = d && d.verified;
+  if(!v) return '';
+
+  /* Couldn't ask -- no card number read, catalog unreachable, or the
+     add-on lapsed. Worth saying, because it is the difference between
+     "checked and fine" and "not checked". */
+  if(!v.checked){
+    return '<div class="vline vline-off">Card catalog: not checked'
+      + (v.note ? ' \u2014 ' + esc(v.note) : '') + '</div>';
+  }
+
+  /* The warning covers the bad cases; this covers the good one. */
+  if(v.exists === true && v.confidence !== 'low'){
+    return '<div class="vline vline-ok">\u2713 Confirmed in the card catalog'
+      + (v.yearCorrected
+          ? ' \u2014 year corrected to ' + esc(String(v.yearCorrected.to))
+          : '')
+      + '</div>';
+  }
+  return '';
+}
+
 function buildVerifyWarning(d){
   var v = d && d.verified;
   if(!v || !v.checked) return '';
@@ -3518,6 +3560,7 @@ function renderResult(d){
       /* Before the price, not after. Somebody who is about to read a number
      should know first that we are unsure which card it belongs to. */
   html+=buildVerifyWarning(d);
+  html+=buildVerifyLine(d);
 
   html+=buildSoldHero(d);          // sets spreadFlagged
       html+=buildListingMix(d);        // how those sales happened
