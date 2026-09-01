@@ -3765,12 +3765,17 @@ function renderResult(d){
           +'border-top:1px solid rgba(34,197,94,.32);border-bottom:1px solid rgba(34,197,94,.32);text-align:center;">'
           +'<div style="font-size:24px;margin-bottom:6px;">\ud83d\udd14</div>'
           +'<div style="font-family:var(--f);font-size:15px;font-weight:800;color:var(--text);line-height:1.35;margin-bottom:5px;">'
-          +'Get an email when this card\u2019s price moves</div>'
+          + (LOCAL_OK ? 'Keep this card' : 'Get an email when this card\u2019s price moves') + '</div>'
           +'<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:13px;max-width:34ch;margin-left:auto;margin-right:auto;">'
-          +'Save it free and we\u2019ll watch the price for you \u2014 no more checking back manually.</div>'
-          +'<button onclick="openAuth()" style="background:var(--green);color:#052e16;border:none;border-radius:10px;'
-          +'padding:13px 26px;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;">Save &amp; watch this card \u2192</button>'
-          +'<div style="font-size:10.5px;color:var(--text3);margin-top:10px;">One email + a code, no password \u00b7 first 25 cards free</div>'
+          + (LOCAL_OK
+              ? 'Kept right here, no sign-up. Add an email later if you want it on another phone or want price alerts.'
+              : 'Save it free and we\u2019ll watch the price for you \u2014 no more checking back manually.') + '</div>'
+          +'<button id="bannerSaveBtn" onclick="' + (LOCAL_OK ? 'saveToBinder(\'watching\')' : 'openAuth()') + '" style="background:var(--green);color:#052e16;border:none;border-radius:10px;'
+          +'padding:13px 26px;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;">'
+          + (LOCAL_OK ? 'Keep this card \u2192' : 'Save &amp; watch this card \u2192') + '</button>'
+          +'<div style="font-size:10.5px;color:var(--text3);margin-top:10px;">'
+          + (LOCAL_OK ? 'No account needed \u00b7 kept on this device'
+                      : 'One email + a code, no password \u00b7 first 25 cards free') + '</div>'
         +'</div>';
       }
     }
@@ -4659,6 +4664,8 @@ async function saveToBinder(){
     toast(res === 'already' ? 'Already in your cards on this device'
                             : '\u2705 Kept on this device');
     logEvent('card_saved_local', String(lastResult.cardName||'').slice(0,200), !!lastResult.usedBack);
+    var bb = document.getElementById('bannerSaveBtn');
+    if(bb){ bb.disabled = true; bb.textContent = '\u2713 Kept on this device'; bb.style.opacity = '.6'; }
     var sb = document.getElementById('saveBtn');
     if(sb){ sb.disabled = true; sb.textContent = '\u2713 Kept on this device'; }
     renderLocalPrompt();
