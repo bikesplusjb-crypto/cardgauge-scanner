@@ -306,6 +306,9 @@ input[type=file]{display:none;}
    lands on it before the asks. */
 .sold-hero-val{font-family:var(--fbig);font-size:clamp(52px,15vw,78px);line-height:.9;
   color:var(--green);letter-spacing:.5px;text-shadow:0 0 34px rgba(34,197,94,.28);}
+.sold-hero.thin{border-color:rgba(148,163,184,.35);background:rgba(30,41,59,.35);}
+.sold-hero.thin .sold-hero-lbl{color:#94a3b8;}
+.sold-hero-est{color:#cbd5e1;}
 .sold-hero-sub{font-family:var(--fm);font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5;}
 .sold-hero-sub b{color:var(--text2);}
 .sold-range{display:inline-flex;gap:5px;margin-top:9px;font-family:var(--fm);font-size:11px;
@@ -2444,14 +2447,49 @@ function buildSoldHero(d){
       +'</div>';
   }
 
-  return '<div class="sold-hero'+(contaminated?' mixed':'')+'">'
-    +'<div class="sold-hero-lbl">&#9679; '
-    +(contaminated ? 'What these sales say \u2014 but read on'
-                   : 'What it actually sold for')+'</div>'
-    +'<div class="sold-hero-val">'+fmtMoney(med)+basisTag+'</div>'
+  /* A HEADER THAT PROMISES A NUMBER MUST NOT SIT ABOVE A BLANK.
+
+     On a limited result the server deliberately returns soldMedian 0 --
+     it refuses to publish a median built on one or two sales, which is
+     correct. But the panel still rendered "What it actually sold for"
+     in a confident green box with a dash where the price should be.
+     The refusal was right and the presentation made it look broken.
+
+     So when there is no number, the label stops claiming there is one
+     and the panel says what it actually knows: how many sales exist,
+     and what the most recent one went for if there was one at all. */
+  var haveMed = med > 0;
+  var lastPrice = 0;
+  try {
+    var recent = (sold.sales || []).filter(function(x){ return Number(x.price) > 0; });
+    if(recent.length) lastPrice = Number(recent[0].price);
+  } catch(e){}
+
+  var heroLabel = !haveMed
+    ? 'Too few sales to call a price'
+    : (contaminated ? 'What these sales say \u2014 but read on'
+                    : 'What it actually sold for');
+
+  var heroVal = haveMed
+    ? fmtMoney(med) + basisTag
+    : (lastPrice ? '<span class="sold-hero-est">' + fmtMoney(lastPrice) + '</span>'
+                   + '<span class="sold-basis">LAST SALE</span>'
+                 : '<span class="sold-hero-est">\u2014</span>');
+
+  /* "Median of 1 real sales" was wrong twice in four words: a median of
+     one sale is not a median, and "sales" does not agree with 1. */
+  var nSold = Number(sold.soldCount || 0);
+  var countPhrase = !haveMed && nSold === 1
+    ? 'Just <b>1</b> real sale found'
+    : (nSold === 1 ? 'Based on <b>1</b> real sale'
+                   : 'Median of <b>' + soldCountLabel(nSold, sold.limitUsed) + '</b> real sales');
+
+  return '<div class="sold-hero'+(contaminated?' mixed':'')+(haveMed?'':' thin')+'">'
+    +'<div class="sold-hero-lbl">&#9679; '+heroLabel+'</div>'
+    +'<div class="sold-hero-val">'+heroVal+'</div>'
     +warnHtml
     +rangeHtml
-    +'<div class="sold-hero-sub">Median of <b>'+soldCountLabel(sold.soldCount, sold.limitUsed)+'</b> real sales'
+    +'<div class="sold-hero-sub">'+countPhrase
       +(sold.bestOfferCount ? ', incl. <b>'+sold.bestOfferCount+'</b> accepted best offers' : '')
       +' &middot; past '+lookback+' days'
       +(whenNote ? ' &middot; '+whenNote : '')+'.</div>'
@@ -3251,7 +3289,31 @@ function buildDecision(d, rows, s){
           || safeNum(s && s.avg);
   if(!raw) return '';
 
-  if(spreadFlagged || (d.sold && d.sold.soldLimited)){
+  /* LIMITED AND MIXED ARE NOT THE SAME REFUSAL, AND SAYING SO WRONGLY
+     IS WORSE THAN SAYING NOTHING.
+
+     Both used to print "the sales behind that number are describing
+     more than one version of this card." That sentence is true of a
+     contaminated pool and FALSE of a limited one. The server draws the
+     distinction deliberately: soldContaminated means wrong cards are
+     still in the pool, soldLimited means the filtering WORKED and what
+     survived is too small to price from. Clean comps, just not enough
+     of them.
+
+     Telling somebody their comps are mixed when they are actually
+     clean sends them off to narrow a search that is already correct,
+     and it will not "come back" however they narrow it -- the card has
+     one sale, and no phrasing of the query creates a second. */
+  if(d.sold && d.sold.soldLimited){
+    var n = Number((d.sold && d.sold.soldBaseCount) || 0);
+    return '<div class="dec"><div class="dec-off">Not recommending a move on this one \u2014 '
+      + '<b>there ' + (n === 1 ? 'is only 1 clean sale' : 'are only ' + n + ' clean sales')
+      + ' of this exact card in the last 30 days.</b><br>'
+      + 'Nothing wrong with the comps, there just aren\'t enough of them to call a price. '
+      + 'Check the asking prices below and judge it yourself.</div></div>';
+  }
+
+  if(spreadFlagged){
     return '<div class="dec"><div class="dec-off">Not recommending a move on this one \u2014 '
       + '<b>the sales behind that number are describing more than one version of this card.</b><br>'
       + 'Narrow the search below and it comes back.</div></div>';
