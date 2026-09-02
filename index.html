@@ -855,6 +855,16 @@ input[type=file]{display:none;}
 .lb-why b{color:var(--gold-warm);}
 .lb-btn{width:100%;padding:13px;border-radius:11px;border:none;background:var(--green);color:#052e16;font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;}
 .lb-fine{font-family:var(--fm);font-size:9.5px;color:var(--text3);text-align:center;margin-top:8px;}
+.pcode{margin:10px 0 0;padding:11px 13px;border:1px solid var(--border,rgba(255,255,255,.12));
+  border-radius:10px;background:rgba(255,255,255,.03);}
+.pcode-t{font-family:var(--fm,monospace);font-size:11px;letter-spacing:1.4px;color:var(--text3,#94a3b8);margin-bottom:6px;}
+.pcode-v{font-size:13.5px;color:var(--text,#f1f5f9);line-height:1.5;}
+.pcode-sp{color:#fbbf24;font-weight:700;}
+.pcode-in{display:flex;gap:6px;margin-top:9px;}
+.pcode-in input{width:96px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;padding:9px 10px;color:#f1f5f9;font-family:var(--fm,monospace);font-size:15px;text-align:center;}
+.pcode-in button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#f1f5f9;
+  border-radius:8px;padding:9px 13px;font-family:inherit;font-size:13px;cursor:pointer;}
 .lb-mail{display:flex;gap:6px;margin:10px 0 4px;}
 .lb-mail input{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
   border-radius:9px;padding:11px 12px;color:#f1f5f9;font-family:inherit;font-size:14px;}
@@ -3536,7 +3546,100 @@ function scanAnother(){
   if(window.ttq) ttq.track('ClickButton',{content_name:'scan_another',content_type:'scanner_standalone'});
 }
 
+/* Dedupe on object identity, matching the Wix scanner. An auth-driven
+   repaint of the same result must not count as a second view. */
+var resultViewedFor = null;
+var nextActionShownFor = null;
+
+/* ── THE CODE ON THE BACK, AND THE BOX TO TYPE IT IN ─────────────
+
+   Topps prints a production code at the bottom of the back. Its last
+   three digits say whether the card is base, an SP, an SSP or a
+   numbered subset -- and an image-variation SP is identical to the
+   base card from the front, so this is often the ONLY way to tell
+   without knowing the base photo by heart.
+
+   The manual input is not a fallback, it is the expected path. That
+   text is small, low-contrast, and on a Chrome or Prizm back the glare
+   lands right on it. The model is told to leave printCode empty rather
+   than guess a digit, so most scans will arrive with nothing here and
+   a person holding the card can read it in two seconds.
+
+   Says "we don't have the list for this product" wherever that is
+   true. A code means nothing without the product's table, and a
+   confident wrong answer about a short print misprices the card by a
+   multiple. */
+function printCodeHTML(d){
+  var pc = d && d.printCode;
+  var year = (d && d.year) || '', brand = (d && d.brand) || '', set = (d && d.set) || '';
+  var body;
+
+  if(pc && pc.known){
+    body = '<div class="pcode-v">Code <b>' + esc(pc.code) + '</b> \u2014 '
+         + (pc.isBase ? esc(pc.label)
+                      : '<span class="pcode-sp">' + esc(pc.label) + '</span>')
+         + '<br><span style="font-size:12px;color:var(--text3,#94a3b8)">' + esc(pc.note) + '</span></div>';
+  } else {
+    body = '<div class="pcode-v" style="font-size:12.5px;color:var(--text3,#94a3b8)">'
+         + (pc && pc.code
+             ? 'Read <b>' + esc(pc.code) + '</b> off the back. ' + esc(pc.note)
+             : 'Topps prints a code at the bottom of the back \u2014 CODE#CMP\u2026 \u2014 and its last '
+               + 'three digits say whether this is a short print. Too small to read in most photos.')
+         + '</div>'
+         + '<div class="pcode-in">'
+         +   '<input id="pcodeIn" inputmode="numeric" maxlength="3" placeholder="284" '
+         +     'onkeydown="if(event.key===\'Enter\')lookupPrintCode()">'
+         +   '<button onclick="lookupPrintCode()">Check</button>'
+         + '</div>'
+         + '<div id="pcodeOut" class="pcode-v" style="font-size:12.5px;margin-top:8px;"></div>';
+  }
+
+  return '<div class="pcode" data-y="' + esc(year) + '" data-b="' + esc(brand) + '" data-s="' + esc(set) + '">'
+    + '<div class="pcode-t">CODE#CMP \u2014 SHORT PRINT CHECK</div>' + body + '</div>';
+}
+
+async function lookupPrintCode(){
+  var box = document.querySelector('.pcode');
+  var inp = document.getElementById('pcodeIn');
+  var out = document.getElementById('pcodeOut');
+  if(!box || !inp || !out) return;
+  var code = String(inp.value || '').replace(/[^0-9]/g,'');
+  if(code.length < 3){ out.innerHTML = '<span style="color:#f87171">Three digits, from the end of the code.</span>'; return; }
+
+  out.textContent = 'Checking\u2026';
+  try{
+    var r = await fetch(API + '/api/print-code?code=' + encodeURIComponent(code)
+      + '&year='  + encodeURIComponent(box.getAttribute('data-y') || '')
+      + '&brand=' + encodeURIComponent(box.getAttribute('data-b') || '')
+      + '&set='   + encodeURIComponent(box.getAttribute('data-s') || ''));
+    var d = await r.json();
+    if(!d || !d.success){ out.innerHTML = '<span style="color:#f87171">Couldn\u2019t check that.</span>'; return; }
+    out.innerHTML = d.known
+      ? (d.isBase ? '' : '<span class="pcode-sp">') + esc(d.label) + (d.isBase ? '' : '</span>')
+        + '<br><span style="color:var(--text3,#94a3b8)">' + esc(d.note) + '</span>'
+      : '<span style="color:var(--text3,#94a3b8)">' + esc(d.note) + '</span>';
+    logEvent('print_code_checked', code + (d.known ? ' ' + d.label : ' unknown'), false);
+  }catch(e){
+    out.innerHTML = '<span style="color:#f87171">Couldn\u2019t check that.</span>';
+  }
+}
+
 function renderResult(d){
+  /* result_viewed WAS MISSING FROM THIS FILE ENTIRELY.
+
+     Measured 1 Sept: 637 result_viewed events over 30 days, 408 from
+     the Wix surface and ZERO from this one -- while 96 scans here
+     produced 55 save offers and 25 bench renders. Results were plainly
+     being viewed; the event simply was not in this copy of the file.
+
+     Every ratio built on result_viewed therefore undercounted the
+     standalone by 100%, and got worse as PWA traffic grew. This is the
+     cost of two scanners drifting: not a broken feature, a silently
+     wrong number. */
+  if(resultViewedFor !== d){
+    resultViewedFor = d;
+    logEvent('result_viewed', String((d && d.cardName) || 'Card').slice(0,200), false);
+  }
   lastResult = d;
   fbSent = false;
   spreadFlagged = false;
@@ -3629,6 +3732,11 @@ function renderResult(d){
      should know first that we are unsure which card it belongs to. */
   html+=buildVerifyWarning(d);
   html+=buildVerifyLine(d);
+  /* Sits with the catalog line because it answers the same kind of
+     question — is this the card we think it is — rather than what
+     it is worth. Both belong next to the identification, not the
+     price. */
+  html+=printCodeHTML(d);
 
   html+=buildSoldHero(d);          // sets spreadFlagged
       html+=buildListingMix(d);        // how those sales happened
@@ -3899,6 +4007,17 @@ function renderResult(d){
      Placed after the price and the save panel, because the answer is
      what they came for and it should not be interrupted. Clears both
      slots on the way so the next card is one tap, not three. */
+  /* next_action_shown, also absent from this file. It is the narrower
+     signal: not "did they see a result" but "did they see a result good
+     enough to act on". Fired here rather than at the top of the
+     function because hasData is what decides whether the action panel
+     renders at all -- logging it unconditionally would count results
+     that never produced one. */
+  if(hasData && nextActionShownFor !== d){
+    nextActionShownFor = d;
+    logEvent('next_action_shown', String((d && d.cardName) || 'Card').slice(0,200), false);
+  }
+
   if(hasData){
     html+='<div class="scan-again">'
       +'<button class="scan-again-btn" onclick="scanAnother()">&#128247; Scan another card</button>'
