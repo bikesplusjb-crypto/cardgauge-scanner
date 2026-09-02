@@ -4920,7 +4920,13 @@ async function submitEmailWatch(){
   if(ok){
     try{ localStorage.setItem(EMAIL_WATCH_KEY, email); }catch(e){}
     logEvent('email_watch_added', String(ok), false);
-    showToast('\u2705 We\u2019ll email you when these move');
+    /* toast(), not showToast(). showToast is the BINDER's name for
+       this; the scanners call it toast(). Written from memory of the
+       wrong file, so the success path threw a ReferenceError right
+       after the email had already been saved server-side -- no toast,
+       renderLocalPrompt() never re-ran, and the input sat disabled on
+       "Setting up alerts..." looking like a failure it wasn't. */
+    toast('\u2705 We\u2019ll email you when these move');
     renderLocalPrompt();
   } else {
     input.disabled = false;
