@@ -297,15 +297,25 @@ function render(d, biz){
   const bin     = d.binder || {};
   const saves   = Number(tr.saves_7d) || 0;
   const lookups = Number(t.lookups_7d) || 0;
+  const localN  = Number(tr.local_7d) || 0;
+  const acctN   = Number(tr.account_7d) || 0;
   const rate    = lookups ? Math.round((saves / lookups) * 100) : null;
   const band    = rate === null ? '' : rate >= 30 ? 'warm' : rate >= 10 ? 'cool' : 'cold';
 
+  /* SAVES NOW COME FROM EVENTS, NOT watchlist_items ROWS.
+
+     The old count read the binder table, which only ever receives an
+     ACCOUNT save. After the signup wall came out on 1 Sept the common
+     path keeps a card in the browser and writes no row at all, so this
+     panel reported 0% while ten saves were happening in the same week
+     -- and asserted "nobody who looked up a card saved it" on top of
+     a query that could not see them. */
   let reading;
   if (!lookups) {
     reading = 'No lookups this week, so there is nothing to measure yet.';
   } else if (!saves) {
-    reading = '<b>Nobody who looked up a card saved it.</b> They are getting a price and leaving. '
-      + 'More traffic will not change that — whatever stops them happens after the number appears.';
+    reading = '<b>Nobody who looked up a card kept it this week.</b> Worth checking the save '
+      + 'button works before reading anything into that \u2014 it was broken once already.';
   } else if (rate >= 30) {
     reading = '<b>People who look up a card keep it.</b> The tool is convincing them, so the '
       + 'constraint is how many people arrive, not what happens once they do.';
@@ -313,8 +323,14 @@ function render(d, biz){
     reading = 'Some are keeping cards, most are not. Worth knowing whether the ones who leave never '
       + 'wanted a binder, or hit something in the way of getting one.';
   } else {
-    reading = '<b>Almost nobody who looks up a card saves it.</b> They come for a number and go. '
-      + 'That is the gap to close before spending anything on traffic.';
+    reading = '<b>' + saves + ' saved against ' + lookups + ' lookups.</b> Low, but the save path '
+      + 'was rebuilt on 1 Sept \u2014 this is measuring days, not months, so give it a week before '
+      + 'reading a trend into it.';
+  }
+  if (saves) {
+    reading += '<br/><b>' + localN + '</b> kept on the device, <b>' + acctN + '</b> to an account. '
+      + (acctN ? 'Only the account ones survive a cleared browser.'
+               : 'None have been signed up for yet, so none of them survive a cleared browser.');
   }
 
   const bySrc = bin.by_source || {};
@@ -485,7 +501,18 @@ function render(d, biz){
     +    '<span><i class="dot" style="background:var(--green)"></i>' + num(has_) + ' found sold data</span>'
     +    '<span><i class="dot" style="background:var(--border2)"></i>' + num(cov.empty) + ' asks only</span>'
     +  '</div>'
-    +  '<div class="verdict">' + verdict + '</div>'
+    /* The version matters. cg_stats used to read a hard-coded @v2 while
+       SOLD_LOGIC_VERSION had moved on, so this panel described a frozen
+       set of rows from logic that no longer ran. It now follows whichever
+       version is live -- and says which, so the number is never mistaken
+       for a timeless one. */
+    +  '<div class="verdict">' + verdict
+    +    (cov.cache_version
+          ? '<br/><span style="color:var(--text3);font-family:var(--fm);font-size:11px">'
+            + 'Filter logic v' + esc(cov.cache_version) + '. A version bump clears the cache, so '
+            + 'this reads low for a day afterwards while it refills.</span>'
+          : '')
+    +  '</div>'
     + '</div>'
 
     + '<div class="foot">Private. Not linked from anywhere and excluded from search engines.<br/>'
@@ -674,12 +701,30 @@ function businessPanel(biz){
     + '</div>';
 }
 
+/* TWO THINGS WERE WRONG HERE.
+
+   The verdict fired on `nomat > miss` -- comparing sets that failed to
+   match against sets whose missing list was opened. Those are different
+   denominators: nomatch is a lookup outcome, miss is a later funnel
+   step. A catalog could match everything and still show few missing-list
+   opens, and this would call it a failure.
+
+   And the 30-day window spans the period when the Catalog add-on was
+   CANCELLED and every lookup returned nothing. A failure rate read
+   across that window describes an outage, not the catalog's coverage.
+   cg_stats now returns since_fix counts starting at the 1 Sept renewal;
+   those are the honest ones. */
 function setPanel(d, t){
   if(!has(t,'set_missing_30d')) return '';
+  var f     = d.features || {};
   var looks = Number(t.set_lookups_30d||0);
   var miss  = Number(t.set_missing_30d||0);
   var part  = Number(t.set_partial_30d||0);
   var nomat = Number(t.set_nomatch_30d||0);
+
+  var fLooks = Number(f.set_lookups_since_fix||0);
+  var fMiss  = Number(f.set_missing_since_fix||0);
+  var fNo    = Number(f.set_nomatch_since_fix||0);
 
   if(!looks && !miss){
     return '<div class="card"><h2>Set builder \u00b7 30d</h2>'
@@ -687,38 +732,71 @@ function setPanel(d, t){
       + 'with saved cards, so this stays at zero until saves move.</div></div>';
   }
 
+  /* Judged on the post-renewal window when there is enough of one, and
+     against LOOKUPS rather than missing-list opens. Below a handful of
+     lookups no rate means anything, so it says so instead. */
   var read;
-  if(!miss){
-    read = '<b>People look sets up and stop there.</b> They never open the missing list \u2014 '
-         + 'which is the part worth paying for.';
-  } else if(nomat > miss){
-    read = '<b>The catalog is failing more often than it succeeds.</b> The sets people own '
-         + 'aren\'t the sets it carries.';
+  if(fLooks >= 5){
+    var failPct = Math.round((fNo/fLooks)*100);
+    if(failPct >= 50){
+      read = '<b>' + failPct + '% of set lookups since the catalog came back still find no '
+           + 'match.</b> The sets people own are not the sets it carries \u2014 that is a '
+           + 'coverage problem, not an outage.';
+    } else if(!fMiss){
+      read = '<b>Sets are matching, but nobody opens the missing list.</b> That is the part '
+           + 'worth paying for, and it is one tap away from a screen people already reached.';
+    } else {
+      read = '<b>' + fMiss + ' of ' + fLooks + ' lookups since the renewal reached the missing '
+           + 'list.</b> That is the moment worth building around.';
+    }
+  } else if(fLooks){
+    read = 'Only <b>' + fLooks + '</b> set lookup' + (fLooks===1?'':'s') + ' since the catalog '
+         + 'came back on 1 Sept \u2014 too few to read a rate from yet. The 30-day figures below '
+         + 'mostly describe the weeks the subscription was cancelled.';
   } else {
-    read = 'The missing-cards screen is being reached. That\'s the moment worth building around.';
+    read = '<b>No set lookups since the catalog was renewed on 1 Sept.</b> Everything in the '
+         + '30-day numbers happened while the subscription was off and every lookup returned '
+         + 'nothing, so none of it describes how well the catalog actually works.';
   }
 
   return '<div class="card"><h2>Set builder \u00b7 30d</h2>'
     + '<div class="funnel">'
       + '<div class="fstep"><div class="fstep-k">Looked up a set size</div>'
-        + '<div class="fstep-n">'+num(looks)+'</div><div class="fstep-r"></div></div>'
+        + '<div class="fstep-n">'+num(looks)+'</div><div class="fstep-r">'+num(fLooks)+' since fix</div></div>'
       + '<div class="fstep paid"><div class="fstep-k">Opened the missing list</div>'
         + '<div class="fstep-n">'+num(miss)+'</div><div class="fstep-r">'
         + (looks ? Math.round((miss/looks)*100)+'%' : '\u2014')+'</div></div>'
     + '</div>'
     + ((part||nomat) ? '<div class="fnote">'
-        + (nomat ? '<b>'+num(nomat)+'</b> sets couldn\'t be matched to the catalog. ' : '')
+        + (nomat ? '<b>'+num(nomat)+'</b> sets couldn\'t be matched over 30 days'
+                 + (fNo !== nomat ? ' \u2014 <b>'+num(fNo)+'</b> of those since the renewal. ' : '. ') : '')
         + (part  ? '<b>'+num(part)+'</b> checklists were too big to finish in one day.' : '')
         + '</div>' : '')
     + '<div class="fnote">'+read+'</div></div>';
 }
 
+/* THE SAVE PANEL WAS COUNTING THE FUNNEL THAT WAS REMOVED.
+
+   bench_save and card_saved are the OLD account-gated events. Since
+   the signup wall came out of the save button on 1 Sept the common
+   path is card_saved_local / bench_saved_local, which nothing here
+   counted -- so this read 0% while saves were happening, and printed
+   "people see the offer and decline it" underneath.
+
+   Reads d.trust now, which cg_stats computes from all four save
+   events. The account/local split is shown because it is the number
+   that actually answers the question: local rising while account
+   stays flat is the wall removal working; account rising is people
+   choosing to sign up for sync. */
 function savePanel(d, t){
   if(!has(t,'save_offers_30d')) return '';
-  var offers = Number(t.save_offers_30d||0);
-  var benches= Number(t.bench_shown_30d||0);
-  var saves  = Number(t.bench_saves_30d||0);
-  var shown  = offers + benches;
+  var tr      = d.trust || {};
+  var offers  = Number(t.save_offers_30d||0);
+  var benches = Number(t.bench_shown_30d||0);
+  var saves   = Number(tr.saves_30d||0);
+  var local   = Number(tr.local_30d||0);
+  var account = Number(tr.account_30d||0);
+  var shown   = offers + benches;
 
   if(!shown){
     return '<div class="card"><h2>Saving \u00b7 30d</h2>'
@@ -726,29 +804,53 @@ function savePanel(d, t){
       + 'against how many people were actually asked.</div></div>';
   }
 
+  /* OFFERS ARE ONCE-PER-PAGE-LOAD LATCHES, NOT PER-SCAN.
+
+     save_offer_shown and bench_shown each fire once per page load by
+     design. Dividing saves by them is not a conversion rate and never
+     was -- one visitor scanning eighty cards produces one offer event
+     and can produce many saves. The percentage is shown but named for
+     what it is, and the reading below leans on the account/local split
+     instead, which compares like with like. */
   var pct = shown ? Math.round((saves/shown)*100) : 0;
+
   var read;
-  if(benches < 5){
-    read = '<b>Almost nobody reaches a second lookup</b>, so the bench barely gets shown. '
-         + 'That is a different problem from people declining it \u2014 the fix is giving '
-         + 'somebody a reason to price a second card, not changing the offer.';
-  } else if(pct >= 10){
-    read = 'The offer is landing when people see it. Worth showing it more often.';
+  if(!saves){
+    read = '<b>Nobody has kept a card yet.</b> The save path was rebuilt on 1 Sept, so this '
+         + 'counts from a standing start rather than describing a long-running failure.';
+  } else if(local && !account){
+    read = '<b>Every save is a local one \u2014 nobody has signed up to sync them.</b> That is '
+         + 'the wall removal working: people keep cards without an account. The open question '
+         + 'is whether any of them come back for one.';
+  } else if(local > account){
+    read = '<b>' + local + ' kept locally, ' + account + ' to an account.</b> Most people are '
+         + 'taking the no-signup path, which is what it was built for. Account saves are the '
+         + 'ones that survive a cleared browser.';
+  } else if(account > local){
+    read = '<b>' + account + ' saved to an account against ' + local + ' local.</b> People are '
+         + 'choosing to sign up rather than stopping at a device-only save \u2014 worth knowing '
+         + 'what they were promised at that moment.';
   } else {
-    read = '<b>People see the offer and decline it.</b> The offer itself is the problem, '
-         + 'not how often it appears.';
+    read = '<b>' + saves + ' cards kept</b>, split evenly between local and account saves.';
   }
 
   return '<div class="card"><h2>Saving \u00b7 30d</h2>'
     + '<div class="funnel">'
       + '<div class="fstep"><div class="fstep-k">Offered on a single card</div>'
-        + '<div class="fstep-n">'+num(offers)+'</div><div class="fstep-r"></div></div>'
+        + '<div class="fstep-n">'+num(offers)+'</div><div class="fstep-r">per load</div></div>'
       + '<div class="fstep"><div class="fstep-k">Saw a bench (2+ cards)</div>'
-        + '<div class="fstep-n">'+num(benches)+'</div><div class="fstep-r"></div></div>'
+        + '<div class="fstep-n">'+num(benches)+'</div><div class="fstep-r">per load</div></div>'
       + '<div class="fstep paid"><div class="fstep-k">Kept their cards</div>'
         + '<div class="fstep-n">'+num(saves)+'</div><div class="fstep-r">'+pct+'%</div></div>'
+      + '<div class="fstep"><div class="fstep-k">\u2003\u2014 kept on the device</div>'
+        + '<div class="fstep-n">'+num(local)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep"><div class="fstep-k">\u2003\u2014 saved to an account</div>'
+        + '<div class="fstep-n">'+num(account)+'</div><div class="fstep-r"></div></div>'
     + '</div>'
-    + '<div class="fnote">'+read+'</div></div>';
+    + '<div class="fnote">'+read+'</div>'
+    + '<div class="fnote">The two offer rows fire <b>once per page load</b>, not once per card, '
+    + 'so the percentage beside "kept their cards" is not a conversion rate. Read the local vs '
+    + 'account split instead.</div></div>';
 }
 
 function funnelPanel(d, t){
