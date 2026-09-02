@@ -1558,8 +1558,41 @@ async function detectCards(file){
     // close-up of a single card. Only a candidate at or near 100% of the
     // frame (almost certainly the table/background itself, not a card)
     // still gets rejected.
+    /* THE 85% CEILING WAS REJECTING SINGLE CARDS.
+
+       Confirmed 2026-09-02 against real photos: two cards on a table
+       detect fine, one card photographed close up fails with "no
+       card-shaped regions found". A single card held up to a phone
+       routinely fills more than 85% of the frame, and it was being
+       thrown out before the aspect gate, the content check or anything
+       else got to look at it.
+
+       The ceiling exists for a genuine reason: the whole-frame contour
+       (the photo's own border, or the table) is a rectangle too, and a
+       4:3 photo has an aspect ratio of 1.33 -- sitting squarely inside
+       the 1.22-1.72 card gate. Size was doing the job of telling those
+       apart, and doing it by excluding a legitimate case.
+
+       Edges are the honest discriminator. The frame itself touches all
+       four sides of the image by definition; a real card, however
+       large, has table visible on at least one side. And a card that
+       genuinely does touch all four sides is cut off, which means its
+       true outer boundary is not in the photo and no crop of it can be
+       correct anyway -- so rejecting that case is right for a second
+       reason.
+
+       Ceiling raised to 97% with the four-edge test carrying the load
+       the size limit used to. */
+    const EDGE_TOL = 4;
+    const touchesAllFourEdges =
+      rect.x <= EDGE_TOL &&
+      rect.y <= EDGE_TOL &&
+      (rect.x + rect.width)  >= c.width  - EDGE_TOL &&
+      (rect.y + rect.height) >= c.height - EDGE_TOL;
+
     if(area > imageArea*.010 &&
-       area < imageArea*.85 &&
+       area < imageArea*.97 &&
+       !touchesAllFourEdges &&
        ar > 1.22 && ar < 1.72 &&
        rect.width > 105 && rect.height > 150){
 
@@ -1759,8 +1792,31 @@ async function detectCards(file){
   const finalBoxes=contentChecked.slice(0,20);
 
   if(!finalBoxes.length){
+    /* THE ADVICE HAS TO MATCH THE PHOTO.
+
+       This message was written for a batch shot -- several cards on a
+       table, contours merging because two are touching. On a close-up
+       of ONE card it is actively misleading: there is nothing to move
+       apart, and somebody following it will re-shoot the same failing
+       photo.
+
+       The gate needs a COMPLETE card-shaped rectangle: 1-85% of the
+       frame, aspect ratio 1.22-1.72, at least 105x150 px. A card
+       running off the edge of the frame has no closed shape to
+       measure, and its visible portion reads as the wrong ratio. Glare
+       across a Chrome or Prizm surface makes it worse, because an edge
+       is what detection is looking for and glare erases it.
+
+       So the message now says what the detector actually needs, and
+       names the two failures that produce this in practice. */
     [src,gray,blur,edge,contours,hierarchy].forEach(x=>x.delete());
-    throw new Error('No card-shaped regions found. Try moving the cards farther apart.');
+    throw new Error(
+      'No card-shaped regions found. Two things cause this most often: '
+      + 'part of a card is cut off by the edge of the photo, or glare is '
+      + 'washing out the card\u2019s border. Get the whole card in frame with '
+      + 'a bit of table showing on all four sides, and tilt away from the '
+      + 'light so the edges stay dark. If you are shooting several cards, '
+      + 'leave a gap between them.');
   }
 
   /* SIZE-OUTLIER CHECK.
