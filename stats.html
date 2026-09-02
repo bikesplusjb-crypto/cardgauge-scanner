@@ -401,6 +401,20 @@ function render(d, biz){
   } else if(pct >= 70){
     verdict = '<b>' + pct + '% of lookups come back with real sold prices.</b> '
       + 'The 30-day window is doing its job \u2014 nothing to change here.';
+  } else if(q < 25){
+    /* A VERSION BUMP EMPTIES THIS, AND AN EMPTY SET IS NOT A RESULT.
+
+       SOLD_LOGIC_VERSION going up discards every cached row on purpose,
+       so for a day afterwards this panel is reading three rows and
+       calling it a coverage rate. On 2 Sept it printed "Only 0% of
+       lookups find sold prices" a few hours after a bump -- alarming,
+       and describing nothing.
+
+       Below about 25 rows there is no rate to report, so it says that
+       instead of dividing by a handful. */
+    verdict = '<b>Only ' + q + ' cached lookup' + (q===1?'':'s') + ' under the current filter '
+      + 'version.</b> A version bump clears the cache, so this fills back in over a day or so. '
+      + 'Nothing to read from it until then.';
   } else if(pct >= 40){
     verdict = '<b>' + pct + '% of lookups find sold prices.</b> '
       + 'Worth watching. If it slides toward a third, the gap is more likely the queries being '
@@ -735,6 +749,21 @@ function setPanel(d, t){
   /* Judged on the post-renewal window when there is enough of one, and
      against LOOKUPS rather than missing-list opens. Below a handful of
      lookups no rate means anything, so it says so instead. */
+  /* set_lookup STOPPED BEING THE EVENT THAT FIRES.
+
+     The restored "What am I missing?" button calls showMissing()
+     directly and logs set_missing_viewed. set_lookup only fires on the
+     "Look up the size" path, for a set with no total yet -- and it has
+     not fired since 15 Aug. So a since-fix counter watching set_lookup
+     alone printed "0 set lookups since the catalog was renewed" on a
+     day when the missing list was opened twice and a 225-card
+     checklist was built.
+
+     Activity is either event. Judged on the sum, with the failure rate
+     still measured against lookups, since that is the only one a
+     no-match can be a fraction of. */
+  var fAny = fLooks + fMiss;
+
   var read;
   if(fLooks >= 5){
     var failPct = Math.round((fNo/fLooks)*100);
@@ -749,20 +778,22 @@ function setPanel(d, t){
       read = '<b>' + fMiss + ' of ' + fLooks + ' lookups since the renewal reached the missing '
            + 'list.</b> That is the moment worth building around.';
     }
-  } else if(fLooks){
-    read = 'Only <b>' + fLooks + '</b> set lookup' + (fLooks===1?'':'s') + ' since the catalog '
-         + 'came back on 1 Sept \u2014 too few to read a rate from yet. The 30-day figures below '
-         + 'mostly describe the weeks the subscription was cancelled.';
+  } else if(fAny){
+    read = 'Only <b>' + fAny + '</b> set lookup' + (fAny===1?'':'s') + ' since the catalog '
+         + 'came back on 1 Sept \u2014 too few to read a rate from yet. '
+         + (fMiss ? '<b>' + fMiss + '</b> of those reached the missing list, which is the part '
+                  + 'worth paying for. ' : '')
+         + 'The 30-day figures below mostly describe the weeks the subscription was cancelled.';
   } else {
-    read = '<b>No set lookups since the catalog was renewed on 1 Sept.</b> Everything in the '
-         + '30-day numbers happened while the subscription was off and every lookup returned '
-         + 'nothing, so none of it describes how well the catalog actually works.';
+    read = '<b>Nothing has touched the set builder since the catalog was renewed on 1 Sept.</b> '
+         + 'Everything in the 30-day numbers happened while the subscription was off and every '
+         + 'lookup returned nothing, so none of it describes how well the catalog works now.';
   }
 
   return '<div class="card"><h2>Set builder \u00b7 30d</h2>'
     + '<div class="funnel">'
       + '<div class="fstep"><div class="fstep-k">Looked up a set size</div>'
-        + '<div class="fstep-n">'+num(looks)+'</div><div class="fstep-r">'+num(fLooks)+' since fix</div></div>'
+        + '<div class="fstep-n">'+num(looks)+'</div><div class="fstep-r">'+num(fAny)+' since fix</div></div>'
       + '<div class="fstep paid"><div class="fstep-k">Opened the missing list</div>'
         + '<div class="fstep-n">'+num(miss)+'</div><div class="fstep-r">'
         + (looks ? Math.round((miss/looks)*100)+'%' : '\u2014')+'</div></div>'
@@ -850,7 +881,23 @@ function savePanel(d, t){
     + '<div class="fnote">'+read+'</div>'
     + '<div class="fnote">The two offer rows fire <b>once per page load</b>, not once per card, '
     + 'so the percentage beside "kept their cards" is not a conversion rate. Read the local vs '
-    + 'account split instead.</div></div>';
+    + 'account split instead.</div>'
+    /* THE 30-DAY SPLIT IS MOSTLY THE OLD BEHAVIOUR.
+
+       Saving without an account only became possible on 1 Sept. Before
+       that an account was the ONLY way to keep a card, so every save in
+       the earlier part of this window is an account save by force, not
+       by choice. Reading the 30-day split as a preference gets the
+       answer exactly backwards -- which is what it did on 2 Sept,
+       printing "people are choosing to sign up" off a window that was
+       mostly a signup wall.
+
+       The 7-day panel at the top of the page is the honest one until
+       1 Oct, when this window no longer reaches back past the change. */
+    + '<div class="fnote bad">\u26a0 This 30-day window straddles <b>1 Sept</b>, when saving '
+    + 'without an account became possible at all. Account saves before that date were the only '
+    + 'option, not a choice \u2014 so the split above is not a preference. Read the 7-day panel '
+    + 'at the top until 1 Oct.</div></div>';
 }
 
 function funnelPanel(d, t){
