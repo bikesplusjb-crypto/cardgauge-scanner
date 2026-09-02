@@ -2823,6 +2823,22 @@ function ebayPricing(x){
     /* An ask BELOW the target floor is not a pricing suggestion, it is
        a warning. Silently raising it would be deciding for the shop. */
     askBelowFloor: cost > 0 && bin > 0 && bin < minPrice,
+    /* THE ONE THAT MATTERS MOST ON CHEAP CARDS.
+
+       A shop looking at a $1 card sees a dollar and lists it. But 13%
+       of $1 is 13 cents and posting it costs $1, so the sale nets
+       -$0.13 before the sleeve, the toploader, or the fifteen minutes
+       it took. Forty of those is a lost Saturday and five dollars.
+
+       Not hypothetical: the Margin Guide carries the same failure from
+       a real sale -- an Elly De La Cruz bought at $3, sold at the full
+       $5 ask, netting exactly $0.00 once a $2 fee came out.
+
+       Separate from askBelowFloor because they are different problems.
+       Below floor means earning less than you wanted. This means
+       losing money by selling at all, and it deserves louder
+       treatment. */
+    losesMoney: bin > 0 && netAt(bin) < cost,
     noPrice: !(bin > 0)
   };
 }
@@ -2873,6 +2889,26 @@ function ebayListingHTML(x){
       +   '<span class="sub"> after ' + p.feePct.toFixed(1) + '% fees and ' + money(p.shipping) + ' shipping'
       +   (p.cost>0 ? ' \u00b7 profit ' + money(p.profitBin) : '') + '</span></td></tr>'
       + '</table>'
+      /* SAID IN WORDS, NOT LEFT AS A MINUS SIGN IN A TABLE.
+
+         A negative number in a row of numbers is easy to skim past
+         when you are working through forty cards. This is the whole
+         reason the screen exists on cheap stock, so it gets a sentence
+         and a colour rather than a character.
+
+         Deliberately does NOT block listing. The shop may have a
+         reason -- clearing dead stock, a bulk lot, a customer waiting.
+         Telling somebody they are about to lose money is help;
+         refusing to let them is not. */
+      + (p.losesMoney
+          ? '<div class="pill bad" style="margin-top:10px;display:block;padding:9px 11px;line-height:1.45">'
+            + '<b>Listing this at ' + money(p.bin) + ' loses money.</b> '
+            + 'After ' + p.feePct.toFixed(1) + '% fees and ' + money(p.shipping) + ' shipping you keep '
+            + money(p.netBin) + (p.cost>0 ? ' on a card that cost ' + money(p.cost) : '') + '. '
+            + 'You would need ' + money(p.breakEven) + ' just to break even \u2014 and that is before the '
+            + 'sleeve, the toploader, and the time it takes to list.'
+            + '</div>'
+          : '')
       + (p.askBelowFloor
           ? '<div class="pill bad" style="margin-top:8px">Your ask is below the price that clears your target margin ('
             + money(p.offerFloor) + '). Listing at ' + money(p.bin) + ' earns less than you said you want.</div>'
