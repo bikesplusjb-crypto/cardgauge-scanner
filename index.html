@@ -2906,13 +2906,31 @@ function benchHtml(){
     var n = bench.filter(function(b){ return !b.saved; }).length;
     cta = '<div class="bench-cta">'
       + '<button class="bench-btn" id="benchBtn" onclick="benchSaveAll()">\ud83d\udcc2 '
-      + (currentUser ? 'Keep these '+n+' cards' : 'Sign in &amp; keep these '+n)
+      /* THE LABEL WAS LYING ABOUT NEEDING AN ACCOUNT.
+
+         benchSaveAll() writes straight to local storage and toasts
+         "N cards kept on this device". It only calls openAuth() if the
+         LOCAL write fails outright. So this button has not required a
+         sign-in since the wall came out on 1 Sept -- but it kept
+         saying so, which means somebody who does not want an account
+         reads it and does not tap. The one action we most want them to
+         take, labelled as the thing they came here to avoid.
+
+         Same words either way now, because it does the same thing
+         either way. The account ask lives in renderLocalPrompt(),
+         AFTER they have cards worth carrying to another phone, which
+         is the only point at which it buys them anything. */
+      + 'Keep ' + (n === 1 ? 'this card' : 'these ' + n + ' cards')
       + '</button>'
       + '<div class="bench-fine">'
       + (priced.length < bench.length
           ? 'The unpriced ones save too \u2014 <b>narrow the search later and the value fills in.</b> '
-          : 'Ten seconds, and they\'re still here tomorrow \u2014 with what you paid, if you add it. ')
-      + 'First '+FREE_CARD_LIMIT+' free.</div></div>';
+          : 'Kept on this device, no sign-up. ')
+      /* "First 25 free" is an ACCOUNT limit and this button no longer
+         makes an account, so quoting it here answers a question nobody
+         asked and implies a cap on something uncapped. */
+      + (currentUser ? 'First '+FREE_CARD_LIMIT+' free.' : 'Add an email later to keep them anywhere.')
+      + '</div></div>';
   }
 
   return '<div class="bench">'
@@ -3972,9 +3990,14 @@ function renderResult(d){
       html+='<div class="save-row">'
         +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()"'
         +(alreadySaved ? ' disabled' : '')+'>'
+        /* SAME LIE AS THE BENCH BUTTON. saveToBinder() keeps the card
+           locally when LOCAL_OK; the sign-in only happens if that write
+           fails. Labelling it "Sign in & keep" tells somebody the thing
+           they must do is the thing they were trying to avoid, and they
+           do not tap. Says what it does now. */
         +(alreadySaved ? '\u2713 In your binder'
-          : currentUser ? '\ud83d\udcc2 Keep this card'
-                        : '\ud83d\udcc2 Sign in &amp; keep this card')
+          : (currentUser || LOCAL_OK) ? '\ud83d\udcc2 Keep this card'
+                                      : '\ud83d\udcc2 Sign in &amp; keep this card')
         +'</button>'
         +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
         +'</div>'
@@ -4436,8 +4459,28 @@ function renderAuth(){
       + (isPro ? '<span class="tb-pro">PRO</span>' : '')
       + '<button class="tb-auth" onclick="logOut()">Log Out</button>';
   } else {
-    w.innerHTML = '<span class="tb-free">Scanning is free</span>'
-      + '<button class="tb-auth" onclick="openAuth()">Save cards free</button>';
+    /* THE FOURTH ASK ON THE SAME SCREEN.
+
+       Counted 2 Sept: somebody signed out who has ALREADY kept a card
+       locally sees the account ask here, on the save button, on the
+       bench, and in the panel at the bottom. Four times, for a question
+       they answered by keeping cards without one.
+
+       "Save cards free" is aimed at somebody who has saved nothing --
+       it is a reason to sign up. Once there are cards on the device it
+       is answering a question already settled, so it becomes "Log in",
+       which is what somebody at that point might actually want: getting
+       BACK to an account they already have, on another phone.
+
+       Deliberately not hidden. A returning user with local cards still
+       needs a way in, and removing the only door is worse than
+       repeating an offer. */
+    var haveLocal = false;
+    try{ haveLocal = localBinder().length > 0; }catch(e){}
+    w.innerHTML = haveLocal
+      ? '<button class="tb-auth" onclick="openAuth()">Log in</button>'
+      : '<span class="tb-free">Scanning is free</span>'
+        + '<button class="tb-auth" onclick="openAuth()">Save cards free</button>';
   }
 }
 
@@ -4920,12 +4963,12 @@ async function submitEmailWatch(){
   if(ok){
     try{ localStorage.setItem(EMAIL_WATCH_KEY, email); }catch(e){}
     logEvent('email_watch_added', String(ok), false);
-    /* toast(), not showToast(). showToast is the BINDER's name for
-       this; the scanners call it toast(). Written from memory of the
-       wrong file, so the success path threw a ReferenceError right
-       after the email had already been saved server-side -- no toast,
-       renderLocalPrompt() never re-ran, and the input sat disabled on
-       "Setting up alerts..." looking like a failure it wasn't. */
+    /* toast(), not showToast(). showToast is the BINDER's name for this;
+       the scanners call it toast(). Written from memory of the wrong
+       file, so the success path threw a ReferenceError right after the
+       email had already been saved server-side -- no toast, the prompt
+       never re-rendered, and the input sat disabled on "Setting up
+       alerts..." looking like a failure it wasn't. */
     toast('\u2705 We\u2019ll email you when these move');
     renderLocalPrompt();
   } else {
