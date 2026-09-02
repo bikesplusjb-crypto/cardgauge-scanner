@@ -966,7 +966,7 @@ input[type=file]{display:none;}
   </a>
   <div class="tb-right" id="tbAuth">
     <span class="tb-free">Scanning is free</span>
-    <button class="tb-auth" onclick="openAuth()">Save cards free</button>
+    <button class="tb-auth" onclick="openAuth()">Sign in</button>
   </div>
 </div>
 
@@ -4692,12 +4692,23 @@ function renderAuth(){
        Deliberately not hidden. A returning user with local cards still
        needs a way in, and removing the only door is worse than
        repeating an offer. */
-    var haveLocal = false;
-    try{ haveLocal = localBinder().length > 0; }catch(e){}
-    w.innerHTML = haveLocal
-      ? '<button class="tb-auth" onclick="openAuth()">Log in</button>'
-      : '<span class="tb-free">Scanning is free</span>'
-        + '<button class="tb-auth" onclick="openAuth()">Save cards free</button>';
+    /* "SAVE CARDS FREE" WAS ADVERTISING SOMETHING ALREADY GIVEN AWAY.
+
+       It reads as "sign up and you can save cards for nothing" -- but
+       saving has needed no account since 1 Sept. So the header was
+       selling, as the reason to make an account, the exact thing the
+       page hands over without one. Anybody who noticed would rightly
+       wonder what else was overstated.
+
+       One label in both states. "Sign in" covers coming back to an
+       account and making a first one, and it is navigation rather than
+       a pitch -- which is all the header should be now that the real
+       ask lives in one place after the price.
+
+       The free-ness that IS true stays as the line beside it: scanning
+       costs nothing and never will. */
+    w.innerHTML = '<span class="tb-free">Scanning is free</span>'
+      + '<button class="tb-auth" onclick="openAuth()">Sign in</button>';
   }
 }
 
