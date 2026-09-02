@@ -4455,6 +4455,11 @@ function openAuth(){
   var e=document.getElementById('authErr'); if(e) e.classList.remove('show');
   backToEmailStep();
   var f=document.getElementById('authEmail'); if(f) f.focus();
+  /* signup_started was firing in the Wix scanner and NOT here, so every
+     sign-up attempt from the PWA was invisible and the signup funnel
+     undercounted by however much of the traffic uses this surface.
+     Same class of gap as the missing result_viewed. */
+  logEvent('signup_started', null, false);
 }
 function closeAuth(){
   var m=document.getElementById('authModal'); if(m) m.classList.remove('show');
