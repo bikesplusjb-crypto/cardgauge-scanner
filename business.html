@@ -269,6 +269,14 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
           <option value="name_asc">Card name A–Z</option>
         </select>
       </div>
+      <!-- Filled by openEbay(). Lives in the INVENTORY pane, directly
+           above the table, because that is where the List button is --
+           the first version put it next to marginGuide on the Dashboard
+           pane, so clicking List rendered a panel on a tab the person
+           was not looking at and the button appeared to do nothing.
+           Above the table rather than below it so it is on screen the
+           moment it opens, without depending on a scroll. -->
+      <div id="ebayPanel" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)"></div>
       <div id="inventoryTable"></div>
       <div id="saleFormArea"></div>
     </div>
@@ -347,9 +355,6 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <div class="sub">For each priced item, how much room exists before a discount eats into your target margin. Only shows items with both a cost and an ask price set.</div>
       <div class="row"><label class="small">Target margin</label><input id="targetMargin" type="number" min="0" max="95" step="1" value="20" style="width:70px" onchange="this.dataset.touched='1';renderMarginGuide()">%</div>
       <div id="marginGuide"></div>
-      <!-- Filled by openEbay(). Hidden until a row asks for it so the
-           inventory screen is not carrying an empty box around. -->
-      <div id="ebayPanel" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--border,#2a3550);border-radius:12px;background:var(--panel,rgba(255,255,255,.02))"></div>
     </div>
     <div class="panel"><h2>Workflow</h2><div class="sub">PHOTO → DETECT → IDENTIFY → PRICE → INVENTORY → BREAK ASSIGNMENT → LABEL</div></div>
   </section>
