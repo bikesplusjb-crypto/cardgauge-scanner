@@ -3942,13 +3942,31 @@ function renderResult(d){
         html+='<div style="margin:0;padding:20px 16px;background:linear-gradient(160deg,rgba(245,158,11,.14),rgba(17,24,39,.5));'
           +'border-top:1px solid rgba(245,158,11,.35);border-bottom:1px solid rgba(245,158,11,.35);text-align:center;">'
           +'<div style="font-family:var(--f);font-size:15px;font-weight:800;color:var(--text);line-height:1.4;margin-bottom:10px;max-width:32ch;margin-left:auto;margin-right:auto;">'
-          +'You\u2019re getting serious about your cards. Create your free account to keep scanning and start tracking your collection.</div>'
-          +'<div style="text-align:left;max-width:280px;margin:0 auto 14px;font-size:12.5px;color:var(--text2);line-height:1.9;">'
-          +'<div>\u2713 Unlimited card scans</div>'
-          +'<div>\u2713 Save your cards</div>'
-          +'<div>\u2713 Watch card values</div>'
-          +'<div>\u2713 Get price-change alerts</div>'
-          +'<div>\u2713 Build your collection</div>'
+          /* THIS PANEL WAS SELLING THINGS THAT ARE ALREADY FREE.
+
+             It said "create your free account TO KEEP SCANNING" and
+             listed "Unlimited card scans" as a benefit -- directly
+             above a button reading "Free and unlimited, no signup, no
+             counter." Two panels touching each other, contradicting
+             each other, on the screen where we ask for the sign-up.
+
+             Four of the five bullets stopped being account benefits in
+             the last two days: scanning was always uncapped, saving
+             went local on 1 Sept, and watching values and price alerts
+             now work from an email alone with no account at all.
+
+             What an account actually buys, and the only things it
+             buys: the cards survive a cleared browser, and they show
+             up on another device. That is worth saying plainly. A list
+             of five things where four are already yours reads as a
+             pitch, and the moment somebody notices one is untrue they
+             stop believing the other four. */
+          +'Kept cards live in this browser only. An account is what makes them survive.</div>'
+          +'<div style="text-align:left;max-width:290px;margin:0 auto 14px;font-size:12.5px;color:var(--text2);line-height:1.9;">'
+          +'<div>\u2713 Your cards survive a cleared browser</div>'
+          +'<div>\u2713 Open the same binder on another phone</div>'
+          +'<div>\u2713 What you paid, and what you made on a sale</div>'
+          +'<div style="color:var(--text3);margin-top:6px;">Scanning stays free and unlimited either way.</div>'
           +'</div>'
           +'<button onclick="openAuth()" style="background:var(--gold-warm);color:#1a1206;border:none;border-radius:10px;'
           +'padding:13px 26px;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;">Create free account \u2192</button>'
