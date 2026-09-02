@@ -3995,8 +3995,19 @@ function renderResult(d){
            fails. Labelling it "Sign in & keep" tells somebody the thing
            they must do is the thing they were trying to avoid, and they
            do not tap. Says what it does now. */
+        /* TWO GREEN BUTTONS, SAME WORDS, ONE SCREEN APART.
+
+           The banner above already says "Keep this card" and keeps it.
+           Renaming this one to match (it used to say "Sign in & keep",
+           which was a lie) made the duplication obvious: two identical
+           calls to action a few hundred pixels apart, for the same
+           action.
+
+           This one adds the binder, so it says that. Somebody who has
+           already tapped the banner sees a different next step rather
+           than the same offer twice. */
         +(alreadySaved ? '\u2713 In your binder'
-          : (currentUser || LOCAL_OK) ? '\ud83d\udcc2 Keep this card'
+          : (currentUser || LOCAL_OK) ? '\ud83d\udcc2 Keep it &amp; open my binder'
                                       : '\ud83d\udcc2 Sign in &amp; keep this card')
         +'</button>'
         +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
@@ -4896,10 +4907,20 @@ function renderLocalPrompt(){
           ? '<div class="lb-why"><b>\u2713 We\u2019ll email you when these move.</b> '
               + 'They\u2019re still only in this browser though \u2014 an account carries '
               + 'them to another phone.</div>'
-          : '<div class="lb-why"><b>Want to know when these move?</b> '
-              + 'Drop an email and we\u2019ll tell you. No account, no password, nothing to click.</div>'
+          : '<div class="lb-why">'
+              + (emailWatchState()
+                  ? '<b>You\u2019ve kept ' + (cards.length - emailWatchState().count)
+                    + ' more since.</b> Same email, and we\u2019ll watch '
+                    + (cards.length - emailWatchState().count === 1 ? 'that one' : 'those') + ' too.'
+                  : '<b>Want to know when these move?</b> '
+                    + 'Drop an email and we\u2019ll tell you. No account, no password, nothing to click.')
+              + '</div>'
             + '<div class="lb-mail">'
+              /* Prefilled when we already have it -- retyping an address
+                 you gave five minutes ago to cover two more cards is a
+                 tax on the exact behaviour we want. */
               + '<input id="lbEmail" type="email" inputmode="email" autocomplete="email" '
+                + 'value="' + (emailWatchState() ? esc(emailWatchState().email) : '') + '" '
                 + 'placeholder="you@email.com" onkeydown="if(event.key===\'Enter\')submitEmailWatch()">'
               + '<button onclick="submitEmailWatch()">Alert me</button>'
             + '</div>'
@@ -4919,8 +4940,34 @@ function renderLocalPrompt(){
    server is the record; this only decides which of the two asks to
    draw. */
 var EMAIL_WATCH_KEY = 'cg_email_watch';
+
+/* STORING JUST THE ADDRESS MEANT LATER CARDS WERE NEVER WATCHED.
+
+   submitEmailWatch() sends whatever is kept at the moment somebody
+   taps Alert me. This flag then hid the field permanently -- so every
+   card kept AFTER that got no alerts, and nothing on the page said so.
+   One card watched, a growing binder, and no way to add to it.
+
+   The count of cards covered is stored alongside the address. When the
+   binder has grown past it the field comes back, asking only about the
+   difference. Somebody who keeps nothing new is never asked again,
+   which was the point of hiding it in the first place. */
+function emailWatchState(){
+  try{
+    var raw = localStorage.getItem(EMAIL_WATCH_KEY);
+    if(!raw) return null;
+    /* Older installs stored a bare address. Treated as covering
+       everything kept at the time, which is the honest reading -- it
+       is what actually happened. */
+    if(raw.indexOf('|') < 0) return { email: raw, count: localBinder().length };
+    var bits = raw.split('|');
+    return { email: bits[0], count: parseInt(bits[1], 10) || 0 };
+  }catch(e){ return null; }
+}
 function emailWatchDone(){
-  try{ return !!localStorage.getItem(EMAIL_WATCH_KEY); }catch(e){ return false; }
+  var st = emailWatchState();
+  if(!st) return false;
+  return localBinder().length <= st.count;
 }
 
 /* Sends every kept card, not just the last one. Somebody who typed an
@@ -4961,7 +5008,9 @@ async function submitEmailWatch(){
   }
 
   if(ok){
-    try{ localStorage.setItem(EMAIL_WATCH_KEY, email); }catch(e){}
+    /* email|count -- the count is what lets the field come back when
+       the binder grows. See emailWatchState(). */
+    try{ localStorage.setItem(EMAIL_WATCH_KEY, email + '|' + cards.length); }catch(e){}
     logEvent('email_watch_added', String(ok), false);
     /* toast(), not showToast(). showToast is the BINDER's name for this;
        the scanners call it toast(). Written from memory of the wrong
