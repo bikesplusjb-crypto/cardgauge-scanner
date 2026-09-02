@@ -2663,6 +2663,51 @@ async function shopLog(event, detail){
    Built in priority order and cut from the LEAST identifying end. Year,
    player and set are what a buyer searches; "RC" and the team are what
    they can live without. */
+/* x.name IS NOT A PLAYER NAME.
+
+   It is the display name the scanner builds -- "2023 Topps Chrome
+   Bobby Witt Jr. Refractor" -- with the year, brand, set and parallel
+   already inside it. Prepending those again produced "2023 Topps
+   Chrome 2023 Topps Chrome Bobby Witt Jr. Refractor #93 Refractor",
+   which is what a real card produced on the first try.
+
+   So the pieces are added and then de-duplicated on whole words,
+   case-insensitively. Order is preserved, first occurrence wins, so
+   the title still reads year-first the way a buyer scans it. */
+function dedupeWords(str){
+  const seen = Object.create(null);
+  return String(str||'').split(/\s+/).filter(w => {
+    const k = w.toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!k) return true;
+    if(seen[k]) return false;
+    seen[k] = 1;
+    return true;
+  }).join(' ');
+}
+
+/* eBay's Player/Athlete field wants a person, not a card description.
+   Derived by removing from the display name everything we already know
+   is NOT the player: the year, brand, set, parallel, serial, card
+   number, and rookie marker. Whatever survives is the name.
+
+   Returns the full display name unchanged if stripping leaves nothing
+   sensible -- a wrong player name in an eBay item specific is worse
+   than a verbose one, because buyers filter on that field. */
+function ebayPlayer(x){
+  let t = ' ' + String(x.name||'') + ' ';
+  const strip = v => {
+    const s = String(v==null?'':v).trim();
+    if(!s) return;
+    t = t.replace(new RegExp('\\s' + s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\s', 'ig'), ' ');
+  };
+  strip(x.year); strip(x.brand); strip(x.set); strip(x.parallel);
+  if(x.serial) t = t.replace(new RegExp(String(x.serial).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'ig'),' ');
+  t = t.replace(/#\s*[\w/-]+/g,' ').replace(/\bRC\b/ig,' ')
+       .replace(/\b(auto|autograph|patch|relic)\b/ig,' ')
+       .replace(/\s+/g,' ').trim();
+  return t.length >= 2 ? t : String(x.name||'').trim();
+}
+
 function ebayTitle(x){
   const bits = [];
   const push = v => { const t = String(v == null ? '' : v).trim(); if(t) bits.push(t); };
@@ -2678,12 +2723,12 @@ function ebayTitle(x){
   if(x.isPatch) push('Patch');
   push(x.team);
 
-  let out = bits.join(' ').replace(/\s+/g,' ').trim();
+  let out = dedupeWords(bits.join(' ')).replace(/\s+/g,' ').trim();
   /* Drop trailing terms until it fits, rather than hard-cutting
      mid-word and leaving "Refract" in the title. */
   while(out.length > 80 && bits.length > 4){
     bits.pop();
-    out = bits.join(' ').replace(/\s+/g,' ').trim();
+    out = dedupeWords(bits.join(' ')).replace(/\s+/g,' ').trim();
   }
   return out.slice(0,80);
 }
@@ -2698,7 +2743,7 @@ function ebaySpecifics(x){
   const add = (k,v) => { const t = String(v == null ? '' : v).trim(); if(t) rows.push([k,t]); };
 
   add('Sport', x.sport || '');
-  add('Player/Athlete', x.name);
+  add('Player/Athlete', ebayPlayer(x));
   add('Season', x.year);
   add('Manufacturer', x.brand);
   add('Set', x.set);
@@ -2807,11 +2852,22 @@ function ebayListingHTML(x){
     : '<table style="width:100%;border-collapse:collapse">'
       + '<tr><td class="sub" style="padding:5px 10px 5px 0">Buy It Now</td>'
       +   '<td style="padding:5px 0"><b style="font-size:18px">' + money(p.bin) + '</b></td></tr>'
-      + '<tr><td class="sub" style="padding:5px 10px 5px 0">Auto-accept offers above</td>'
-      +   '<td style="padding:5px 0"><b>' + money(p.offerFloor) + '</b>'
-      +   '<span class="sub"> \u00b7 lowest price that still clears your ' + (Number(shopProfile.targetMargin)||20) + '% target</span></td></tr>'
-      + '<tr><td class="sub" style="padding:5px 10px 5px 0">Break-even</td>'
-      +   '<td style="padding:5px 0">' + money(p.breakEven) + '<span class="sub"> \u00b7 below this you lose money</span></td></tr>'
+      /* WITHOUT A COST THERE IS NO FLOOR, AND $0.00 IS NOT ONE.
+
+         A card with cost 0 was showing "auto-accept offers above
+         $0.00" and "break-even $0.00", which reads as permission to
+         accept any offer at all. Zero here is an absence, not a
+         number, and printing it as a number is the kind of confident
+         wrong answer this whole app exists to avoid. */
+      + (p.cost > 0
+          ? '<tr><td class="sub" style="padding:5px 10px 5px 0">Auto-accept offers above</td>'
+            +   '<td style="padding:5px 0"><b>' + money(p.offerFloor) + '</b>'
+            +   '<span class="sub"> \u00b7 lowest price that still clears your ' + (Number(shopProfile.targetMargin)||20) + '% target</span></td></tr>'
+            + '<tr><td class="sub" style="padding:5px 10px 5px 0">Break-even</td>'
+            +   '<td style="padding:5px 0">' + money(p.breakEven) + '<span class="sub"> \u00b7 below this you lose money</span></td></tr>'
+          : '<tr><td class="sub" style="padding:5px 10px 5px 0">Offer floor</td>'
+            +   '<td style="padding:5px 0" class="sub">No cost set for this card, so there is no floor to work out. '
+            +   'Add what you paid in the inventory row and this fills in.</td></tr>')
       + '<tr><td class="sub" style="padding:5px 10px 5px 0">You keep at BIN</td>'
       +   '<td style="padding:5px 0"><b class="' + (p.profitBin>=0?'ok':'bad') + '">' + money(p.netBin) + '</b>'
       +   '<span class="sub"> after ' + p.feePct.toFixed(1) + '% fees and ' + money(p.shipping) + ' shipping'
@@ -2846,10 +2902,26 @@ function ebayListingHTML(x){
     + '<div class="sub" style="margin-top:18px">PRICE</div>'
     + priceBlock
 
+    /* /sl/sell REDIRECTS ESTABLISHED SELLERS TO SELLER HUB.
+
+       Confirmed against a real account with an active store: eBay
+       routes that URL to the Seller Hub listings page rather than a
+       blank form, which is eBay's intended behaviour for anybody who
+       already sells -- not a broken link, but a click short of where
+       the person wanted to be.
+
+       Pointing at the prelist page instead, which is the actual
+       "tell us what you're selling" entry point. eBay may still route
+       a seller through the Hub, so the hint below says what to click
+       if that happens rather than leaving somebody staring at a
+       listings table wondering why. */
     + '<div class="actions" style="margin-top:16px">'
-    +   '<a class="btn" target="_blank" rel="noopener" href="https://www.ebay.com/sl/sell">Open eBay listing form</a>'
+    +   '<a class="btn" target="_blank" rel="noopener" href="https://www.ebay.com/sl/prelist/identify">Start a new eBay listing</a>'
+    +   '<a class="btn" target="_blank" rel="noopener" href="https://www.ebay.com/sh/lst/active">Seller Hub</a>'
     +   '<button class="btn" onclick="markListed(\'' + x.id + '\')">Mark as Listed</button>'
-    + '</div>';
+    + '</div>'
+    + '<div class="sub" style="margin-top:8px">If eBay opens Seller Hub instead of a blank form, use '
+    + '<b>Listings \u2192 Create listing \u2192 Single listing</b>, then paste the pieces above.</div>';
 }
 
 var ebayOpenFor = null;
