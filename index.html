@@ -871,6 +871,11 @@ input[type=file]{display:none;}
 .lb-mail input:focus{outline:none;border-color:rgba(34,197,94,.55);}
 .lb-mail button{background:#22c55e;color:#052e16;border:none;border-radius:9px;padding:11px 15px;
   font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer;white-space:nowrap;}
+.lb-alt{margin-top:13px;padding-top:12px;border-top:1px solid var(--border);
+  font-size:12px;line-height:1.6;color:var(--text3);}
+.lb-alt a{color:var(--green);cursor:pointer;font-weight:700;white-space:nowrap;}
+.lb-alt a:hover{text-decoration:underline;}
+.lb-alt-fine{display:block;font-family:var(--fm);font-size:9.5px;color:var(--text3);margin-top:3px;}
 .lb-no{display:block;width:100%;background:none;border:none;font-family:var(--fm);font-size:10px;letter-spacing:.08em;color:var(--text3);padding:9px 0 2px;cursor:pointer;text-decoration:underline;}
 .redeem{margin:0 16px 14px;padding:14px 16px;border:2px solid rgba(239,68,68,.45);border-radius:var(--radius-lg);background:rgba(239,68,68,.07);}
 .redeem-h{font-size:14.5px;font-weight:800;color:#fca5a5;margin-bottom:8px;line-height:1.35;}
@@ -881,6 +886,20 @@ input[type=file]{display:none;}
 .cpl-p{font-size:12.5px;line-height:1.65;color:var(--text2);}
 .cpl-btn{display:inline-block;margin-top:10px;padding:9px 15px;border-radius:9px;border:1px solid rgba(245,158,11,.45);color:var(--gold-warm);text-decoration:none;font-family:var(--fm);font-size:11.5px;}
 .cpl-fine{font-family:var(--fm);font-size:9.5px;color:var(--text3);margin-top:8px;}
+.sl{margin:0 16px 12px;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.sl-t{font-family:var(--fm);font-size:9.5px;letter-spacing:1.6px;color:var(--text3);
+  padding:10px 13px 8px;border-bottom:1px solid var(--border);}
+.sl-row{display:flex;align-items:baseline;gap:12px;padding:9px 13px;
+  border-bottom:1px solid rgba(255,255,255,.04);text-decoration:none;}
+.sl-row:last-of-type{border-bottom:none;}
+.sl-hid{display:none;}
+.sl-p{font-family:var(--fm);font-size:14px;font-weight:700;color:var(--green);
+  min-width:62px;flex:none;}
+.sl-m{font-family:var(--fm);font-size:11px;color:var(--text3);}
+.sl-g{color:var(--gold-warm);}
+.sl-more{width:100%;background:none;border:none;border-top:1px solid var(--border);
+  color:var(--text2);font-family:var(--fm);font-size:11px;padding:10px;cursor:pointer;}
+.sl-more:hover{background:rgba(255,255,255,.03);}
 .vline{margin:0 16px 10px;font-family:var(--fm);font-size:10.5px;line-height:1.6;}
 .vline-ok{color:var(--green);opacity:.85;}
 .vline-off{color:var(--text3);}
@@ -914,10 +933,25 @@ input[type=file]{display:none;}
 .dec-cost label{font-size:13px;color:var(--text2);flex:1;}
 .dec-cost input{width:96px;padding:9px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--fm);font-size:15px;}
 .scan-again{padding:16px;border-top:1px solid var(--border);text-align:center;}
-.scan-again-btn{width:100%;padding:15px;border-radius:12px;border:none;background:var(--green);
-  color:#052e16;font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;
+/* GREEN MEANS "DO THIS". IT CANNOT MEAN THAT FOUR TIMES.
+
+   Counted on one result screen: the keep banner, this, the save row,
+   and the bench were all solid green, all full width, all the same
+   weight. When everything is the primary action, nothing is -- the eye
+   has no order to follow and the page reads as a wall of buttons
+   rather than a next step.
+
+   Keeping the card is the one action worth pushing after a scan; it is
+   what makes somebody come back. Scanning again is what people already
+   do without being told -- the funnel says 3.4 cards a session once
+   they start. It needs to be present and obvious, not competing.
+
+   Outlined, not filled. Same size, same position, still unmissable. */
+.scan-again-btn{width:100%;padding:15px;border-radius:12px;
+  border:1px solid rgba(34,197,94,.45);background:transparent;
+  color:var(--green);font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;
   transition:all .18s;}
-.scan-again-btn:hover{background:#16a34a;}
+.scan-again-btn:hover{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.7);}
 .scan-again-sub{font-family:var(--fm);font-size:10.5px;color:var(--text3);margin-top:9px;}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface3);
   color:var(--text);padding:11px 22px;border-radius:8px;font-size:12px;font-weight:700;
@@ -2397,6 +2431,96 @@ function buildVerifyWarning(d){
   + '</div>';
 }
 
+/* ── THE ACTUAL SALES, NOT JUST THE MEDIAN ──────────────────────
+
+   The server has been sending up to twelve real sold records with
+   every result -- price, date, listing type, grader, grade, title and
+   a link -- and the page read exactly one field out of them, to find
+   a last-sale price. Everything else was thrown away.
+
+   Ludex's heaviest reviewer, the one who scanned seven thousand cards,
+   says the recent-sales list is his favourite part of their app: he
+   looks for the highest sale and works from that listing. That is not
+   a preference about layout. For somebody deciding what to ask, the
+   spread of real sales IS the answer and the median is a summary of
+   it.
+
+   A median also hides the thing a seller most wants to see. "$1"
+   tells you nothing about whether one copy went for $8 last Tuesday.
+   The list does.
+
+   COLLAPSED TO FIVE. Twelve rows below a price is a wall, and the top
+   few are what people read. The rest is one tap away, and the count is
+   on the button so nobody has to guess whether it is worth it.
+
+   Every row links to the listing it came from. That is the same
+   principle as the sold-comps link that already exists: the number is
+   checkable, and we would rather people checked. */
+function buildSalesList(d){
+  var sold = d && d.sold;
+  var rows = (sold && Array.isArray(sold.sales)) ? sold.sales : [];
+  rows = rows.filter(function(x){ return Number(x.price) > 0; });
+  if(rows.length < 2) return '';   // one sale is not a list
+
+  /* Highest first. The reviewer above looks for the top sale, and a
+     seller pricing a card cares about the ceiling more than the order
+     they happened to arrive in. The date is on every row, so nothing
+     about when is lost by not sorting by it. */
+  rows = rows.slice().sort(function(a,b){ return Number(b.price) - Number(a.price); });
+
+  var typeLabel = function(t){
+    var s = String(t || '').toLowerCase();
+    if(s.indexOf('auction') > -1) return 'auction';
+    if(s.indexOf('offer')   > -1) return 'best offer';
+    if(s.indexOf('fixed')   > -1 || s.indexOf('bin') > -1) return 'buy it now';
+    return '';
+  };
+  var shortDate = function(v){
+    if(!v) return '';
+    try{
+      var dt = new Date(v);
+      if(isNaN(dt.getTime())) return '';
+      return dt.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+    }catch(e){ return ''; }
+  };
+
+  var row = function(x, hidden){
+    var grade = (x.grader && x.grade) ? (esc(x.grader) + ' ' + esc(x.grade)) : '';
+    var inner = '<span class="sl-p">' + fmtMoney(x.price) + '</span>'
+      + '<span class="sl-m">'
+        + (grade ? '<b class="sl-g">' + grade + '</b> ' : '')
+        + esc(shortDate(x.saleDate))
+        + (typeLabel(x.listingType) ? ' \u00b7 ' + typeLabel(x.listingType) : '')
+      + '</span>';
+    return x.url
+      ? '<a class="sl-row' + (hidden ? ' sl-hid' : '') + '" href="' + esc(x.url)
+        + '" target="_blank" rel="noopener sponsored" '
+        + 'onclick="logEvent(\'sale_row_clicked\',null,false)">' + inner + '</a>'
+      : '<div class="sl-row' + (hidden ? ' sl-hid' : '') + '">' + inner + '</div>';
+  };
+
+  var visible = rows.slice(0, 5).map(function(x){ return row(x, false); }).join('');
+  var rest    = rows.slice(5).map(function(x){ return row(x, true); }).join('');
+
+  return '<div class="sl" id="salesList">'
+    + '<div class="sl-t">WHAT EACH ONE ACTUALLY SOLD FOR</div>'
+    + visible + rest
+    + (rest
+        ? '<button class="sl-more" onclick="showAllSales()">Show all '
+          + rows.length + ' sales</button>'
+        : '')
+    + '</div>';
+}
+
+function showAllSales(){
+  var box = document.getElementById('salesList');
+  if(!box) return;
+  box.querySelectorAll('.sl-hid').forEach(function(el){ el.classList.remove('sl-hid'); });
+  var b = box.querySelector('.sl-more');
+  if(b) b.remove();
+  logEvent('sales_list_expanded', null, false);
+}
+
 function buildSoldHero(d){
   var sold = d.sold;
   if(!sold || !sold.soldCount || sold.rateLimited) return '';
@@ -3144,6 +3268,29 @@ function renderCta(d, rows, s){
   var el = document.getElementById('ctaPanel');
   if(!el) return;
 
+  /* THE MARKETING SLAB AT THE BOTTOM IS OFF.
+
+     "THIS WAS A LOOK-UP. THE REST IS A COLLECTION." followed by a
+     pitch for the binder, the tracker and the show log -- the largest
+     block on a result page and the third place the same account was
+     being sold.
+
+     Two blocks now carry the whole message, and that is the design:
+       1. The header, at the top of every screen.
+       2. One block after the price -- keep the card, then the email or
+          the account once there is something worth keeping.
+
+     A third pitch below those does not add a third chance; it makes
+     the page longer and cheaper-looking at exactly the point somebody
+     has already got what they came for. The links it held all exist in
+     the footer and the nav.
+
+     Left as an early return rather than deleted, so it is one line back
+     if the numbers ever say the bottom of the page was worth using. */
+  el.innerHTML = '';
+  el.style.display = 'none';
+  if(true) return;
+
   /* The merged build starts this panel hidden so an empty bordered box
      never flashes on load. Nothing was turning it back on, so once the
      step that did got removed, the panel could write content nobody
@@ -3757,6 +3904,7 @@ function renderResult(d){
   html+=printCodeHTML(d);
 
   html+=buildSoldHero(d);          // sets spreadFlagged
+      html+=buildSalesList(d);         // the sales behind that median
       html+=buildListingMix(d);        // how those sales happened
       html+=buildRefine(d, rows);      // must follow buildSoldHero
       html+=buildAskVsSold(d);
@@ -3936,7 +4084,29 @@ function renderResult(d){
          signup_prompt_shown so we can measure what fraction of people
          who reach this point actually convert, before any real limit
          is ever imposed. */
-      if(anonCountNow === 3 && !anonPromptAlreadyShown()){
+      /* THE SCAN-3 MILESTONE PROMPT IS OFF. DELIBERATELY.
+
+         It was the third separate account ask on one screen, and the
+         worst-placed of them: it fired at the third scan, BEFORE
+         anybody had kept a card. So it asked someone to protect
+         something they did not have yet, and did it by displacing the
+         save button they came for.
+
+         Two asks remain, which is the whole set:
+           1. The header -- "Log in" once cards exist, "Save cards
+              free" before that. Navigation as much as an offer.
+           2. The local prompt, AFTER cards are kept, where an account
+              buys the one real thing: those cards surviving a cleared
+              browser and showing up on another phone.
+
+         The banner below now shows on every scan instead of being
+         displaced at scan 3. Left as a disabled branch rather than
+         deleted, so the panel and its copy are one edit away if the
+         numbers say the ask is worth having back.
+
+         signup_prompt_shown stops firing. Anything reading it is now
+         measuring a prompt that is not shown. */
+      if(false && anonCountNow === 3 && !anonPromptAlreadyShown()){
         markAnonPromptShown();
         logEvent('signup_prompt_shown', null, false);
         html+='<div style="margin:0;padding:20px 16px;background:linear-gradient(160deg,rgba(245,158,11,.14),rgba(17,24,39,.5));'
@@ -4005,8 +4175,28 @@ function renderResult(d){
        to keep it should not have to look up a second one first. */
     if(bench.length < 2){
       var alreadySaved = !!savedKeys[String(d.cardName||'').toLowerCase()];
+      /* THE SECOND SAVE BUTTON IS GONE.
+
+         The banner directly above already keeps the card, in green, in
+         the primary position. This row repeated it -- a second green
+         button, same action, a few hundred pixels down. Two identical
+         calls to action are not twice the chance of a yes; they are a
+         decision nobody asked for, on a phone, at the moment we most
+         want a simple tap.
+
+         What survives is the thing the banner does NOT do: get to the
+         binder. Rendered quiet, because it is a place to go afterwards,
+         not the next action. Once a card IS saved the row confirms it
+         and stops offering anything. */
       html+='<div class="save-row">'
-        +'<button class="save-btn" id="saveBtn" onclick="saveToBinder()"'
+        +(alreadySaved
+          ? '<div class="save-note" style="margin:0;text-align:center;flex:1;">'
+            + '\u2713 In your binder</div>'
+          : '')
+        +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;flex:1;">Open binder</a>'
+        +'</div>'
+        +''
+        +(false ? '<button class="save-btn" id="saveBtn" onclick="saveToBinder()"'
         +(alreadySaved ? ' disabled' : '')+'>'
         /* SAME LIE AS THE BENCH BUTTON. saveToBinder() keeps the card
            locally when LOCAL_OK; the sign-in only happens if that write
@@ -4027,9 +4217,7 @@ function renderResult(d){
         +(alreadySaved ? '\u2713 In your binder'
           : (currentUser || LOCAL_OK) ? '\ud83d\udcc2 Keep it &amp; open my binder'
                                       : '\ud83d\udcc2 Sign in &amp; keep this card')
-        +'</button>'
-        +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;">Open binder</a>'
-        +'</div>'
+        +'</button>' : '')
         /* WHAT SAVING BUYS YOU, not what it costs.
 
            The old note said "the binder is the only part that needs a
@@ -4920,18 +5108,40 @@ function renderLocalPrompt(){
        Ordered small-to-large deliberately. Somebody who gives an
        address has already said yes once; the account ask reads very
        differently after that than it does cold. */
+    /* ONE ASK, NOT TWO STACKED ON EACH OTHER.
+
+       This panel had an email field AND an account button underneath
+       it, one after the other, both green, both about keeping cards.
+       Read cold it looks like being asked the same thing twice with
+       slightly different wording -- which is what it was.
+
+       They are not the same thing, and the difference is worth exactly
+       one line rather than two blocks:
+
+         an email  -> we tell you when these move. Nothing to click,
+                      no code, no password.
+         an account -> the cards themselves survive a cleared browser
+                      and open on another phone.
+
+       So the email field is THE ask, because it is the smaller one and
+       because the round trip is what loses people -- 25 sign-ups
+       started in 30 days, 6 finished. The account becomes one quiet
+       line beneath it for the person who wants the bigger thing, not a
+       second full-width green button competing with the first.
+
+       Once the email is in, the whole block collapses to a single line
+       of confirmation plus that same quiet account link. Nothing green
+       remains, because there is nothing left to do. */
     + ((localAskDismissed() && cards.length < 5) ? '' : '<div class="lb-cta">'
       + (emailWatchDone()
-          ? '<div class="lb-why"><b>\u2713 We\u2019ll email you when these move.</b> '
-              + 'They\u2019re still only in this browser though \u2014 an account carries '
-              + 'them to another phone.</div>'
+          ? '<div class="lb-why"><b>\u2713 We\u2019ll email you when these move.</b></div>'
           : '<div class="lb-why">'
               + (emailWatchState()
                   ? '<b>You\u2019ve kept ' + (cards.length - emailWatchState().count)
-                    + ' more since.</b> Same email, and we\u2019ll watch '
+                    + ' more since.</b> Same email and we\u2019ll watch '
                     + (cards.length - emailWatchState().count === 1 ? 'that one' : 'those') + ' too.'
-                  : '<b>Want to know when these move?</b> '
-                    + 'Drop an email and we\u2019ll tell you. No account, no password, nothing to click.')
+                  : '<b>Get an email when these move.</b> '
+                    + 'No account, no password, nothing to click.')
               + '</div>'
             + '<div class="lb-mail">'
               /* Prefilled when we already have it -- retyping an address
@@ -4943,11 +5153,12 @@ function renderLocalPrompt(){
               + '<button onclick="submitEmailWatch()">Alert me</button>'
             + '</div>'
             + '<div id="lbMailMsg" class="lb-fine"></div>')
-      + '<div class="lb-why" style="margin-top:14px;"><b>These live in this browser only.</b> '
-        + 'Clear your history or pick up a different phone and they are gone.</div>'
-      + '<button class="lb-btn" onclick="openAuth()">Keep these anywhere \u2192</button>'
-      + '<div class="lb-fine">One email and a code. No password. First '
-        + FREE_CARD_LIMIT + ' cards free.</div>'
+      /* The account, as a line rather than a button. Says the one thing
+         it does that the email cannot, and says what it costs, so
+         nobody taps it expecting the no-code path. */
+      + '<div class="lb-alt">These cards live in this browser only. '
+        + '<a onclick="openAuth()">Sign in to keep them anywhere \u2192</a>'
+        + '<span class="lb-alt-fine">one email and a code, no password</span></div>'
       + '<button class="lb-no" onclick="dismissLocalAsk()">Not now</button>'
     + '</div>')
   + '</div>';
