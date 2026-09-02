@@ -966,15 +966,26 @@ input[type=file]{display:none;}
   </a>
   <div class="tb-right" id="tbAuth">
     <span class="tb-free">Scanning is free</span>
-    <button class="tb-auth" onclick="openAuth()">Sign in</button>
+    <!-- Must match what renderAuth() writes, or the old label flashes
+         on load before the script runs. -->
+    <button class="tb-auth" onclick="openAuth()">Track my collection</button>
   </div>
 </div>
 
 <div class="auth-modal" id="authModal">
   <div class="auth-inner">
     <button class="auth-close" onclick="closeAuth()">&times;</button>
-    <h3 id="authTitle">Start Your Binder &mdash; Free</h3>
-    <p id="authSub">Save the cards you own, watch, and want &mdash; all in one binder. Your first 25 cards are free. No password to create &mdash; just a code we'll email you.</p>
+    <!-- Matches the header button. Somebody who taps "Track my
+         collection" should land on a panel saying the same thing back
+         to them, not a different product name. -->
+    <h3 id="authTitle">Track your collection</h3>
+    <!-- Leads with what is already free, so this does not read as a
+         paywall on a scanner that has none. Then the three things an
+         account actually adds, in the order they matter: the cards
+         survive, they follow you, and they get re-priced -- the last
+         being the only one that is a reason to come back rather than
+         insurance against loss. -->
+    <p id="authSub">Scanning and pricing stay free. An account keeps your cards when this browser is cleared, opens the same collection on any device, and re-prices what you've saved every night. First 25 cards free, no password &mdash; just a code we'll email you.</p>
     <div class="auth-err" id="authErr"></div>
 
     <div id="authStepEmail">
@@ -2462,11 +2473,29 @@ function buildSalesList(d){
   rows = rows.filter(function(x){ return Number(x.price) > 0; });
   if(rows.length < 2) return '';   // one sale is not a list
 
-  /* Highest first. The reviewer above looks for the top sale, and a
-     seller pricing a card cares about the ceiling more than the order
-     they happened to arrive in. The date is on every row, so nothing
-     about when is lost by not sorting by it. */
-  rows = rows.slice().sort(function(a,b){ return Number(b.price) - Number(a.price); });
+  /* MOST RECENT FIRST, NOT HIGHEST FIRST.
+
+     Sorting by price looked right in isolation and was wrong in place.
+     A real result: the headline read $2 -- a median across 100+ sales
+     -- and the five rows underneath it read $21, $8, $7, $6, $6,
+     because those were the top of the twelve the server returns. The
+     page appeared to contradict itself, and the contradiction was
+     entirely an artefact of how this list was ordered.
+
+     Date order cannot do that. The rows are a sample of what has been
+     happening lately, so they scatter either side of the median the
+     way a sample should, and the top sale is still visible -- just not
+     promoted to the front where it reads as the answer.
+
+     The count line below says how many of how many, because twelve
+     rows under a median of a hundred sales is a sample and should not
+     look like the whole story. */
+  rows = rows.slice().sort(function(a,b){
+    var da = a.saleDate ? Date.parse(a.saleDate) : 0;
+    var db = b.saleDate ? Date.parse(b.saleDate) : 0;
+    if(db !== da) return db - da;
+    return Number(b.price) - Number(a.price);   // same day: bigger first
+  });
 
   var typeLabel = function(t){
     var s = String(t || '').toLowerCase();
@@ -2502,8 +2531,14 @@ function buildSalesList(d){
   var visible = rows.slice(0, 5).map(function(x){ return row(x, false); }).join('');
   var rest    = rows.slice(5).map(function(x){ return row(x, true); }).join('');
 
+  /* "WHAT EACH ONE ACTUALLY SOLD FOR" claimed the list was every sale.
+     It is up to twelve of them. Says which now. */
+  var total = Number((sold && sold.soldCount) || 0);
+  var label = 'RECENT SALES'
+    + (total > rows.length ? ' \u00b7 ' + rows.length + ' OF ' + total : '');
+
   return '<div class="sl" id="salesList">'
-    + '<div class="sl-t">WHAT EACH ONE ACTUALLY SOLD FOR</div>'
+    + '<div class="sl-t">' + label + '</div>'
     + visible + rest
     + (rest
         ? '<button class="sl-more" onclick="showAllSales()">Show all '
@@ -4707,8 +4742,25 @@ function renderAuth(){
 
        The free-ness that IS true stays as the line beside it: scanning
        costs nothing and never will. */
+    /* THE BUTTON HAS TO CARRY THE REASON, BECAUSE ON A PHONE IT IS THE
+       ONLY THING THERE.
+
+       .tb-free is hidden below 560px. So on mobile -- which is nearly
+       all the traffic -- "Scanning is free" never renders and the
+       header was a bare "Sign in": a door with nothing written on it.
+
+       Of the three things an account actually buys, two are insurance
+       (the cards survive a cleared browser, and they open on another
+       phone) and people do not act on insurance. The third is a reason
+       to come BACK: kept cards get re-priced every night, so you can
+       see what moved. That is the one worth the four words there is
+       room for.
+
+       "Track my cards" says it without claiming a feature that does
+       not exist. Not "sign in for more" -- that is the vague shape
+       stripped out of three other places today. */
     w.innerHTML = '<span class="tb-free">Scanning is free</span>'
-      + '<button class="tb-auth" onclick="openAuth()">Sign in</button>';
+      + '<button class="tb-auth" onclick="openAuth()">Track my collection</button>';
   }
 }
 
