@@ -347,6 +347,9 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
       <div class="sub">For each priced item, how much room exists before a discount eats into your target margin. Only shows items with both a cost and an ask price set.</div>
       <div class="row"><label class="small">Target margin</label><input id="targetMargin" type="number" min="0" max="95" step="1" value="20" style="width:70px" onchange="this.dataset.touched='1';renderMarginGuide()">%</div>
       <div id="marginGuide"></div>
+      <!-- Filled by openEbay(). Hidden until a row asks for it so the
+           inventory screen is not carrying an empty box around. -->
+      <div id="ebayPanel" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--border,#2a3550);border-radius:12px;background:var(--panel,rgba(255,255,255,.02))"></div>
     </div>
     <div class="panel"><h2>Workflow</h2><div class="sub">PHOTO → DETECT → IDENTIFY → PRICE → INVENTORY → BREAK ASSIGNMENT → LABEL</div></div>
   </section>
@@ -2546,6 +2549,296 @@ const INV_PAGE = 100;
 let invShown = INV_PAGE;
 function invShowMore(){ invShown += INV_PAGE; renderInventory(); }
 
+/* THIS FILE HAD NO ANALYTICS AT ALL.
+
+   Which is why nobody can answer whether the Business tool is used --
+   74 cards and zero recorded sales, with no events either way. The
+   whole point of shipping a paste-it-yourself listing generator rather
+   than an eBay API integration is to find out whether shops want it
+   before building the hard version, and that question needs one event.
+
+   Wrapped so it can never throw and never blocks. An analytics failure
+   must not break a shop's listing screen, and a missing Supabase
+   client on an older tablet must not either. */
+async function shopLog(event, detail){
+  try{
+    if(typeof SB === 'undefined' || !SB) return;
+    await SB.rpc('log_scan_event', {
+      p_event:     String(event).slice(0,40),
+      p_card_name: detail ? String(detail).slice(0,200) : null,
+      p_used_back: false,
+      p_is_owner:  false
+    });
+  }catch(e){ /* never let a log break the page */ }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EBAY LISTING GENERATOR
+
+   Everything eBay needs to list a card is already in this row: year,
+   brand, set, card number, player, parallel, serial, auto/patch flags,
+   condition, and a market price the pricing engine already refused to
+   publish if the comps were bad. Retyping all of that into eBay's form
+   is the slowest part of a shop's day and it is pure transcription.
+
+   DELIBERATELY NOT AN API INTEGRATION. eBay's Sell APIs would let this
+   publish directly, and that is a real option later -- but it needs
+   per-seller OAuth, token refresh, every seller having business
+   policies configured, and a bug would write to somebody's live eBay
+   account. This generates text a person pastes in themselves. If shops
+   use it, the API work is obviously worth doing. If they don't, it
+   saved building all of that for nobody.
+
+   THE PRICE MATHS IS THE MARGIN GUIDE'S, not a second version of it.
+   netAt() and priceForNet() are recreated here from the same shop
+   profile fields so the two can never disagree -- a listing screen and
+   a margin screen quoting different floors for the same card is how a
+   shop stops trusting both. */
+
+/* eBay truncates titles at 80 characters. Not a soft limit -- the rest
+   is simply gone, so the parallel or the serial can vanish silently if
+   the title is built by concatenation and hope.
+
+   Built in priority order and cut from the LEAST identifying end. Year,
+   player and set are what a buyer searches; "RC" and the team are what
+   they can live without. */
+function ebayTitle(x){
+  const bits = [];
+  const push = v => { const t = String(v == null ? '' : v).trim(); if(t) bits.push(t); };
+
+  push(x.year);
+  push(x.brand);
+  push(x.set);
+  push(x.name);
+  if(x.number) push(String(x.number).charAt(0) === '#' ? x.number : '#' + x.number);
+  push(x.parallel);
+  if(x.serial) push(String(x.serial).replace(/\s+/g,''));
+  if(x.isAuto)  push('Auto');
+  if(x.isPatch) push('Patch');
+  push(x.team);
+
+  let out = bits.join(' ').replace(/\s+/g,' ').trim();
+  /* Drop trailing terms until it fits, rather than hard-cutting
+     mid-word and leaving "Refract" in the title. */
+  while(out.length > 80 && bits.length > 4){
+    bits.pop();
+    out = bits.join(' ').replace(/\s+/g,' ').trim();
+  }
+  return out.slice(0,80);
+}
+
+/* eBay's trading-card category requires item specifics, and a listing
+   missing them ranks badly and sometimes cannot be published at all.
+   These are the field names eBay actually uses -- "Season" not "Year",
+   "Parallel/Variety" not "Parallel" -- so the shop can paste each one
+   straight across without translating. */
+function ebaySpecifics(x){
+  const rows = [];
+  const add = (k,v) => { const t = String(v == null ? '' : v).trim(); if(t) rows.push([k,t]); };
+
+  add('Sport', x.sport || '');
+  add('Player/Athlete', x.name);
+  add('Season', x.year);
+  add('Manufacturer', x.brand);
+  add('Set', x.set);
+  add('Card Number', x.number);
+  add('Parallel/Variety', x.parallel);
+  add('Team', x.team);
+  if(x.serial) add('Print Run', String(x.serial).replace(/\s+/g,''));
+  add('Card Condition', x.condition || 'Near Mint or Better');
+  add('Graded', 'No');
+  add('Autographed', x.isAuto ? 'Yes' : 'No');
+  const features = [];
+  if(x.isAuto)  features.push('Autograph');
+  if(x.isPatch) features.push('Patch/Relic');
+  if(x.parallel) features.push('Parallel/Variation');
+  if(x.serial)  features.push('Serial Numbered');
+  if(features.length) add('Features', features.join(', '));
+  return rows;
+}
+
+/* Plain, factual, and short. A description that oversells is a return
+   waiting to happen, and a shop listing forty cards a week does not
+   want to edit forty paragraphs. States what the card is, what
+   condition it is in, and nothing about what it is worth. */
+function ebayDescription(x){
+  const L = [];
+  L.push(ebayTitle(x));
+  L.push('');
+  const d = [];
+  if(x.year)     d.push('Year: ' + x.year);
+  if(x.brand)    d.push('Manufacturer: ' + x.brand);
+  if(x.set)      d.push('Set: ' + x.set);
+  if(x.number)   d.push('Card Number: ' + x.number);
+  if(x.team)     d.push('Team: ' + x.team);
+  if(x.parallel) d.push('Parallel: ' + x.parallel);
+  if(x.serial)   d.push('Serial Numbered: ' + String(x.serial).replace(/\s+/g,''));
+  if(x.isAuto)   d.push('Autograph: Yes');
+  if(x.isPatch)  d.push('Patch/Relic: Yes');
+  d.push('Condition: ' + (x.condition || 'Near Mint or Better'));
+  L.push(d.join('\n'));
+  L.push('');
+  L.push('Card is pictured. Please review the photos and ask any questions before buying.');
+  L.push('Shipped in a penny sleeve and top loader, packed to arrive safely.');
+  return L.join('\n');
+}
+
+/* SUGGESTED, NOT DECIDED. Every number here is shown with the working
+   next to it, because a shop that cannot see how a price was reached
+   will not use it twice.
+
+   Buy It Now sits at the ask the shop already set. Best Offer accept
+   sits at the target-margin floor -- the lowest price that still earns
+   what the shop said it wants -- so accepting an auto-offer at that
+   number can never quietly undercut the margin. Break-even is shown
+   too, because at a show under pressure the number that matters is
+   where you stop making anything at all, not where you dip below
+   target. */
+function ebayPricing(x){
+  const feePct   = Math.min(0.95, Math.max(0, Number(shopProfile.feePercent||0)/100));
+  const shipping = Math.max(0, Number(shopProfile.shippingCost||0));
+  const target   = (Number(shopProfile.targetMargin)||20)/100;
+  const cost     = Number(x.cost)||0;
+  const ask      = Number(x.ask)||Number(x.market)||0;
+
+  const netAt        = p => p*(1-feePct) - shipping;
+  const priceForNet  = n => (1-feePct) > 0 ? (n + shipping)/(1-feePct) : n + shipping;
+
+  const bin        = ask;
+  const minPrice   = cost > 0 ? priceForNet(cost/(1-target)) : 0;
+  const breakEven  = cost > 0 ? priceForNet(cost) : 0;
+  const offerFloor = Math.max(minPrice, breakEven);
+  const netBin     = netAt(bin);
+
+  return {
+    bin: bin, offerFloor: offerFloor, breakEven: breakEven,
+    feePct: feePct*100, shipping: shipping, cost: cost,
+    netBin: netBin, profitBin: netBin - cost,
+    /* An ask BELOW the target floor is not a pricing suggestion, it is
+       a warning. Silently raising it would be deciding for the shop. */
+    askBelowFloor: cost > 0 && bin > 0 && bin < minPrice,
+    noPrice: !(bin > 0)
+  };
+}
+
+function ebayListingHTML(x){
+  const p = ebayPricing(x);
+  const title = ebayTitle(x);
+  const specs = ebaySpecifics(x);
+  const desc  = ebayDescription(x);
+
+  const specText = specs.map(r => r[0] + ': ' + r[1]).join('\n');
+  const specRows = specs.map(r =>
+    '<tr><td class="sub" style="padding:4px 10px 4px 0;white-space:nowrap">' + esc(r[0])
+    + '</td><td style="padding:4px 0"><b>' + esc(r[1]) + '</b></td></tr>').join('');
+
+  /* The price basis rides along. A shop pasting a Buy It Now built on
+     asking prices rather than completed sales should see that on the
+     same screen, not have to remember it from the inventory row. */
+  const basisNote = x.priceBasis === 'ask'
+      ? '<div class="pill warn" style="margin-top:6px">Market price came from asking prices, not completed sales \u2014 treat the suggestion as rough.</div>'
+    : x.priceBasis === 'sold_mixed'
+      ? '<div class="pill warn" style="margin-top:6px">Comps were mixed versions of this card \u2014 check the price before listing.</div>'
+    : '';
+
+  const priceBlock = p.noPrice
+    ? '<div class="empty">No ask price set for this card, so there is nothing to suggest. Set one in the inventory row first.</div>'
+    : '<table style="width:100%;border-collapse:collapse">'
+      + '<tr><td class="sub" style="padding:5px 10px 5px 0">Buy It Now</td>'
+      +   '<td style="padding:5px 0"><b style="font-size:18px">' + money(p.bin) + '</b></td></tr>'
+      + '<tr><td class="sub" style="padding:5px 10px 5px 0">Auto-accept offers above</td>'
+      +   '<td style="padding:5px 0"><b>' + money(p.offerFloor) + '</b>'
+      +   '<span class="sub"> \u00b7 lowest price that still clears your ' + (Number(shopProfile.targetMargin)||20) + '% target</span></td></tr>'
+      + '<tr><td class="sub" style="padding:5px 10px 5px 0">Break-even</td>'
+      +   '<td style="padding:5px 0">' + money(p.breakEven) + '<span class="sub"> \u00b7 below this you lose money</span></td></tr>'
+      + '<tr><td class="sub" style="padding:5px 10px 5px 0">You keep at BIN</td>'
+      +   '<td style="padding:5px 0"><b class="' + (p.profitBin>=0?'ok':'bad') + '">' + money(p.netBin) + '</b>'
+      +   '<span class="sub"> after ' + p.feePct.toFixed(1) + '% fees and ' + money(p.shipping) + ' shipping'
+      +   (p.cost>0 ? ' \u00b7 profit ' + money(p.profitBin) : '') + '</span></td></tr>'
+      + '</table>'
+      + (p.askBelowFloor
+          ? '<div class="pill bad" style="margin-top:8px">Your ask is below the price that clears your target margin ('
+            + money(p.offerFloor) + '). Listing at ' + money(p.bin) + ' earns less than you said you want.</div>'
+          : '')
+      + basisNote;
+
+  return ''
+    + '<div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:10px">'
+    +   '<b>eBay listing</b>'
+    +   '<button class="btn" onclick="closeEbay()">Close</button>'
+    + '</div>'
+    + '<div class="sub" style="margin-bottom:12px">Copy each piece into eBay\u2019s form. Nothing is sent anywhere \u2014 you stay in control of what gets listed.</div>'
+
+    + '<div class="sub" style="margin-top:14px">TITLE \u00b7 ' + title.length + '/80</div>'
+    + '<textarea id="ebTitle" rows="2" style="width:100%">' + esc(title) + '</textarea>'
+    + '<button class="btn" onclick="copyEbay(\'ebTitle\',this)">Copy title</button>'
+
+    + '<div class="sub" style="margin-top:16px">ITEM SPECIFICS</div>'
+    + '<table style="border-collapse:collapse;margin:4px 0 6px">' + specRows + '</table>'
+    + '<textarea id="ebSpecs" rows="3" style="width:100%">' + esc(specText) + '</textarea>'
+    + '<button class="btn" onclick="copyEbay(\'ebSpecs\',this)">Copy specifics</button>'
+
+    + '<div class="sub" style="margin-top:16px">DESCRIPTION</div>'
+    + '<textarea id="ebDesc" rows="8" style="width:100%">' + esc(desc) + '</textarea>'
+    + '<button class="btn" onclick="copyEbay(\'ebDesc\',this)">Copy description</button>'
+
+    + '<div class="sub" style="margin-top:18px">PRICE</div>'
+    + priceBlock
+
+    + '<div class="actions" style="margin-top:16px">'
+    +   '<a class="btn" target="_blank" rel="noopener" href="https://www.ebay.com/sl/sell">Open eBay listing form</a>'
+    +   '<button class="btn" onclick="markListed(\'' + x.id + '\')">Mark as Listed</button>'
+    + '</div>';
+}
+
+var ebayOpenFor = null;
+
+function openEbay(id){
+  const x = shopInventory.find(r => r.id === id);
+  if(!x) return;
+  ebayOpenFor = id;
+  const el = document.getElementById('ebayPanel');
+  if(!el) return;
+  el.innerHTML = ebayListingHTML(x);
+  el.style.display = 'block';
+  el.scrollIntoView({behavior:'smooth', block:'start'});
+  shopLog('ebay_listing_opened', String(x.name||'').slice(0,120));
+}
+
+function closeEbay(){
+  const el = document.getElementById('ebayPanel');
+  if(el){ el.style.display='none'; el.innerHTML=''; }
+  ebayOpenFor = null;
+}
+
+/* Falls back to select-and-execCommand where the clipboard API is
+   unavailable, which on an older in-shop tablet is not rare. A copy
+   button that silently does nothing is worse than no button. */
+async function copyEbay(elId, btn){
+  const ta = document.getElementById(elId);
+  if(!ta) return;
+  let ok = false;
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    ok = true;
+  }catch(e){
+    try{ ta.select(); ok = document.execCommand('copy'); }catch(e2){}
+  }
+  if(btn){
+    const was = btn.textContent;
+    btn.textContent = ok ? '\u2713 Copied' : 'Select it and copy';
+    setTimeout(()=>{ btn.textContent = was; }, 1600);
+  }
+  if(ok) shopLog('ebay_listing_copied', elId);
+}
+
+async function markListed(id){
+  if(!requireWrite()) return;
+  await editInv(id, 'status', 'Listed');
+  shopLog('ebay_marked_listed', String(id).slice(0,40));
+  closeEbay();
+}
+
 function renderInventory(){
   const all=shopInventory;
   const el=document.getElementById('inventoryTable');
@@ -2633,7 +2926,7 @@ function renderInventory(){
     const variantBadges=(x.isAuto?'<span class="pill bad">AUTO</span> ':'')+(x.isPatch?'<span class="pill warn">PATCH</span> ':'');
     const reviewBadge=x.needsReview?`<br><span class="pill bad" title="${esc((x.reviewReasons||[]).join('; '))}">⚠ Needs review</span>`:'';
     const addedByLine=x.addedBy?`<br><span class="sub" style="opacity:.7">Added by ${esc(x.addedBy)}</span>`:'';
-    return `<tr><td style="text-align:center"><input type="checkbox" style="width:auto" ${invSelected.has(x.id)?'checked':''} onchange="invToggle('${x.id}',this.checked)"></td><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${esc(x.team||'')}" onchange="editInv('${x.id}','team',this.value)" placeholder="Team" style="min-width:96px"></td><td><input value="${esc(x.condition||'')}" onchange="editInv('${x.id}','condition',this.value)" placeholder="NM" style="min-width:74px" title="Condition — write whatever your shop uses"></td><td><input value="${esc(x.location||'')}" onchange="editInv('${x.id}','location',this.value)" placeholder="Box 3" style="min-width:96px" title="Where this card physically is"></td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="this.value==='Sold'?openSaleForm('${x.id}',this):editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td><td><button class="btn danger" style="padding:8px 10px" title="Remove this card" onclick="delInv('${x.id}')">Remove</button></td></tr>`;
+    return `<tr><td style="text-align:center"><input type="checkbox" style="width:auto" ${invSelected.has(x.id)?'checked':''} onchange="invToggle('${x.id}',this.checked)"></td><td>${variantBadges}<b>${esc(x.name)}</b><br><span class="sub">${esc([x.year,x.set,x.number,x.team].filter(Boolean).join(' · '))}${variantMeta?' · '+esc(variantMeta):''}</span>${addedByLine}${reviewBadge}</td><td>${money(x.market)}${x.priceBasis==='ask'?' <span class="pill warn">ask only</span>':x.priceBasis==='sold_mixed'?' <span class="pill warn">mixed comps</span>':x.priceBasis==='sold'?' <span class="pill ok">sold</span>':''}</td><td><input value="${esc(x.team||'')}" onchange="editInv('${x.id}','team',this.value)" placeholder="Team" style="min-width:96px"></td><td><input value="${esc(x.condition||'')}" onchange="editInv('${x.id}','condition',this.value)" placeholder="NM" style="min-width:74px" title="Condition — write whatever your shop uses"></td><td><input value="${esc(x.location||'')}" onchange="editInv('${x.id}','location',this.value)" placeholder="Box 3" style="min-width:96px" title="Where this card physically is"></td><td><input value="${x.cost}" onchange="editInv('${x.id}','cost',this.value)" type="number" step=".01"></td><td><input value="${x.ask}" onchange="editInv('${x.id}','ask',this.value)" type="number" step=".01"></td><td class="${(x.ask-x.cost)>=0?'ok':'bad'}">${money(x.ask-x.cost)}</td><td><select onchange="this.value==='Sold'?openSaleForm('${x.id}',this):editInv('${x.id}','status',this.value)"><option ${x.status==='Available'?'selected':''}>Available</option><option ${x.status==='Listed'?'selected':''}>Listed</option><option ${x.status==='Sold'?'selected':''}>Sold</option></select></td><td><button class="btn" style="padding:8px 10px" title="Build an eBay listing from this card" onclick="openEbay('${x.id}')">List</button> <button class="btn danger" style="padding:8px 10px" title="Remove this card" onclick="delInv('${x.id}')">Remove</button></td></tr>`;
   }).join('')}</tbody></table></div>`+moreBtn;
 }
 // Takes the row's real id (a Supabase uuid), not an array index --
