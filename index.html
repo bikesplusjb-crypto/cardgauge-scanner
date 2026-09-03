@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="CardGauge"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-<meta name="description" content="The only card scanner that reads both sides — the year, set and card number are printed on the back. Real sold prices, and an honest warning when they're mixing versions. Free, no signup, no scan limit."/>
+<meta name="description" content="The only card scanner that reads both sides — the year, set and card number are printed on the back. Real sold prices, and an honest warning when they're mixing versions. Free to scan, free account after your first few cards."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet"/>
@@ -866,6 +866,30 @@ input[type=file]{display:none;}
 .pcode-in button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#f1f5f9;
   border-radius:8px;padding:9px 13px;font-family:inherit;font-size:13px;cursor:pointer;}
 
+/* The account wall. Deliberately the same visual language as the rest
+   of the app rather than an interstitial -- it is a step, not a stop. */
+.cgw-ov{position:fixed;inset:0;background:rgba(4,8,16,.88);z-index:99998;
+  display:flex;align-items:center;justify-content:center;padding:22px 16px;overflow-y:auto;}
+.cgw{background:#111827;border:1px solid #2a3a55;border-radius:18px;
+  padding:28px 24px 24px;max-width:400px;width:100%;position:relative;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;color:#f1f5f9;}
+.cgw-x{position:absolute;top:12px;right:15px;background:none;border:none;
+  color:#64748b;font-size:25px;line-height:1;cursor:pointer;}
+.cgw-h{font-size:20px;font-weight:900;letter-spacing:-.4px;line-height:1.25;
+  margin-bottom:9px;}
+.cgw-p{font-size:13.5px;color:#94a3b8;line-height:1.6;margin-bottom:17px;}
+.cgw-p b{color:#f1f5f9;}
+.cgw-list{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:9px;}
+.cgw-list li{display:flex;gap:10px;align-items:center;font-size:13.5px;color:#cbd5e1;}
+.cgw-list li span{color:#22c55e;font-weight:800;}
+.cgw-cta{width:100%;padding:15px;border-radius:11px;border:none;
+  background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1206;
+  font-family:inherit;font-size:14.5px;font-weight:800;letter-spacing:.4px;
+  cursor:pointer;box-shadow:0 6px 22px rgba(245,158,11,.28);}
+.cgw-cta:hover{transform:translateY(-1px);}
+.cgw-alt{text-align:center;font-size:12.5px;color:#64748b;margin-top:14px;}
+.cgw-alt a{color:#fbbf24;font-weight:700;cursor:pointer;text-decoration:underline;}
+
 /* ── SERIAL NUMBER BOX ───────────────────────────────────────────
    Shares the .pcode shell above so the short-print check and the
    numbered check read as a pair. Only the extras are here. */
@@ -1273,7 +1297,7 @@ input[type=file]{display:none;}
 
 
 
-  <div class="hero-free">✓ Free · No signup · Both sides read</div>
+  <div class="hero-free">✓ Free to scan · Both sides read</div>
 
   <div>
 
@@ -1577,6 +1601,10 @@ document.getElementById('scanBtn').addEventListener('click',doScan);
 
 async function doScan(){
   if(!frontFile||scanning)return;
+  /* The gate. Before any work, before any cost -- an account ask that
+     arrives after the spinner would waste an API call and read as a
+     bait. */
+  if(needsAccount()){ showAccountWall(); return; }
   scanning=true;var btn=document.getElementById('scanBtn');btn.disabled=true;updateScanBtn();
   setStatusStages([
     { msg:'Reading the card\u2026', after:0 },
@@ -1591,6 +1619,7 @@ async function doScan(){
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Scan failed');
+    noteFreeScan();   /* only a scan that returned a card counts */
     if(!currentUser) bumpAnonScanCount();
     renderResult(d);setStatus('','');
     cgBumpCount();
@@ -4521,7 +4550,7 @@ function renderResult(d){
   if(hasData){
     html+='<div class="scan-again">'
       +'<button class="scan-again-btn" onclick="scanAnother()">&#128247; Scan another card</button>'
-      +'<div class="scan-again-sub">Free and unlimited &mdash; no signup, no counter.</div>'
+      +'<div class="scan-again-sub">Free to scan &mdash; unlimited with an account.</div>'
     +'</div>';
   }
 
@@ -5058,6 +5087,7 @@ async function verifyAuthCode(){
     var r = await SB.auth.verifyOtp({ email: authEmailPending, token: code, type: 'email' });
     if(r.error) throw r.error;
     currentUser = r.data.user || (r.data.session && r.data.session.user);
+    clearFreeScanCount();
     if(!currentUser) throw new Error('Something went wrong \u2014 try again.');
     setAuthPending('');
     await checkPro();
@@ -5142,6 +5172,108 @@ async function watchedCount(){
    trusts nothing afterwards. Every surface says "saved on this
    device". */
 const LOCAL_BINDER_KEY = 'cg_local_binder';
+
+/* ── THREE FREE SCANS, THEN AN ACCOUNT ──────────────────────────
+
+   The bet: a scan answers its own question and ends, so an account
+   asked for at scan one is pure cost. By scan three the person has
+   chosen to come back twice and the tool has proved itself, which is
+   the first moment an account is a step forward rather than a toll.
+
+   WHY THREE AND NOT ONE. The measured history is not encouraging for
+   walls here: 166 sessions were offered a save, 21 started a sign-up,
+   5 finished, 2 ended with a card -- and that ask came AFTER value was
+   delivered. A wall at scan one would meet cold social traffic that
+   arrived ten seconds earlier. Three keeps the part of the funnel that
+   currently works and still asks everyone who shows real intent.
+
+   FAILS OPEN, ALWAYS. This scanner runs in a Wix iframe on a
+   filesusr.com origin, where storage is third-party: Safari and Chrome
+   partition or block it, and ITP clears it after seven days idle.
+   LOCAL_OK already probes for that. When storage is unavailable the
+   count cannot be trusted, so nobody is blocked -- losing a signup
+   costs far less than refusing somebody their first scan because we
+   could not count. On the Wix surface the limit is therefore leaky and
+   resets periodically; on the standalone PWA it is solid. That is a
+   real difference in enforcement and it is deliberate. */
+
+var SCAN_FREE_LIMIT = 3;
+var SCAN_COUNT_KEY  = 'cg_free_scans';
+
+function freeScansUsed(){
+  if(!LOCAL_OK) return 0;
+  try{ return parseInt(localStorage.getItem(SCAN_COUNT_KEY) || '0', 10) || 0; }
+  catch(e){ return 0; }
+}
+
+/* Counted only for signed-out people, and only on a scan that actually
+   returned a card. A failed scan is not a free one. */
+function noteFreeScan(){
+  if(currentUser || !LOCAL_OK) return;
+  try{
+    var n = freeScansUsed() + 1;
+    localStorage.setItem(SCAN_COUNT_KEY, String(n));
+    if(n === SCAN_FREE_LIMIT) logEvent('free_scans_exhausted', String(n), false);
+  }catch(e){}
+}
+
+function needsAccount(){
+  return !currentUser && LOCAL_OK && freeScansUsed() >= SCAN_FREE_LIMIT;
+}
+
+/* NOT A PUNISHMENT SCREEN. No counter, no "you have used up", no red.
+   It names what an account is for and what it costs -- one field, a
+   code, no password -- because the round trip to an email app is what
+   actually loses people, not the idea of an account. */
+function showAccountWall(){
+  logEvent('account_wall', String(freeScansUsed()), false);
+  if(window.ttq) ttq.track('ViewContent',{content_name:'account_wall',content_type:'scanner'});
+
+  var el = document.getElementById('cgWall');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'cgWall';
+    document.body.appendChild(el);
+  }
+  el.innerHTML =
+    '<div class="cgw-ov" onclick="if(event.target===this)closeAccountWall()">'
+  +   '<div class="cgw">'
+  +     '<button class="cgw-x" onclick="closeAccountWall()">&times;</button>'
+  +     '<div class="cgw-h">Create your free CardGauge account</div>'
+  +     '<div class="cgw-p">Scan any card free. Keep what you scan, and we\'ll tell '
+  +       'you when it moves.<br><b>No password. Just a code.</b></div>'
+  +     '<ul class="cgw-list">'
+  +       '<li><span>\u2713</span>Free scanning</li>'
+  +       '<li><span>\u2713</span>MultiScan Beta</li>'
+  +       '<li><span>\u2713</span>Price tracking</li>'
+  +       '<li><span>\u2713</span>Collection tools</li>'
+  +     '</ul>'
+  +     '<button class="cgw-cta" onclick="wallToAuth()">CREATE FREE ACCOUNT</button>'
+  +     '<div class="cgw-alt">Already have an account? '
+  +       '<a onclick="wallToAuth()">Log in</a></div>'
+  +   '</div>'
+  + '</div>';
+}
+
+function closeAccountWall(){
+  var el = document.getElementById('cgWall');
+  if(el) el.innerHTML = '';
+  logEvent('account_wall_dismissed', null, false);
+}
+
+function wallToAuth(){
+  logEvent('account_wall_clicked', null, false);
+  closeAccountWall();
+  openAuth();
+}
+
+/* Signing in clears the count. Somebody who makes an account and later
+   signs out on the same device should not meet the wall again with no
+   scans left -- they already did the thing it asked for. */
+function clearFreeScanCount(){
+  try{ localStorage.removeItem(SCAN_COUNT_KEY); }catch(e){}
+}
+
 
 /* PROVE THE STORAGE WORKS BEFORE PROMISING TO USE IT.
 
@@ -5720,7 +5852,7 @@ if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content
 async function shareCardGauge(){
   const shareData={
     title:'CardGauge',
-    text:"I've been using CardGauge to scan and price my sports cards — free, no signup. Worth a look if you collect.",
+    text:"I've been using CardGauge to scan and price my sports cards — free. Worth a look if you collect.",
     url:'https://scan.cardgauge.com'
   };
   if(window.ttq)ttq.track('ClickButton',{content_name:'share_cardgauge',content_type:'scanner_standalone'});
