@@ -4006,7 +4006,22 @@ function serialBoxHTML(d){
                 : '')
             + '. Only the print run is searched.</div>';
     }
-    body += '<div class="ser-in"><button onclick="clearSerial()">Not numbered \u2014 undo</button></div>';
+    /* THE INPUT STAYS. The first version replaced it with an undo
+       button the moment a serial was submitted, so a person who typed
+       the wrong thing -- or whose only option WAS the wrong thing,
+       before the keypad fix -- had no way to correct it without
+       backing out of the whole panel. A correction field that vanishes
+       after one use is not a correction field. */
+    body += '<div class="ser-in">'
+          +   '<input id="serIn" inputmode="text" autocapitalize="off" autocorrect="off" '
+          +     'spellcheck="false" maxlength="11" placeholder="23/25" '
+          +     'value="' + esc(serialAsserted.text) + '" '
+          +     'onkeydown="if(event.key===\'Enter\')applySerial()">'
+          +   '<button id="serGo" onclick="applySerial()">Re-price</button>'
+          + '</div>'
+          + '<div id="serOut" class="pcode-v" style="font-size:12.5px;margin-top:8px;"></div>'
+          + '<div class="ser-in" style="margin-top:6px"><button onclick="clearSerial()">'
+          +   'Not numbered \u2014 undo</button></div>';
 
   } else {
     body = '<div class="pcode-v" style="font-size:12.5px;color:var(--text3,#94a3b8)">'
