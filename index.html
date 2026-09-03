@@ -865,6 +865,20 @@ input[type=file]{display:none;}
   border-radius:8px;padding:9px 10px;color:#f1f5f9;font-family:var(--fm,monospace);font-size:15px;text-align:center;}
 .pcode-in button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#f1f5f9;
   border-radius:8px;padding:9px 13px;font-family:inherit;font-size:13px;cursor:pointer;}
+
+/* ── SERIAL NUMBER BOX ───────────────────────────────────────────
+   Shares the .pcode shell above so the short-print check and the
+   numbered check read as a pair. Only the extras are here. */
+.ser-in{display:flex;gap:6px;margin-top:9px;}
+.ser-in input{width:108px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
+  color:#f1f5f9;border-radius:7px;padding:8px 10px;font-family:var(--fm,monospace);font-size:14px;}
+.ser-in button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#f1f5f9;
+  border-radius:7px;padding:8px 13px;font-family:inherit;font-size:13px;font-weight:700;
+  cursor:pointer;white-space:nowrap;}
+.ser-in button:disabled{opacity:.5;cursor:default;}
+.ser-on{color:#fbbf24;font-weight:700;}
+.ser-none{color:#f87171;font-weight:700;}
+.ser-copy{font-family:var(--fm,monospace);font-size:11.5px;color:var(--text3,#94a3b8);margin-top:6px;}
 .lb-mail{display:flex;gap:6px;margin:10px 0 4px;}
 .lb-mail input{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
   border-radius:9px;padding:11px 12px;color:#f1f5f9;font-family:inherit;font-size:14px;}
@@ -3744,6 +3758,10 @@ function setDecCost(v){
 
 function scanAnother(){
   try{ clearFront(); clearBack(); }catch(e){}
+  /* A serial typed on the LAST card must not carry onto the next one.
+     Without this the box would claim "Priced as /25" over a price that
+     never involved a serial at all. */
+  serialAsserted = null;
   var el = document.querySelector('.scan-card');
   if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   logEvent('scan_another_clicked', null, false);
@@ -3826,6 +3844,207 @@ async function lookupPrintCode(){
   }catch(e){
     out.innerHTML = '<span style="color:#f87171">Couldn\u2019t check that.</span>';
   }
+}
+
+
+/* ── A NUMBERED CARD WHOSE NUMBER THE CAMERA COULDN'T READ ───────
+
+   Serial numbering is printed small, often in foil, and often on the
+   same shiny surface the glare lands on. The model is told to leave
+   serialNumber empty rather than guess a digit, so plenty of genuinely
+   numbered cards arrive here looking like base cards -- and a base
+   price on a /25 is wrong by a multiple, not by a margin.
+
+   buildSerialWarning() below only catches the case where a serial WAS
+   read and then dropped by the broadening chain. This box catches the
+   other case, which is the more common one: nothing was read at all.
+
+   SOMEBODY HOLDING THE CARD CAN READ IT IN TWO SECONDS. Same reasoning
+   as the print-code box above -- the manual input is not a fallback,
+   it is the expected path.
+
+   A TYPED SERIAL IS HARDER EVIDENCE THAN A READ ONE. The model guesses
+   from a photograph; a person is looking at the card. So once somebody
+   types /25, a base-card price is not a rough guide for this card, it
+   is the price of a different card, and this box says so instead of
+   showing it.
+
+   ONLY THE DENOMINATOR IS SEARCHABLE, and this is the easy thing to
+   get wrong. In 23/25 the 25 is the print run -- what every copy
+   shares, and what sellers put in listing titles. The 23 is which copy
+   this one is, and it appears in exactly one listing on earth.
+   Searching "23/25" finds nothing on a card that has plenty of comps.
+   The numerator is kept for the record and never enters the query.
+
+   Nothing is needed server-side. /api/card-market runs one search
+   through normalizeCardQuery(), which leaves a serial alone, and there
+   is no tier broadening on that path to drop it -- unlike the scan
+   path, which is where the original dropped-serial bug lives. */
+
+var serialAsserted = null;   /* { num, denom, text } once somebody types one */
+
+/* Accepts "23/25", "23 / 25", "/25", "25", "1/1", "one of one".
+
+   Refuses anything shaped like a card number rather than a print run.
+   074/073 and 4/102 are Pokemon card numbers, and without these two
+   checks every Pokemon scan could push junk into the query. The tells
+   are a zero-padded numerator and a numerator larger than the
+   denominator -- both impossible for real serial numbering. */
+function parseSerialInput(raw){
+  var s = String(raw || '').trim().toLowerCase();
+  if(!s) return null;
+  if(/^one\s*of\s*one$/.test(s)) return { num:1, denom:1, text:'1/1' };
+
+  var m = s.match(/^(\d{1,5})\s*\/\s*(\d{1,5})$/);
+  if(m){
+    var num = parseInt(m[1],10), denom = parseInt(m[2],10);
+    if(!denom) return null;
+
+    /* PADDING IS NOT A SIGNAL, AND ASSUMING IT WAS REJECTED REAL CARDS.
+
+       An earlier version here refused any zero-padded numerator on the
+       grounds that 074/073 is Pokemon set numbering. Then a real
+       visitor hit the dropped-serial warning on a 2026 Bowman Chrome
+       Purple Parallel numbered 053/250 -- padded, and a completely
+       genuine serial. Cards print 07/99 and 053/250 all the time, and
+       a Pokemon card can print 004/102, so padding cannot separate
+       them. The old rule would have told somebody reading their own
+       card that they had typed it wrong.
+
+       What DOES separate them is impossibility: a copy number cannot
+       exceed the print run, which is what makes 074/073 obviously set
+       numbering. That check stays.
+
+       Beyond that, trust the person. They are typing into a box
+       labelled NUMBERED CARD CHECK while holding the card, which is
+       better evidence than anything inferable from the digits. And the
+       blast radius is small either way -- only the denominator reaches
+       the query. */
+    if(num > denom) return { error:'The copy number can\u2019t be higher than the print run.' };
+    return { num:num, denom:denom, text:m[1] + '/' + m[2] };
+  }
+
+  /* Just the print run -- "/25" or "25". The commonest thing to type,
+     because it is the only half that affects a price. */
+  m = s.match(/^\/?\s*(\d{1,5})$/);
+  if(m){
+    var d2 = parseInt(m[1],10);
+    if(!d2) return null;
+    return { num:null, denom:d2, text:'/' + d2 };
+  }
+  return { error:'Type it as it\u2019s printed \u2014 23/25, or just /25.' };
+}
+
+/* Strip any serial already in the query before adding one, so repeated
+   corrections cannot stack up as "... /25 /99". Matches a bare /nn and
+   a full nn/nn at token boundaries only -- the card number is already
+   folded into currentQuery by this point and has to survive untouched. */
+function queryWithoutSerial(q){
+  return String(q || '')
+    .replace(/(^|\s)\/\d{1,5}(?=\s|$)/g, '$1')
+    .replace(/(^|\s)\d{1,5}\s*\/\s*\d{1,5}(?=\s|$)/g, '$1')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function serialBoxHTML(d){
+  var read = String((d && d.serialRead) || '').replace(/^\//,'');
+  var body;
+
+  if(serialAsserted){
+    /* Somebody has told us the print run. Report what the market said
+       about THAT card, and nothing else. */
+    var n = (d && Number(d.soldCount)) || 0;
+    body = n > 0
+      ? '<div class="pcode-v">Priced as <span class="ser-on">'
+          + esc(serialAsserted.text) + '</span> \u2014 <b>' + n + '</b> sold '
+          + (n === 1 ? 'record' : 'records') + ' for the /'
+          + esc(String(serialAsserted.denom)) + ' version.</div>'
+      : '<div class="pcode-v"><span class="ser-none">No sales found for /'
+          + esc(String(serialAsserted.denom)) + '.</span><br>'
+          + '<span style="font-size:12.5px;color:var(--text3,#94a3b8)">Normal for a low print '
+          + 'run \u2014 completed sales only go back 30 days and a /'
+          + esc(String(serialAsserted.denom)) + ' may simply not have traded in that window. '
+          + 'We are not falling back to the base price, because on a numbered card that is '
+          + 'a different card rather than a rough guide. Open the sold listings above to '
+          + 'look over a wider window yourself.</span></div>';
+
+    if(serialAsserted.num){
+      body += '<div class="ser-copy">Recorded as copy ' + esc(String(serialAsserted.num))
+            + ' of ' + esc(String(serialAsserted.denom))
+            + (serialAsserted.num === 1 && serialAsserted.denom > 1
+                ? ' \u00b7 first copy \u2014 often sells for more'
+                : '')
+            + '. Only the print run is searched.</div>';
+    }
+    body += '<div class="ser-in"><button onclick="clearSerial()">Not numbered \u2014 undo</button></div>';
+
+  } else {
+    body = '<div class="pcode-v" style="font-size:12.5px;color:var(--text3,#94a3b8)">'
+         + (read
+             ? 'We read <b>/' + esc(read) + '</b> off the card. Wrong? Type what it actually says.'
+             : 'If your card is numbered \u2014 23/25, 07/99 \u2014 type it in. Serial numbering is '
+               + 'small and foil-printed, so photos miss it often, and a numbered card priced '
+               + 'as a base card is wrong by a multiple.')
+         + '</div>'
+         + '<div class="ser-in">'
+         +   '<input id="serIn" inputmode="numeric" maxlength="11" placeholder="23/25" '
+         +     'value="' + (read ? '/' + esc(read) : '') + '" '
+         +     'onkeydown="if(event.key===\'Enter\')applySerial()">'
+         +   '<button id="serGo" onclick="applySerial()">Price it</button>'
+         + '</div>'
+         + '<div id="serOut" class="pcode-v" style="font-size:12.5px;margin-top:8px;"></div>';
+  }
+
+  return '<div class="pcode"><div class="pcode-t">SERIAL NUMBER \u2014 NUMBERED CARD CHECK</div>'
+    + body + '</div>';
+}
+
+async function applySerial(){
+  var inp = document.getElementById('serIn');
+  var out = document.getElementById('serOut');
+  var go  = document.getElementById('serGo');
+  if(!inp) return;
+
+  var parsed = parseSerialInput(inp.value);
+  if(!parsed || parsed.error){
+    if(out) out.innerHTML = '<span style="color:#f87171">'
+      + esc((parsed && parsed.error) || 'Type it as it\u2019s printed \u2014 23/25, or just /25.')
+      + '</span>';
+    return;
+  }
+
+  logEvent('serial_typed', parsed.text, !!(lastResult && lastResult.usedBack));
+  if(go){ go.disabled = true; go.textContent = 'Pricing\u2026'; }
+
+  serialAsserted = parsed;
+  var q = queryWithoutSerial(currentQuery) + ' /' + parsed.denom;
+
+  /* keepName so the header stays the card we identified rather than
+     becoming a prettified version of the query string. */
+  var ok = await repriceQuery(q, {
+    keepName:   true,
+    corrected:  true,
+    statusText: 'Pricing the /' + parsed.denom + '\u2026',
+    trackAs:    'serial_correction'
+  });
+
+  if(!ok){
+    serialAsserted = null;
+    if(go){ go.disabled = false; go.textContent = 'Price it'; }
+    return;
+  }
+  logEvent('serial_priced',
+    parsed.text + ' sold:' + ((lastResult && Number(lastResult.soldCount)) || 0),
+    !!(lastResult && lastResult.usedBack));
+}
+
+function clearSerial(){
+  if(!serialAsserted) return;
+  var back = queryWithoutSerial(currentQuery);
+  serialAsserted = null;
+  logEvent('serial_cleared', null, false);
+  repriceQuery(back, { keepName:true, statusText:'Back to the full search\u2026',
+                       trackAs:'serial_undo' });
 }
 
 function renderResult(d){
@@ -3941,6 +4160,7 @@ function renderResult(d){
      it is worth. Both belong next to the identification, not the
      price. */
   html+=printCodeHTML(d);
+  html+=serialBoxHTML(d);
 
   html+=buildSerialWarning(d);     // base price on a numbered card
   html+=buildSoldHero(d);          // sets spreadFlagged
