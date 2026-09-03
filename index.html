@@ -5285,7 +5285,7 @@ function freeScansUsed(){
 /* Counted only for signed-out people, and only on a scan that actually
    returned a card. A failed scan is not a free one. */
 function noteFreeScan(){
-  if(currentUser || !LOCAL_OK) return;
+  if(currentUser || !LOCAL_OK || cgIsOwner()) return;
   try{
     var n = freeScansUsed() + 1;
     localStorage.setItem(SCAN_COUNT_KEY, String(n));
@@ -5293,7 +5293,22 @@ function noteFreeScan(){
   }catch(e){}
 }
 
+/* OWNER BYPASS. Not security -- this is a string in frontend
+   JavaScript and anyone can read it, the same way anyone can already
+   clear localStorage and get three more scans. The wall is a funnel
+   step, not a lock, so a convenience switch is the right weight.
+
+   Reuses cgIsOwner(), which was already here for keeping Sebastian's
+   own scans out of the analytics. Set it once per surface with
+   ?owner=1 on the URL and it persists; ?owner=0 clears it.
+
+   Owner scans also stop counting toward the limit below, which matters
+   for more than convenience: without it, every test scan inflates
+   free_scans_exhausted and account_wall, and the scan-3-to-account
+   number -- the whole reason the wall exists -- would be measuring
+   Sebastian instead of visitors. */
 function needsAccount(){
+  if(cgIsOwner()) return false;
   return !currentUser && LOCAL_OK && freeScansUsed() >= SCAN_FREE_LIMIT;
 }
 
