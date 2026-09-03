@@ -4017,7 +4017,15 @@ function serialBoxHTML(d){
                + 'as a base card is wrong by a multiple.')
          + '</div>'
          + '<div class="ser-in">'
-         +   '<input id="serIn" inputmode="numeric" maxlength="11" placeholder="23/25" '
+         /* NOT inputmode="numeric". iOS reads that as the digits-only
+            keypad, which HAS NO SLASH KEY -- so the one character this
+            field is built around could not be typed at all. Found by
+            testing a 27/30 card: the only thing enterable was "27",
+            which this parser reads as a PRINT RUN of 27 and prices the
+            wrong card entirely. Plain text keyboard, digits still
+            first on most phones. */
+         +   '<input id="serIn" inputmode="text" autocapitalize="off" autocorrect="off" '
+         +     'spellcheck="false" maxlength="11" placeholder="23/25" '
          +     'value="' + (read ? '/' + esc(read) : '') + '" '
          +     'onkeydown="if(event.key===\'Enter\')applySerial()">'
          +   '<button id="serGo" onclick="applySerial()">Price it</button>'
