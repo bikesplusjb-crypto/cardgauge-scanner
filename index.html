@@ -881,6 +881,10 @@ input[type=file]{display:none;}
 .redeem-h{font-size:14.5px;font-weight:800;color:#fca5a5;margin-bottom:8px;line-height:1.35;}
 .redeem-p{font-size:12.5px;line-height:1.65;color:var(--text2);}
 .redeem-p b{color:#fff;}
+.warn-box{margin:0 16px 12px;padding:13px 15px;border:1px solid rgba(239,68,68,.42);
+  border-radius:12px;background:rgba(239,68,68,.09);}
+.warn-h{font-size:14px;font-weight:800;color:#fca5a5;line-height:1.4;margin-bottom:6px;}
+.warn-p{font-size:12.5px;color:var(--text2);line-height:1.6;}
 .cpl{margin:0 16px 14px;padding:13px 15px;border:1px solid rgba(245,158,11,.32);border-radius:var(--radius-lg);background:rgba(245,158,11,.06);}
 .cpl-h{font-size:14px;font-weight:800;color:var(--gold-warm);margin-bottom:6px;}
 .cpl-p{font-size:12.5px;line-height:1.65;color:var(--text2);}
@@ -3938,6 +3942,7 @@ function renderResult(d){
      price. */
   html+=printCodeHTML(d);
 
+  html+=buildSerialWarning(d);     // base price on a numbered card
   html+=buildSoldHero(d);          // sets spreadFlagged
       html+=buildSalesList(d);         // the sales behind that median
       html+=buildListingMix(d);        // how those sales happened
@@ -5111,6 +5116,41 @@ function buildRedemptionWarning(d){
     + '</div>'
     + '<div class="redeem-p" style="margin-top:9px">Redeem it first. Then scan the card you actually receive \u2014 that one has a price.</div>'
   + '</div>';
+}
+
+/* ── A NUMBERED CARD PRICED AGAINST BASE COPIES ─────────────────
+
+   The server sets serialDropped when it read a serial off the card,
+   put it in the tight query, found nothing, and fell back to a query
+   that does not carry it. The price on screen is then for the base
+   version.
+
+   THIS IS THE WORST KIND OF WRONG NUMBER THIS APP PRODUCES, because
+   nothing else catches it. The comps are clean, so there is no
+   contamination warning. There are plenty of them, so there is no thin
+   warning. The spread is normal. Everything looks right and the number
+   is for a different card.
+
+   Real cost of it: a collector saved 25 high-end numbered cards on
+   23 August, one of which was a Topps Finest /20 that CardGauge valued
+   at $2, and never came back.
+
+   Deliberately styled as a warning rather than a note. A base price on
+   a /20 can be wrong by a hundred times, which is the same order as an
+   autograph priced off base -- and that case has had a loud warning
+   for months. */
+function buildSerialWarning(d){
+  if(!d || !d.serialDropped) return '';
+  var ser = String(d.serialRead || '').replace(/^\//,'');
+  logEvent('serial_dropped_warning', String(d.cardName||'').slice(0,120), !!d.usedBack);
+  return '<div class="warn-box">'
+    + '<div class="warn-h">\u26a0 This price is for the base card, not your numbered one.</div>'
+    + '<div class="warn-p">We read <b>/' + esc(ser) + '</b> off the card, but no completed sales '
+      + 'came back for that version \u2014 so the number above is what unnumbered copies sell for. '
+      + 'A numbered card is usually worth <b>a lot more</b>.'
+      + '<br><br>Tap <b>EDIT</b> on the search below and add <b>/' + esc(ser) + '</b> to see if '
+      + 'any have sold, or check the sold listings yourself.</div>'
+    + '</div>';
 }
 
 function buildGlareTip(d){
