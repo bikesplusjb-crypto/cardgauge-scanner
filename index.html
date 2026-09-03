@@ -4328,7 +4328,27 @@ function renderResult(d){
        the same judgement the price block and the list-price block
        already make; a grade estimate is a bigger claim than either, so
        it cannot have a lower bar. */
-    var ladderUntrustworthy = !anyReal && soldPoisoned;
+    /* WIDENED after a live test walked straight past it.
+
+       The first version keyed on soldContaminated alone. But the
+       warning the person is reading three inches above the ladder --
+       "the sales behind that number are describing more than one
+       version" -- rides spreadFlagged, which is contaminated OR a wide
+       high/low spread. A card can trip the warning without tripping
+       contamination, and on the test card it did: the ladder printed
+       PSA 7 $11 off a $66 ask while the page said not to trust the
+       sales underneath it.
+
+       soldLimited is in here for the same reason. It means the filter
+       worked and there are too few clean sales to call a price -- the
+       decision block already refuses on it, and a ladder built by
+       multiplying one thin number by a curve is a bigger claim than
+       the recommendation that just declined to be made.
+
+       Still gated on !anyReal, so a ladder with real per-grade sales
+       on it is never suppressed. */
+    var ladderUntrustworthy = !anyReal
+      && (spreadFlagged || soldPoisoned || !!(d.sold && d.sold.soldLimited));
 
     var roiHead;
     if(rows.inconsistent){
@@ -4344,8 +4364,11 @@ function renderResult(d){
     if(ladderUntrustworthy){
       html+='<div class="roi"><div class="roi-head">💎 If you graded it</div>'
         +'<div class="roi-note" style="color:var(--gold-warm)"><b>Not estimating grades on this one.</b> '
-        +'The sales behind the price describe more than one version of this card, so any grade '
-        +'estimate would be built on a number we have already said not to trust. '
+        + ((d.sold && d.sold.soldLimited)
+            ? 'There are too few clean sales of this exact card to build the estimate on, and '
+              + 'a grade ladder off one or two sales is a guess wearing four decimal points. '
+            : 'The sales behind the price describe more than one version of this card, so any '
+              + 'grade estimate would be built on a number we have already said not to trust. ')
         +'Narrow the search below and the estimates come back.</div></div>';
       logEvent('grade_ladder_refused', String((d && d.cardName) || '').slice(0,120), false);
     } else {
