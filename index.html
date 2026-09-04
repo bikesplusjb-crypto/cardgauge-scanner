@@ -4569,11 +4569,23 @@ function renderResult(d){
      whether the right card happens to have sold recently. */
   html+=buildVerifyWarning(d);
   html+=buildVerifyLine(d);
-  html+=printCodeHTML(d);
-  html+=serialBoxHTML(d);
 
   var haveSold = !!(d.sold && d.sold.soldCount && !d.sold.rateLimited);
 
+  /* THE PRICE IS WHAT THEY CAME FOR. IT GOES FIRST.
+
+     The correction boxes were moved above the price earlier today, to
+     fix them vanishing on cards with no comps. That fixed the bug and
+     created a worse one: the short-print check and the serial box sat
+     between the scan and the number, and the short-print box usually
+     says nothing more useful than "we don't have the code list for
+     this product yet". Two screens of housekeeping before the answer.
+
+     Warnings still go above -- "this might not be the right card" is a
+     caveat ON the price and is worthless after it. Corrections go
+     below, because their whole purpose is to be used once somebody has
+     seen the number and thinks it is wrong. They still render on every
+     card, comps or not, which was the point of this morning's fix. */
   if(hasData){
     // Sold prices lead when we have them.
     if(haveSold){
@@ -4618,6 +4630,22 @@ function renderResult(d){
     if(d.isRedemption === true){ html+=buildRedemptionWarning(d); }
     else { html+=buildDecision(d, rows, s); }
     html+=buildGlareTip(d);
+
+    /* CORRECTIONS SIT HERE, AFTER THE PRICE, ON EVERY PATH.
+
+       Placing them inside the sold-data branch a moment ago put them
+       back where they were this morning: missing from exactly the
+       cards with no comps, which are the cards most likely to be
+       misidentified. Out here they render whether the price came from
+       sales, from asks, or not at all.
+
+       And after the number, not before it. Somebody who has just
+       scanned wants the price -- burying it under a short-print box
+       that usually says "we don't have the code list for this product
+       yet" costs the answer they came for. These are for the second
+       look, when the number seems wrong. */
+    html+=printCodeHTML(d);
+    html+=serialBoxHTML(d);
 
     if(d.priceNote && d.matchQuality && d.matchQuality!=='exact' && !spreadFlagged){
       html+='<div class="pnote"><span class="ico">&#9888;&#65039;</span><span>'+esc(d.priceNote)+'</span></div>';
