@@ -4195,9 +4195,21 @@ async function pickParallel(name){
 
   logEvent('parallel_picked', (was || 'base') + ' -> ' + (chosen || 'base'), !!lastResult.usedBack);
 
-  var q = String(currentQuery || '');
+  /* Strip the old parallel before adding the new one, or repeated
+     corrections stack up: the first version's regex was over-escaped
+     and never matched, which produced a query reading
+     "... Green Parallel /99 auto Green Parallel" and returned nothing.
+     Plain string work is easier to be sure about than a built regex. */
+  var q = ' ' + String(currentQuery || '').replace(/\s+/g,' ').trim() + ' ';
   if(was){
-    q = q.replace(new RegExp('\\\\s*' + was.replace(/[.*+?^${}()|[\]\\\\]/g,'\\\\$&') + '\\\\s*', 'ig'), ' ');
+    var needle = ' ' + was.toLowerCase() + ' ';
+    var lower  = q.toLowerCase();
+    var at     = lower.indexOf(needle);
+    while(at !== -1){
+      q     = q.slice(0, at) + ' ' + q.slice(at + needle.length);
+      lower = q.toLowerCase();
+      at    = lower.indexOf(needle);
+    }
   }
   q = (q + ' ' + chosen).replace(/\s+/g,' ').trim();
 
