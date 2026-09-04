@@ -2476,6 +2476,23 @@ function buildTitle(d){
     out += ' #' + n.replace(/^#/, '');
   }
   if(notJunk(d.parallel)) out += ' ' + String(d.parallel).trim().split(/\s+/).map(titleWord).join(' ');
+
+  /* AUTO AND PATCH WERE READ, USED, AND NEVER SHOWN.
+
+     isAutograph and isPatch already change the search -- the server
+     appends "auto" and "patch" to the query, and notTheCard(query) then
+     sees them and stops filtering signed and relic sales out of the
+     comps. That machinery works.
+
+     What was missing is that the person could not SEE any of it. A
+     relic card came back named as if it were the base card, so the one
+     way to notice a wrong flag -- and to correct it -- did not exist.
+     The scanner knew something about the card and kept it to itself.
+
+     Named the way listings name them, since that is what the query
+     carries and what the comps will be: "Auto", "Patch". */
+  if(d.isAutograph) out += ' Auto';
+  if(d.isPatch)     out += ' Patch';
   if(d.isRookie && String(d.sport||'').toLowerCase().indexOf('pok') === -1) out += ' RC';
   return out;
 }
