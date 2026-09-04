@@ -421,6 +421,27 @@ input[type=file]{display:none;}
 .rsplit-val{font-family:var(--fbig);font-size:20px;letter-spacing:.5px;color:var(--text);}
 .rsplit-sub{font-family:var(--fm);font-size:9.5px;color:var(--text3);margin-top:4px;}
 .rparallel{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:100px;background:rgba(168,85,247,.14);border:1px solid rgba(168,85,247,.4);font-family:var(--fm);font-size:10px;font-weight:700;color:#c084fc;letter-spacing:.5px;}
+/* THE VARIANT CHOOSER.
+
+   The server has ranked candidate parallels on every scan since the
+   prompt asked for them, and both scanners threw the list away. This
+   is the panel that shows it. Styled as a question, not a warning --
+   the scanner is not broken here, it is doing the honest thing and
+   saying which ones it cannot separate. */
+.pvbox{margin-top:11px;border:1px solid rgba(168,85,247,.32);border-radius:12px;
+  background:rgba(168,85,247,.06);padding:12px 13px;}
+.pvbox-t{font-family:var(--fm);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:#c084fc;margin-bottom:7px;}
+.pvbox-p{font-size:12.5px;line-height:1.55;color:var(--text2);margin-bottom:10px;}
+.pvbox-p b{color:var(--text);}
+.pvrow{display:flex;flex-wrap:wrap;gap:6px;}
+.pvopt{font-family:var(--fm);font-size:11.5px;font-weight:700;padding:8px 13px;border-radius:100px;
+  border:1px solid rgba(168,85,247,.4);background:rgba(168,85,247,.10);color:#e9d5ff;
+  cursor:pointer;transition:all .15s;}
+.pvopt:hover{background:rgba(168,85,247,.22);border-color:#c084fc;}
+.pvopt.on{background:#c084fc;border-color:#c084fc;color:#1a0b2e;}
+.pvopt.base{border-style:dashed;color:var(--text2);background:transparent;}
+.pvbox-note{font-family:var(--fm);font-size:10px;color:var(--text3);margin-top:9px;line-height:1.5;}
 .roi{padding:20px;border-top:1px solid var(--border);}
 .roi-head{font-family:var(--fm);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:14px;text-align:center;}
 .roi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
@@ -3980,6 +4001,101 @@ var serialAsserted = null;   /* { num, denom, text } once somebody types one */
    checks every Pokemon scan could push junk into the query. The tells
    are a zero-padded numerator and a numerator larger than the
    denominator -- both impossible for real serial numbering. */
+
+/* ── WHICH PARALLEL IS IT? ───────────────────────────────────────
+
+   The prompt has always asked the model, when it cannot separate two
+   parallels that differ only by a colour tint, to name the family and
+   list every candidate it cannot rule out in parallelOptions rather
+   than picking one. The server has returned that list, plus
+   parallelCertain and parallelEvidence, on every scan since.
+
+   Both scanner files ignored all of it. parallelOptions appeared
+   nowhere. So the model's honest "it is one of these three" was
+   rendered as a single confident answer, and the person had no way to
+   see there had been a choice, let alone make it.
+
+   THIS IS THE DIFFERENCE BETWEEN A WRONG ANSWER AND A QUESTION. A
+   Refractor and a Superfractor of the same card differ by a hundred
+   times in price. Naming the wrong one produces a confident valuation
+   that is wrong by orders of magnitude; showing three and letting the
+   person point at their own card produces a right one. They are
+   holding the card. The model saw a photograph of it.
+
+   Ten of the twelve down-votes on this scanner say "wrong card", not
+   "bad price". This is aimed squarely at that. */
+function parallelChoiceHTML(d){
+  if(!d) return '';
+  var opts = Array.isArray(d.parallelOptions) ? d.parallelOptions.filter(Boolean) : [];
+  var certain = d.parallelCertain !== false;
+  var current = String(d.parallel || '').trim();
+
+  /* Nothing to choose between. A card the model is sure about, or one
+     with no alternatives listed, gets no panel -- a chooser with one
+     option in it teaches people to ignore the chooser. */
+  if(certain && opts.length < 2) return '';
+  if(!opts.length) return '';
+
+  /* Evidence, said plainly. 'serial' and 'printed' mean the card told
+     us; 'color' and 'uncertain' mean we are reading a sheen in a
+     photograph, which is the single most common way this goes wrong. */
+  var ev = String(d.parallelEvidence || '').toLowerCase();
+  var why = (ev === 'color' || ev === 'uncertain')
+    ? 'These differ mainly by tint, and a phone photo often cannot separate them.'
+    : 'More than one version matches what we could read.';
+
+  var buttons = opts.map(function(o){
+    var name = String(o).trim();
+    return '<button class="pvopt' + (name.toLowerCase() === current.toLowerCase() ? ' on' : '')
+      + '" onclick="pickParallel(' + JSON.stringify(name).replace(/"/g,'&quot;') + ')">'
+      + esc(name) + '</button>';
+  }).join('');
+
+  /* Base belongs on the list. A shiny base card mistaken for a parallel
+     is the same error in the other direction, and without this the
+     person can only choose between parallels they may not have. */
+  buttons += '<button class="pvopt base" onclick="pickParallel(\'\')">Base \u2014 no parallel</button>';
+
+  return '<div class="pvbox">'
+    + '<div class="pvbox-t">Which one is yours?</div>'
+    + '<div class="pvbox-p">We read this as <b>' + esc(current || 'base') + '</b>, but '
+    + why + ' Tap the one printed on your card and we\'ll re-price it.</div>'
+    + '<div class="pvrow">' + buttons + '</div>'
+    + '<div class="pvbox-note">The price above covers what we searched. '
+    + 'A different parallel is a different card, often by a wide margin.</div>'
+    + '</div>';
+}
+
+/* Rebuilds the query with the chosen parallel and re-prices. The old
+   parallel is stripped first so repeated corrections cannot stack up
+   as "... Refractor Sepia Prism". */
+async function pickParallel(name){
+  if(!lastResult) return;
+  var chosen = String(name || '').trim();
+  var was    = String(lastResult.parallel || '').trim();
+
+  logEvent('parallel_picked', (was || 'base') + ' -> ' + (chosen || 'base'), !!lastResult.usedBack);
+
+  var q = String(currentQuery || '');
+  if(was){
+    q = q.replace(new RegExp('\\\\s*' + was.replace(/[.*+?^${}()|[\]\\\\]/g,'\\\\$&') + '\\\\s*', 'ig'), ' ');
+  }
+  q = (q + ' ' + chosen).replace(/\s+/g,' ').trim();
+
+  /* The choice is the person's, so it overrides what the model read --
+     including on the card name and the chip above. A typed or tapped
+     answer is fact; a read one is a question. */
+  lastResult.parallel        = chosen;
+  lastResult.parallelCertain = true;
+
+  await repriceQuery(q, {
+    keepName:   true,
+    corrected:  true,
+    statusText: chosen ? ('Pricing the ' + chosen + '\u2026') : 'Pricing the base card\u2026',
+    trackAs:    'parallel_correction'
+  });
+}
+
 function parseSerialInput(raw){
   var s = String(raw || '').trim().toLowerCase();
   if(!s) return null;
@@ -4260,9 +4376,13 @@ function renderResult(d){
   html+=d.image?'<img class="rimg" src="'+d.image+'" onerror="this.outerHTML=\'<div class=rimg-ph>🃏</div>\'"/>':'<div class="rimg-ph">🃏</div>';
   html+='<div><div class="rname">'+esc(cardName)+'</div><div class="rmeta">'+esc(meta)+'</div>';
   if(d.parallel&&String(d.parallel).trim()){
-    html+='<div class="rparallel">✨ '+esc(d.parallel)+(d.serialNumber?' '+esc(d.serialNumber):'')+'</div>';
+    html+='<div class="rparallel">✨ '+esc(d.parallel)+(d.serialNumber?' '+esc(d.serialNumber):'')
+      + (d.parallelCertain === false ? ' · UNCONFIRMED' : '') + '</div>';
   }
   html+='</div></div>';
+  /* Directly under the header, before any price. The choice changes
+     what the price MEANS, so it cannot sit below it. */
+  html+=parallelChoiceHTML(d);
 
   var haveSold = !!(d.sold && d.sold.soldCount && !d.sold.rateLimited);
 
