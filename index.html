@@ -2497,8 +2497,26 @@ function buildTitle(d){
     return notJunk(v);
   };
 
+  /* "2021 Topps Topps Chrome 70th Anniversary Nolan Ryan".
+
+     The dedupe below compares WHOLE strings, so a brand of "Topps" and
+     a set of "Topps Chrome 70th Anniversary" are different keys and
+     both get pushed. Sets are routinely named with the brand in front
+     -- Topps Chrome, Bowman Chrome, Panini Prizm -- so this stutters
+     on a large share of cards and the stutter goes into the query too.
+
+     Narrow on purpose: the brand is dropped ONLY when the set already
+     begins with it. A word-level dedupe was tried once before and
+     turned "Panini Prizm ... Silver Prizm" into "... Silver",
+     destroying the parallel. This cannot do that -- it removes a
+     leading duplicate and touches nothing else. */
+  var brandTxt = String(d.brand || '').trim();
+  var setTxt   = String(d.set || '').trim();
+  var dropBrand = !!(brandTxt && setTxt
+    && setTxt.toLowerCase().indexOf(brandTxt.toLowerCase() + ' ') === 0);
+
   var seen = {};
-  [d.brand, d.set, d.player].forEach(function(v){
+  [dropBrand ? '' : d.brand, d.set, d.player].forEach(function(v){
     if(!keep(v)) return;
     var t = String(v).trim().split(/\s+/).map(titleWord).join(' ');
     var k = t.toLowerCase();
