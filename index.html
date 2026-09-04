@@ -3716,6 +3716,37 @@ function buildDecision(d, rows, s){
           || safeNum(s && s.avg);
   if(!raw) return '';
 
+  /* NO COMPS AND A HANDFUL OF ASKS IS NOT ENOUGH TO ADVISE ON.
+
+     A green /99 autograph came back with no completed sales and ONE
+     asking listing -- which turned out to be a sealed hobby box -- and
+     this block still printed "Not worth selling on its own, fees and
+     postage cost more than the card", with a sell calculation, on the
+     same screen as a panel saying CardGauge will not tell you what to
+     do with a card it cannot price from real sales.
+
+     Both of those cannot be true. The refusal is the correct one, so
+     the recommendation goes. Every other refusal on this page already
+     works this way: the price block withholds a median, the list-price
+     block withholds a suggestion, the grade ladder withholds estimates.
+     A buy/sell/keep verdict is a bigger claim than any of them and
+     cannot have a lower bar.
+
+     The ask path still advises when there is a real pool behind it --
+     this only refuses when there are no sold comps AND too few asks to
+     mean anything. */
+  var askCount = safeNum(s && s.count) || safeNum(d.raw && d.raw.count) || 0;
+  if(!sold && askCount < THIN_RESULT_N){
+    logEvent('decision_refused', 'asks:' + askCount, false);
+    return '<div class="dec-card"><div class="dec-h" style="font-size:15px">'
+      + 'Not enough to call this one.</div>'
+      + '<div class="dec-note">No completed sales came back, and there '
+      + (askCount === 1 ? 'is only one listing' : 'are only ' + askCount + ' listings')
+      + ' asking for it. That is not enough to tell you whether to keep it, sell it '
+      + 'or grade it \u2014 so we are not going to guess. Narrow the search below, '
+      + 'or check the sold listings yourself.</div></div>';
+  }
+
   /* LIMITED AND MIXED ARE NOT THE SAME REFUSAL, AND SAYING SO WRONGLY
      IS WORSE THAN SAYING NOTHING.
 
@@ -4472,21 +4503,27 @@ function renderResult(d){
      what the price MEANS, so it cannot sit below it. */
   html+=parallelChoiceHTML(d);
 
+  /* IDENTIFICATION BELONGS TO THE CARD, NOT TO WHETHER IT HAS COMPS.
+
+     These four used to sit inside the "we found sold data" branch, so
+     a card with no completed sales lost the catalog warning, the
+     short-print check and the serial box entirely -- and that is the
+     exact card where a wrong read is most likely and correcting it
+     matters most. Somebody looking at a price built from one listing
+     had no way to tell us which card it actually was.
+
+     They ask "is this the right card". Nothing about that depends on
+     whether the right card happens to have sold recently. */
+  html+=buildVerifyWarning(d);
+  html+=buildVerifyLine(d);
+  html+=printCodeHTML(d);
+  html+=serialBoxHTML(d);
+
   var haveSold = !!(d.sold && d.sold.soldCount && !d.sold.rateLimited);
 
   if(hasData){
     // Sold prices lead when we have them.
     if(haveSold){
-      /* Before the price, not after. Somebody who is about to read a number
-     should know first that we are unsure which card it belongs to. */
-  html+=buildVerifyWarning(d);
-  html+=buildVerifyLine(d);
-  /* Sits with the catalog line because it answers the same kind of
-     question — is this the card we think it is — rather than what
-     it is worth. Both belong next to the identification, not the
-     price. */
-  html+=printCodeHTML(d);
-  html+=serialBoxHTML(d);
 
   html+=buildSerialWarning(d);     // base price on a numbered card
   html+=buildSoldHero(d);          // sets spreadFlagged
