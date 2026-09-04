@@ -497,7 +497,11 @@ function render(d, biz){
 
     + setPanel(d, t)
 
+    + wallPanel(d)
+
     + funnelPanel(d, t)
+
+    + refusalPanel(d)
 
     + businessPanel(biz)
 
@@ -898,6 +902,135 @@ function savePanel(d, t){
     + 'without an account became possible at all. Account saves before that date were the only '
     + 'option, not a choice \u2014 so the split above is not a preference. Read the 7-day panel '
     + 'at the top until 1 Oct.</div></div>';
+}
+
+/* ── THE ACCOUNT WALL ────────────────────────────────────────────
+   Three free scans, then a required free account. Live since 3 Sept
+   and the only gate that has ever actually fired -- pro_wall has never
+   fired once -- so this is the funnel step worth deciding on, and the
+   dashboard could not see it until now.
+
+   THE COST IS THE POINT, NOT A FOOTNOTE. Everyone who hits this wall
+   wanted a fourth scan. Whatever fraction does not sign up is scanning
+   that no longer happens, and a page reporting only conversions would
+   quietly hide that half of the trade.
+
+   Dismissals are counted from 4 Sept onward. Before that, tapping
+   THROUGH the wall also logged a dismissal, because the handler closed
+   the panel on its way to the signup form -- so every earlier
+   dismissal figure is inflated by the people who converted, which is
+   exactly backwards. */
+function wallPanel(d){
+  var f = d.features || {};
+  if(!has(f, 'wall_shown_30d')) return '';
+
+  var shown = Number(f.wall_shown_30d||0);
+  var tap   = Number(f.wall_clicked_30d||0);
+  var sent  = Number(f.wall_code_sent_30d||0);
+  var made  = Number(f.wall_verified_30d||0);
+  var away  = Number(f.wall_dismissed_30d||0);
+  var merges= Number(f.merges_30d||0);
+  var nostore = Number(f.no_storage_30d||0);
+
+  if(!shown){
+    return '<div class="card"><h2>Account wall \u00b7 since 3 Sept</h2>'
+      + '<div class="empty">Nobody has reached a third scan yet. A zero here means the wall '
+      + 'has not been tested, not that it works.</div></div>';
+  }
+
+  var pct = function(n, of){ return of ? Math.round((n/of)*100)+'%' : '\u2014'; };
+
+  var read;
+  if(!made){
+    read = '<b>' + shown + ' people hit the wall and none made an account.</b> That is '
+         + shown + ' fourth scans that did not happen, bought for nothing. If this holds for '
+         + 'a week the wall is costing scans without buying signups.';
+  } else if(made/shown >= 0.25){
+    read = '<b>' + made + ' of ' + shown + ' turned into accounts.</b> For a hard gate on cold '
+         + 'social traffic that is working \u2014 the tool is proving itself in three scans.';
+  } else {
+    read = '<b>' + made + ' of ' + shown + ' turned into accounts, so roughly '
+         + (shown - tap) + ' walked away instead of scanning a fourth card.</b> Whether that '
+         + 'trade is worth it depends on what an account is worth to you, which the binder '
+         + 'numbers answer and this panel cannot.';
+  }
+
+  var storeNote = nostore
+    ? '<div class="fnote bad">\u26a0 <b>' + nostore + '</b> sessions had no usable local storage, '
+      + 'so the wall never applied to them at all. The counter lives in the same storage it '
+      + 'checks, and it fails open on purpose \u2014 blocking a scan over a storage error would '
+      + 'be worse. Those sessions are missing from every number above.</div>'
+    : '<div class="fnote">The scan counter is per-origin browser storage, so somebody moving '
+      + 'between cardgauge.com and scan.cardgauge.com gets three free scans on each. Harmless '
+      + 'now; it becomes one number at cutover.</div>';
+
+  return '<div class="card"><h2>Account wall \u00b7 since 3 Sept</h2>'
+    + '<div class="funnel">'
+      + '<div class="fstep"><div class="fstep-k">Used their three free scans</div>'
+        + '<div class="fstep-n">'+num(f.wall_exhausted_30d)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep"><div class="fstep-k">Saw the wall</div>'
+        + '<div class="fstep-n">'+num(shown)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep"><div class="fstep-k">Tapped through to sign up</div>'
+        + '<div class="fstep-n">'+num(tap)+'</div><div class="fstep-r">'+pct(tap,shown)+'</div></div>'
+      + '<div class="fstep"><div class="fstep-k">Asked for a code</div>'
+        + '<div class="fstep-n">'+num(sent)+'</div><div class="fstep-r">'+pct(sent,tap)+'</div></div>'
+      + '<div class="fstep paid"><div class="fstep-k">Made an account</div>'
+        + '<div class="fstep-n">'+num(made)+'</div><div class="fstep-r">'+pct(made,shown)+'</div></div>'
+      + '<div class="fstep'+(away>made?' bad':'')+'"><div class="fstep-k">Closed it and left</div>'
+        + '<div class="fstep-n">'+num(away)+'</div><div class="fstep-r">'+pct(away,shown)+'</div></div>'
+    + '</div>'
+    + '<div class="fnote">'+read+'</div>'
+    + '<div class="fnote"><b>'+num(merges)+'</b> device-only collection'+(merges===1?'':'s')
+    + ' became an account one. That is the step the whole local-save path exists to reach, and '
+    + 'it fired zero times before 2 Sept.</div>'
+    + storeNote
+    + '<div class="fnote">Dismissals count from <b>4 Sept</b> only. Before that, tapping through '
+    + 'the wall also logged a dismissal, so earlier figures counted the people who converted as '
+    + 'people who left.</div>'
+    + '</div>';
+}
+
+/* Refusals: the times CardGauge declined to answer rather than
+   guessing. The differentiator, counted -- if this is near zero the
+   guards are not firing; if it is most of the traffic the queries are
+   too loose upstream and people are meeting a wall of shrugs. */
+function refusalPanel(d){
+  var f = d.features || {};
+  if(!has(f, 'refusals_30d')) return '';
+  var r  = Number(f.refusals_30d||0);
+  var rv = Number(f.result_viewed_30d||0);
+  var op = Number(f.compguard_open_30d||0);
+  var pk = Number(f.parallel_picked_30d||0);
+  var st = Number(f.serial_typed_30d||0);
+  if(!r && !op && !pk && !st) return '';
+
+  var share = rv ? Math.round((r/rv)*100) : 0;
+  var read;
+  if(!r){
+    read = 'Nothing has been refused. Either every pool has been clean, or a guard is not firing.';
+  } else if(share >= 40){
+    read = '<b>'+share+'% of results refused a grade estimate or a verdict.</b> Honest, but at '
+         + 'that rate people are mostly meeting shrugs \u2014 the cause is upstream, in how many '
+         + 'cards get identified well enough to find comps.';
+  } else {
+    read = '<b>'+r+' refusals across '+num(rv)+' results ('+share+'%).</b> The guards fire on the '
+         + 'cards that deserve them without swallowing the ordinary ones.';
+  }
+
+  return '<div class="card"><h2>When it refused to answer \u00b7 30d</h2>'
+    + '<div class="funnel">'
+      + '<div class="fstep"><div class="fstep-k">Grade or verdict withheld</div>'
+        + '<div class="fstep-n">'+num(r)+'</div><div class="fstep-r">'+share+'%</div></div>'
+      + '<div class="fstep"><div class="fstep-k">Opened the CompGuard receipt</div>'
+        + '<div class="fstep-n">'+num(op)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep"><div class="fstep-k">Corrected the parallel</div>'
+        + '<div class="fstep-n">'+num(pk)+'</div><div class="fstep-r"></div></div>'
+      + '<div class="fstep"><div class="fstep-k">Typed a serial number</div>'
+        + '<div class="fstep-n">'+num(st)+'</div><div class="fstep-r"></div></div>'
+    + '</div>'
+    + '<div class="fnote">'+read+'</div>'
+    + '<div class="fnote">The bottom three are corrections \u2014 somebody telling CardGauge it '
+    + 'read their card wrong. Each one is a labelled answer no competitor has.</div></div>';
 }
 
 function funnelPanel(d, t){
