@@ -4225,6 +4225,29 @@ function parseSerialInput(raw){
     var num = parseInt(m[1],10), denom = parseInt(m[2],10);
     if(!denom) return null;
 
+    /* MAGNITUDE, NOT PADDING. Print runs are small and round; set
+       totals are arbitrary and usually large. 4/102, 25/165 and
+       SV107/SV122 are Pokemon CARD NUMBERS -- the card's position in
+       its set -- and typing one here would search "/102" and price the
+       card against every other card in the set.
+
+       Real serial numbering runs to a print run somebody chose:
+       /5, /10, /25, /50, /99, /150, /199, /250, /299, /499, /999.
+       Above about 500 it is nearly always a set total, and a
+       denominator over 999 is not a print run at all.
+
+       Not a hard block -- somebody holding the card may genuinely have
+       a /1000. It asks rather than refuses, because the person can see
+       the card and this rule cannot. */
+    if(denom > 999){
+      return { error:'A print run that big is unusual \u2014 if that is the card\u2019s '
+                   + 'NUMBER in its set rather than a serial, leave this blank.' };
+    }
+    if(denom > 500 && denom % 50 !== 0){
+      return { error:'That looks like a card number in a set, not a print run. '
+                   + 'Serial numbering is usually /25, /99, /199 and so on.' };
+    }
+
     /* PADDING IS NOT A SIGNAL, AND ASSUMING IT WAS REJECTED REAL CARDS.
 
        An earlier version here refused any zero-padded numerator on the
@@ -4264,11 +4287,26 @@ function parseSerialInput(raw){
    corrections cannot stack up as "... /25 /99". Matches a bare /nn and
    a full nn/nn at token boundaries only -- the card number is already
    folded into currentQuery by this point and has to survive untouched. */
-function queryWithoutSerial(q){
-  return String(q || '')
-    .replace(/(^|\s)\/\d{1,5}(?=\s|$)/g, '$1')
-    .replace(/(^|\s)\d{1,5}\s*\/\s*\d{1,5}(?=\s|$)/g, '$1')
-    .replace(/\s+/g, ' ').trim();
+/* Strips a serial that WE added, and nothing else.
+
+   The nn/nn pattern also matches a Pokemon card number -- 4/102 is a
+   card's position in its set, not a print run. The old version stripped
+   it, so typing a serial on a Pokemon card and then tapping undo
+   removed the card number from the query permanently and every
+   subsequent search was for the wrong card.
+
+   The bare "/nn" form is safe: nothing but this app puts a lone
+   denominator into a query. The full "nn/nn" form is only removed when
+   it matches the serial the person actually asserted, which is the only
+   one we are entitled to take back out. */
+function queryWithoutSerial(q, assertedText){
+  var out = String(q || '').replace(/(^|\s)\/\d{1,5}(?=\s|$)/g, '$1');
+  var a = String(assertedText || '').trim();
+  if(a){
+    var esc = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp('(^|\\s)' + esc + '(?=\\s|$)', 'g'), '$1');
+  }
+  return out.replace(/\s+/g, ' ').trim();
 }
 
 function serialBoxHTML(d){
@@ -4365,7 +4403,10 @@ async function applySerial(){
   if(go){ go.disabled = true; go.textContent = 'Pricing\u2026'; }
 
   serialAsserted = parsed;
-  var q = queryWithoutSerial(currentQuery) + ' /' + parsed.denom;
+  /* Pass what is currently asserted so a re-price replaces it rather
+     than stacking a second serial onto the query. */
+  var q = queryWithoutSerial(currentQuery, serialAsserted && serialAsserted.text)
+        + ' /' + parsed.denom;
 
   /* keepName so the header stays the card we identified rather than
      becoming a prettified version of the query string. */
@@ -4388,7 +4429,7 @@ async function applySerial(){
 
 function clearSerial(){
   if(!serialAsserted) return;
-  var back = queryWithoutSerial(currentQuery);
+  var back = queryWithoutSerial(currentQuery, serialAsserted && serialAsserted.text);
   serialAsserted = null;
   logEvent('serial_cleared', null, false);
   repriceQuery(back, { keepName:true, statusText:'Back to the full search\u2026',
@@ -4680,8 +4721,27 @@ function renderResult(d){
 
        Still gated on !anyReal, so a ladder with real per-grade sales
        on it is never suppressed. */
+    /* THE HOLE THIS MISSED: NO SOLD DATA AT ALL.
+
+       Every flag below needs sold data to be set. soldLimited means
+       "the filter worked and too little survived" -- it cannot fire
+       when nothing was fetched. So a card with ZERO completed sales
+       skipped all three checks and the ladder ran off the ask.
+
+       On a green /99 autograph that produced PSA 7 $1, PSA 8 $1,
+       PSA 9 $3, PSA 10 $7 -- multiplied out of a single $1 listing that
+       was a sealed hobby box -- sitting directly under a panel saying
+       there was not enough to call this one. Two refusals and a
+       confident four-tier estimate on the same screen.
+
+       No sales and a handful of asks is the WEAKEST evidence there is,
+       not an exemption from the check. */
+    var ladderAskCount = Number((s && s.count) || (d.raw && d.raw.count) || 0);
+    var ladderNoSold   = !(d.sold && d.sold.soldCount);
+
     var ladderUntrustworthy = !anyReal
-      && (spreadFlagged || soldPoisoned || !!(d.sold && d.sold.soldLimited));
+      && (spreadFlagged || soldPoisoned || !!(d.sold && d.sold.soldLimited)
+          || (ladderNoSold && ladderAskCount < THIN_RESULT_N));
 
     var roiHead;
     if(rows.inconsistent){
@@ -4697,7 +4757,10 @@ function renderResult(d){
     if(ladderUntrustworthy){
       html+='<div class="roi"><div class="roi-head">💎 If you graded it</div>'
         +'<div class="roi-note" style="color:var(--gold-warm)"><b>Not estimating grades on this one.</b> '
-        + ((d.sold && d.sold.soldLimited)
+        + (ladderNoSold && ladderAskCount < THIN_RESULT_N
+            ? 'There are no completed sales and almost nothing listed, so a grade estimate '
+              + 'would be a multiple of a number we do not have. '
+            : (d.sold && d.sold.soldLimited)
             ? 'There are too few clean sales of this exact card to build the estimate on, and '
               + 'a grade ladder off one or two sales is a guess wearing four decimal points. '
             : 'The sales behind the price describe more than one version of this card, so any '
