@@ -421,6 +421,24 @@ input[type=file]{display:none;}
 .rsplit-val{font-family:var(--fbig);font-size:20px;letter-spacing:.5px;color:var(--text);}
 .rsplit-sub{font-family:var(--fm);font-size:9.5px;color:var(--text3);margin-top:4px;}
 .rparallel{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:100px;background:rgba(168,85,247,.14);border:1px solid rgba(168,85,247,.4);font-family:var(--fm);font-size:10px;font-weight:700;color:#c084fc;letter-spacing:.5px;}
+/* COMPGUARD. The sales that were left out, and why.
+
+   Collapsed by default and deliberately quiet -- this is a receipt, not
+   an alarm. The headline number above already carries the claim; this
+   is the working shown underneath it for anyone who wants to check. */
+.cgline{margin-top:9px;font-family:var(--fm);font-size:11px;color:var(--text3);
+  cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;}
+.cgline:hover{color:var(--text2);}
+.cgline b{color:#4ade80;font-weight:700;}
+.cgline .arw{font-size:9px;transition:transform .18s;display:inline-block;}
+.cgline.open .arw{transform:rotate(90deg);}
+.cgbody{display:none;margin-top:9px;border-top:1px solid rgba(255,255,255,.08);padding-top:9px;}
+.cgbody.open{display:block;}
+.cgrow{display:flex;justify-content:space-between;gap:12px;padding:4px 0;
+  font-family:var(--fm);font-size:11px;color:var(--text2);line-height:1.5;}
+.cgrow span:last-child{color:var(--text3);white-space:nowrap;}
+.cgfoot{font-family:var(--fm);font-size:10px;color:var(--text3);line-height:1.55;
+  margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);}
 /* THE VARIANT CHOOSER.
 
    The server has ranked candidate parallels on every scan since the
@@ -2791,7 +2809,77 @@ function buildSoldHero(d){
       +(sold.bestOfferCount ? ', incl. <b>'+sold.bestOfferCount+'</b> accepted best offers' : '')
       +' &middot; past '+lookback+' days'
       +(whenNote ? ' &middot; '+whenNote : '')+'.</div>'
+    /* Under the count line, inside the same block. The receipt belongs
+       with the number it explains, not as another full-width panel --
+       this screen was deliberately cut down and should stay that way. */
+    +compGuardHTML(sold)
   +'</div>';
+}
+
+
+/* ── WHAT WAS LEFT OUT, AND WHY ──────────────────────────────────
+
+   The rejection rules have run on every scan for months. Fourteen
+   autographs, six of a different parallel, a PSA 9 -- all correctly
+   thrown out of a base-card median, and none of it ever reached the
+   screen. The person saw a number and, when the pool was bad, a
+   warning. They never saw the work.
+
+   THE HEADLINE IS THE PRODUCT. "31 of 47 sales verified" is a stronger
+   and more defensible claim than "$84", because it says what the
+   number is made of. Filtering comps by grade and parallel is not a
+   moat -- Card Ladder, Market Movers and eBay's own price guide all do
+   it. Showing the person which sales were discarded, and for what
+   reason, is the part nobody else does.
+
+   "VERIFIED", NEVER "EXACT". These sales passed the rejection rules.
+   That is a weaker claim than establishing identical identity, and the
+   weaker claim is the true one.
+
+   GRADED SALES ARE EXCLUDED, NOT REJECTED. A PSA 9 is not the wrong
+   card -- it is a different condition of the same card. The server
+   already labels them separately and this keeps that distinction,
+   because calling a graded sale "rejected" would be a small lie in a
+   panel whose whole purpose is not telling them. */
+var cgOpen = false;
+function toggleCompGuard(){
+  cgOpen = !cgOpen;
+  var l = document.getElementById('cgLine'), b = document.getElementById('cgBody');
+  if(l) l.classList.toggle('open', cgOpen);
+  if(b) b.classList.toggle('open', cgOpen);
+  if(cgOpen) logEvent('compguard_opened', String((lastResult && lastResult.cardName) || '').slice(0,120), false);
+}
+
+function compGuardHTML(sold){
+  var g = sold && sold.compGuard;
+  if(!g) return '';
+
+  var considered = Number(g.considered || 0);
+  var verified   = Number(g.verified || 0);
+  var leftOut    = Number(g.leftOut || 0);
+
+  /* Nothing was excluded, so there is nothing to explain. A panel that
+     says "0 of 12 left out" is noise on the one screen that should not
+     have any. */
+  if(!leftOut || !considered) return '';
+
+  var rows = (g.reasons || []).map(function(r){
+    return '<div class="cgrow"><span>' + esc(String(r.reason || 'Other'))
+      + '</span><span>' + Number(r.count || 0) + '</span></div>';
+  }).join('');
+
+  return '<div id="cgLine" class="cgline" onclick="toggleCompGuard()">'
+    +   '<span class="arw">&#9654;</span>'
+    +   '<span><b>' + verified + '</b> of ' + considered + ' sales verified</span>'
+    + '</div>'
+    + '<div id="cgBody" class="cgbody">'
+    +   '<div class="cgrow" style="color:var(--text2)"><span><b>Left out</b></span>'
+    +     '<span>' + leftOut + '</span></div>'
+    +   rows
+    +   '<div class="cgfoot">Verified means these sales passed our checks \u2014 not that they '
+    +     'are provably the identical card. Graded sales are listed as a different condition '
+    +     'of the same card, not as the wrong card.</div>'
+    + '</div>';
 }
 
 function buildAskVsSold(d){
@@ -5548,15 +5636,26 @@ function showAccountWall(){
   + '</div>';
 }
 
-function closeAccountWall(){
+/* DISMISSED MEANS WALKED AWAY, NOT "THE PANEL CLOSED".
+
+   wallToAuth() called closeAccountWall(), which logged a dismissal --
+   so every person who TAPPED THROUGH also counted as one. The number
+   that says whether this wall is worth keeping is dismissed over
+   shown, and it was inflated by exactly the people who did the thing
+   the wall exists for.
+
+   The close is now silent by default and the dismissal is logged only
+   where somebody actually turns it down: the X, the backdrop, or the
+   Escape key. */
+function closeAccountWall(silent){
   var el = document.getElementById('cgWall');
   if(el) el.innerHTML = '';
-  logEvent('account_wall_dismissed', null, false);
+  if(!silent) logEvent('account_wall_dismissed', null, false);
 }
 
 function wallToAuth(){
   logEvent('account_wall_clicked', null, false);
-  closeAccountWall();
+  closeAccountWall(true);   /* not a dismissal -- they took the offer */
   openAuth();
 }
 
