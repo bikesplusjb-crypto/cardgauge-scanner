@@ -1604,8 +1604,23 @@ async function doScan(){
   if(!frontFile||scanning)return;
   /* The gate. Before any work, before any cost -- an account ask that
      arrives after the spinner would waste an API call and read as a
-     bait. */
-  if(needsAccount()){ showAccountWall(); return; }
+     bait.
+
+     WRAPPED, AND IT FAILS OPEN. If anything in this check throws --
+     a storage exception, a helper that did not load, a future edit
+     that references something undefined -- the scan must still run.
+     A thrown error here would kill doScan before its first log line,
+     so the symptom would be scanning silently stopping with NOTHING
+     in the events to say why: no scan, no wall, no error. That is a
+     day of lost scans and no way to see it from the data.
+
+     Blocking a scan is the expensive failure. Missing a signup is
+     the cheap one. */
+  try{
+    if(needsAccount()){ showAccountWall(); return; }
+  }catch(e){
+    try{ logEvent('account_gate_failed', String(e && e.message || e).slice(0,120), false); }catch(_){}
+  }
   scanning=true;var btn=document.getElementById('scanBtn');btn.disabled=true;updateScanBtn();
   setStatusStages([
     { msg:'Reading the card\u2026', after:0 },
@@ -1668,6 +1683,34 @@ function trySample(q){
 async function doSearch(isSample){
   var q=(document.getElementById('searchInput').value||'').trim();
   if(!q){setStatus('Enter a card name first','error');return;}
+
+  /* OWNER SWITCH, TYPED RATHER THAN IN THE URL.
+
+     ?owner=1 works on the standalone PWA because that is a top-level
+     page. It CANNOT work on the Wix scanner: that runs inside an HTML
+     component iframe, so the query string lands on the parent page and
+     location.search inside the frame is empty. There was no way to set
+     the flag on the surface carrying most of the traffic.
+
+     Typing it into the search box works on every surface, iframe or
+     not. It is not a secret -- it sits in readable frontend JavaScript,
+     like every other client-side flag here -- and it does not need to
+     be: it skips a funnel prompt and keeps test scans out of the
+     numbers. Anybody who wanted three more scans can already clear
+     localStorage. */
+  var qc = q.toLowerCase().replace(/\s+/g,'');
+  if(qc === 'cgowner' || qc === 'cgownerof'){
+    try{ localStorage.setItem(CG_OWNER_KEY,'1'); }catch(e){}
+    document.getElementById('searchInput').value='';
+    setStatus('Owner mode on \u2014 no scan wall, and your scans stay out of the numbers','ok');
+    return;
+  }
+  if(qc === 'cgownerofff' || qc === 'cgvisitor'){
+    try{ localStorage.removeItem(CG_OWNER_KEY); }catch(e){}
+    document.getElementById('searchInput').value='';
+    setStatus('Owner mode off \u2014 you will see the site as a visitor does','ok');
+    return;
+  }
   setStatusStages([
     { msg:'Finding real sold prices\u2026', after:0 },
     { msg:'Checking what sellers are asking\u2026', after:3200 }
@@ -4101,6 +4144,11 @@ function clearSerial(){
 }
 
 function renderResult(d){
+
+  /* Can this card be kept at all? An account works without local
+     storage; local storage works without an account. Either is enough.
+     Only when neither is available does signing in become the ask. */
+  var canKeep = !!currentUser || LOCAL_OK;
   /* result_viewed WAS MISSING FROM THIS FILE ENTIRELY.
 
      Measured 1 Sept: 637 result_viewed events over 30 days, 408 from
@@ -4500,16 +4548,33 @@ function renderResult(d){
           +'border-top:1px solid rgba(34,197,94,.32);border-bottom:1px solid rgba(34,197,94,.32);text-align:center;">'
           +'<div style="font-size:24px;margin-bottom:6px;">\ud83d\udd14</div>'
           +'<div style="font-family:var(--f);font-size:15px;font-weight:800;color:var(--text);line-height:1.35;margin-bottom:5px;">'
-          + (LOCAL_OK ? 'Keep this card' : 'Get an email when this card\u2019s price moves') + '</div>'
+          /* THE CONDITION USED TO BE LOCAL_OK ALONE, AND IT IGNORED
+             WHETHER THE PERSON WAS SIGNED IN.
+
+             On any surface where storage is unavailable -- the Wix
+             iframe, private mode, Safari after ITP clears it -- this
+             button called openAuth() every single time, including for
+             somebody who had ALREADY signed in seconds earlier. They
+             sign in, scan another card, tap save, and are asked to sign
+             in again. Nothing about being signed in was ever checked.
+
+             A signed-in save does not need local storage at all: it
+             writes to the account. So the question is "can this be
+             kept anywhere" -- account OR device -- not "does
+             localStorage work". */
+          + (canKeep ? 'Keep this card' : 'Get an email when this card\u2019s price moves') + '</div>'
           +'<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:13px;max-width:34ch;margin-left:auto;margin-right:auto;">'
-          + (LOCAL_OK
+          + (currentUser
+              ? 'Saved to your account \u2014 on every device you sign in on, and we\u2019ll tell you when the price moves.'
+              : LOCAL_OK
               ? 'Kept right here on this device. Add an email if you want it on another phone, or want us to tell you when the price moves.'
               : 'Save it free and we\u2019ll watch the price for you \u2014 no more checking back manually.') + '</div>'
-          +'<button id="bannerSaveBtn" onclick="' + (LOCAL_OK ? 'saveToBinder(\'watching\')' : 'openAuth()') + '" style="background:var(--green);color:#052e16;border:none;border-radius:10px;'
+          +'<button id="bannerSaveBtn" onclick="' + (canKeep ? 'saveToBinder(\'watching\')' : 'openAuth()') + '" style="background:var(--green);color:#052e16;border:none;border-radius:10px;'
           +'padding:13px 26px;font-family:var(--f);font-weight:800;font-size:14px;cursor:pointer;">'
-          + (LOCAL_OK ? 'Keep this card \u2192' : 'Save &amp; watch this card \u2192') + '</button>'
+          + (canKeep ? 'Keep this card \u2192' : 'Save &amp; watch this card \u2192') + '</button>'
           +'<div style="font-size:10.5px;color:var(--text3);margin-top:10px;">'
-          + (LOCAL_OK ? 'Kept on this device'
+          + (currentUser ? 'Saved to your account'
+              : LOCAL_OK ? 'Kept on this device'
                       : 'One email + a code, no password \u00b7 first 25 cards free') + '</div>'
         +'</div>';
       }
@@ -5947,10 +6012,22 @@ async function shareCardGauge(){
     url:'https://scan.cardgauge.com'
   };
   if(window.ttq)ttq.track('ClickButton',{content_name:'share_cardgauge',content_type:'scanner_standalone'});
+  /* ONLY AN ABORT ENDS IT HERE.
+
+     The old version returned after ANY failure, treating every error as
+     "they closed the share sheet". Inside the Wix HTML component that
+     is wrong in a way nothing surfaces: navigator.share exists in the
+     iframe but throws NotAllowedError unless the frame carries
+     allow="web-share", which Wix does not set. So on the surface with
+     most of the traffic the button did nothing at all -- no share, no
+     copy, no message.
+
+     An AbortError is a real cancellation and should stop. Anything else
+     means sharing was not available, and the clipboard fallback below
+     is exactly what it is for. */
   if(navigator.share){
-    try{ await navigator.share(shareData); }
-    catch(e){ /* AbortError just means they closed the share sheet */ }
-    return;
+    try{ await navigator.share(shareData); return; }
+    catch(e){ if(e && e.name === 'AbortError') return; }
   }
   const fallbackText=`${shareData.text}\n${shareData.url}`;
   try{
