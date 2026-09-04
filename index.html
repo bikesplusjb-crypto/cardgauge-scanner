@@ -3992,6 +3992,7 @@ function scanAnother(){
      Without this the box would claim "Priced as /25" over a price that
      never involved a serial at all. */
   serialAsserted = null;
+  yearAsserted   = null;   /* a typed year must not carry to the next card */
   var el = document.querySelector('.scan-card');
   if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   logEvent('scan_another_clicked', null, false);
@@ -4321,6 +4322,121 @@ function queryWithoutSerial(q, assertedText){
   return out.replace(/\s+/g, ' ').trim();
 }
 
+
+/* ── THE YEAR, CORRECTABLE ────────────────────────────────────────
+
+   A WRONG YEAR IS THE MOST EXPENSIVE FIELD ON THE CARD, AND THE ONE
+   THE MODEL IS LEAST ABLE TO ADMIT IT CANNOT READ.
+
+   Every other field degrades gracefully when it is wrong. A wrong
+   parallel finds the base card. A wrong set broadens the search. A
+   wrong year finds NOTHING AT ALL, because the card being searched for
+   was never printed -- and the app then falls through to asking
+   prices, or to a different card entirely.
+
+   The prompt has been told twice, in detail, to read the copyright
+   line and to answer 'Unknown' rather than guess. It does neither on
+   the hard cases: the same photo of a 2026 anniversary insert came
+   back 2022, then 2021. Two different answers from one card is not a
+   misread, it is a guess -- and no further instruction fixes a field
+   that is not being read.
+
+   Anniversary and throwback inserts are the worst case. The design
+   celebrates an older era, the name contains a number of years, and
+   the model reaches for a date that fits the theme instead of the
+   copyright.
+
+   So the person fixes it. They are holding the card and the copyright
+   line is printed on the back. A typed year is a fact; a read one is a
+   question. Same principle as the serial box and the parallel chooser,
+   applied to the field where being wrong costs the most. */
+var yearAsserted = null;
+
+function yearBoxHTML(d){
+  var read = String((d && d.year) || '').trim();
+  var cur  = yearAsserted || read;
+
+  var note = yearAsserted
+    ? '<div class="pcode-v">Priced as a <span class="ser-on">' + esc(yearAsserted)
+      + '</span> card.</div>'
+    : '<div class="pcode-v" style="font-size:12.5px;color:var(--text3,#94a3b8)">'
+      + (read
+          ? 'We read <b>' + esc(read) + '</b>. The year is in the copyright line at the '
+            + 'bottom of the back \u2014 not the year the design is from. Anniversary and '
+            + 'throwback inserts are printed in the year they celebrate the anniversary, '
+            + 'which is usually recent.'
+          : 'We could not read a year. It is in the copyright line at the bottom of the back.')
+      + '</div>';
+
+  return '<div class="pcode" style="margin-top:11px">'
+    + '<div class="pcode-t">YEAR \u2014 COPYRIGHT CHECK</div>'
+    + note
+    + '<div class="ser-in">'
+    +   '<input id="yrIn" inputmode="numeric" maxlength="4" placeholder="2026" '
+    +     'value="' + esc(cur) + '" onkeydown="if(event.key===\'Enter\')applyYear()">'
+    +   '<button id="yrGo" onclick="applyYear()">Price it</button>'
+    + '</div>'
+    + (yearAsserted
+        ? '<div class="ser-in" style="margin-top:6px">'
+          + '<button onclick="clearYear()">Undo \u2014 use what we read</button></div>'
+        : '')
+    + '</div>';
+}
+
+async function applyYear(){
+  var el = document.getElementById('yrIn');
+  if(!el || !lastResult) return;
+  var v = String(el.value || '').trim();
+
+  /* A four-digit year inside the range cards have actually been
+     printed in. Rejecting rather than accepting anything typed,
+     because a typo here does the same damage as the misread it is
+     meant to fix. */
+  if(!/^\d{4}$/.test(v)){
+    setStatus('Type the four-digit year from the copyright line', 'error');
+    return;
+  }
+  var n = Number(v), now = new Date().getFullYear();
+  if(n < 1880 || n > now + 1){
+    setStatus('That year is outside the range cards are printed in', 'error');
+    return;
+  }
+
+  var was = String(lastResult.year || '').trim();
+  if(v === was && !yearAsserted){ setStatus('That is what we read already', 'ok'); return; }
+
+  logEvent('year_corrected', (was || 'none') + ' -> ' + v, !!lastResult.usedBack);
+
+  /* Swap the year in the query rather than appending, or a second
+     correction leaves both years in the search. Only a standalone
+     four-digit token is replaced, so a card number like 2024-BC1
+     survives untouched. */
+  var q = String(currentQuery || '');
+  q = was
+    ? q.replace(new RegExp('(^|\\s)' + was + '(?=\\s|$)'), '$1' + v)
+    : (v + ' ' + q);
+  if(q.indexOf(v) === -1) q = v + ' ' + q;
+  q = q.replace(/\s+/g, ' ').trim();
+
+  yearAsserted     = v;
+  lastResult.year  = v;
+
+  await repriceQuery(q, {
+    keepName:   true,
+    corrected:  true,
+    statusText: 'Pricing the ' + v + ' card\u2026',
+    trackAs:    'year_correction'
+  });
+}
+
+async function clearYear(){
+  if(!yearAsserted || !lastResult) return;
+  var was = yearAsserted;
+  yearAsserted = null;
+  logEvent('year_cleared', was, false);
+  renderResult(lastResult);
+}
+
 function serialBoxHTML(d){
   var read = String((d && d.serialRead) || '').replace(/^\//,'');
   var body;
@@ -4645,6 +4761,7 @@ function renderResult(d){
        yet" costs the answer they came for. These are for the second
        look, when the number seems wrong. */
     html+=printCodeHTML(d);
+    html+=yearBoxHTML(d);
     html+=serialBoxHTML(d);
 
     if(d.priceNote && d.matchQuality && d.matchQuality!=='exact' && !spreadFlagged){
