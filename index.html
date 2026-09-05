@@ -824,6 +824,11 @@ input[type=file]{display:none;}
 .tb-right{display:flex;align-items:center;gap:8px;}
 .tb-free{font-family:var(--fm);font-size:10px;letter-spacing:.06em;color:var(--green);white-space:nowrap;}
 @media(max-width:560px){.tb-free{display:none;}}
+.tb-binder{display:inline-block;padding:6px 13px;border-radius:100px;
+  border:1px solid var(--green,#22c55e);background:rgba(34,197,94,.10);
+  color:var(--green,#22c55e);font-family:var(--f);font-weight:800;font-size:12px;
+  text-decoration:none;margin-right:8px;white-space:nowrap;}
+.tb-binder:hover{background:rgba(34,197,94,.2);}
 .tb-auth{font-family:var(--f);font-size:11px;font-weight:700;letter-spacing:.5px;
   text-transform:uppercase;padding:6px 12px;border-radius:100px;border:1px solid var(--border2);
   background:var(--surface2);color:var(--text);cursor:pointer;white-space:nowrap;}
@@ -1323,7 +1328,7 @@ input[type=file]{display:none;}
 
   <a class="show-tip" href="https://www.cardgauge.com/show-log" target="_top"
 
-     onclick="if(window.ttq)ttq.track('ClickButton',{content_name:'showlog_tip_top',content_type:'scanner_standalone'})">
+     onclick="logEvent('showlog_banner_click','standalone',false);if(window.ttq)ttq.track('ClickButton',{content_name:'showlog_tip_top',content_type:'scanner_standalone'})">
 
     <span class="show-tip-ico">&#128246;</span>
 
@@ -1781,6 +1786,7 @@ var psaScanner = null;
 var psaLookupInFlight = false;
 
 function openPsaScanner(){
+  logEvent('psa_scanner_opened', null, false);
   var m = document.getElementById('psaModal');
   if(m) m.classList.add('show');
   document.getElementById('psaManualEntry').style.display = 'none';
@@ -5111,7 +5117,11 @@ function renderResult(d){
           ? '<div class="save-note" style="margin:0;text-align:center;flex:1;">'
             + '\u2713 In your binder</div>'
           : '')
-        +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" style="text-align:center;line-height:1.5;text-decoration:none;flex:1;">Open binder</a>'
+        /* The step between keeping a card and ever seeing it again.
+           local_binder_merged fired zero times for weeks and nobody
+           could tell whether people were failing to open the binder or
+           failing once inside it. */
+        +'<a class="save-btn ghost" href="'+BINDER_PAGE+'" target="_blank" rel="noopener" onclick="logEvent(\'open_binder_clicked\',null,false)" style="text-align:center;line-height:1.5;text-decoration:none;flex:1;">Open binder</a>'
         +'</div>'
         +''
         +(false ? '<button class="save-btn" id="saveBtn" onclick="saveToBinder()"'
@@ -5602,7 +5612,27 @@ function renderAuth(){
   var w = document.getElementById('tbAuth');
   if(!w) return;
   if(currentUser){
-    w.innerHTML = '<span class="tb-who">Hi, <b>'+esc(currentUser.email.split('@')[0])+'</b></span>'
+    /* A SIGNED-IN PERSON HAD NO WAY TO REACH THEIR OWN BINDER.
+
+       The header read "Hi, name · PRO · Log Out" and nothing else. On a
+       phone the only route to the binder was scrolling past the entire
+       result to a link at the bottom, and on the Wix site the nav is
+       behind a hamburger. Somebody who kept a card had to hunt for the
+       place it went.
+
+       That is very likely part of why local_binder_merged sat at zero
+       for weeks: not people refusing to open the binder, but never
+       finding it. Log Out was more prominent than the product.
+
+       One link, not a nav. The binder is the only destination that
+       matters from here -- Profit Tracker, Portfolio and Set Builder
+       all hang off it, and a row of six links in a header is how the
+       camera gets pushed off the screen on the surface whose whole
+       point is speed. */
+    w.innerHTML = '<a class="tb-binder" href="' + BINDER_PAGE + '" target="_blank" '
+      + 'rel="noopener" onclick="logEvent(\'open_binder_clicked\',\'header\',false)">'
+      + 'My Binder</a>'
+      + '<span class="tb-who">Hi, <b>'+esc(currentUser.email.split('@')[0])+'</b></span>'
       + (isPro ? '<span class="tb-pro">PRO</span>' : '')
       + '<button class="tb-auth" onclick="logOut()">Log Out</button>';
   } else {
@@ -6517,6 +6547,12 @@ if(window.ttq)ttq.track('ViewContent',{content_name:'scanner_standalone',content
 // browsers with no native share sheet, and to a plain prompt() if even
 // clipboard access is blocked -- so this can't fail silently.
 async function shareCardGauge(){
+  /* Untracked until now, which is why the iframe failure went unnoticed
+     for so long: navigator.share threw inside the Wix HTML component,
+     the catch swallowed it, and nothing anywhere recorded that somebody
+     had tried. Logged BEFORE the attempt, so a tap is counted whether
+     or not the browser lets the share happen. */
+  logEvent('share_clicked', null, false);
   const shareData={
     title:'CardGauge',
     text:"I've been using CardGauge to scan and price my sports cards — free. Worth a look if you collect.",
