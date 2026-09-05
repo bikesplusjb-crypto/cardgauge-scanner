@@ -1801,39 +1801,28 @@ function openPsaScanner(){
   try{
     psaScanner = new Html5Qrcode('psaReader');
     psaScanner.start(
-      /* CAMERA IDENTIFIER ONLY. This argument takes facingMode or a
-         deviceId and nothing else -- width and height were added here
-         once and the library rejected the whole object, so start()
-         threw and the modal fell straight through to manual entry with
-         a black rectangle where the camera should be. Resolution
-         belongs in videoConstraints on the config object below. */
+      /* REVERTED TO THE ORIGINAL ON 5 SEPT, DELIBERATELY.
+
+         Two changes were tried here to improve decoding of a dense PSA
+         Code 128: a resolution request and the native BarcodeDetector.
+         The first was put in the camera-identifier argument, which
+         accepts only facingMode or deviceId, so start() threw and the
+         modal showed a black rectangle. Moving it to videoConstraints
+         did not bring the camera back either.
+
+         The camera worked before any of it. Decoding was marginal, and
+         the endpoint behind it returns 403 regardless, so none of this
+         could have completed a lookup even if it had worked. Trading a
+         working camera for a better decoder in front of a broken API
+         was the wrong trade; this is the config that ran. */
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 260, height: 110 },
-        /* A PSA barcode is dense Code 128 printed about 30mm wide. At
-           the default 640x480 there are barely enough pixels per bar
-           for a reliable read; this asks for more where the library
-           actually accepts it. */
-        videoConstraints: {
-          facingMode: 'environment',
-          width:  { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
+      { fps: 10, qrbox: { width: 240, height: 80 },
         formatsToSupport: [
           Html5QrcodeSupportedFormats.QR_CODE,
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
           Html5QrcodeSupportedFormats.EAN_13
-        ],
-        /* THE ACTUAL FIX. Without this the library falls back to its
-           JavaScript decoder, which is workable for chunky QR codes and
-           unreliable on a dense 1D barcode held at arm's length. Modern
-           iOS and Android expose a NATIVE BarcodeDetector -- the same
-           engine the system camera uses -- and it decodes PSA labels in
-           conditions the JS path gives up on.
-
-           It falls back on its own if the browser has no native
-           detector, so there is nothing to guard. */
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
+        ] },
       function(decodedText){ onPsaBarcodeDecoded(decodedText); },
       function(){ /* per-frame no-match — expected constantly while scanning, not an error */ }
     ).catch(function(err){
