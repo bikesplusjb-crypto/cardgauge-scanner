@@ -1880,7 +1880,27 @@ async function lookupPsaCert(certNumber){
   try{
     var r = await fetch(API + '/api/psa-cert?cert=' + encodeURIComponent(clean));
     var d = await r.json();
-    if(!d.success) throw new Error(d.error || 'Could not find that cert');
+    if(!d.success){
+      /* A SERVICE THAT IS NOT ANSWERING IS NOT THE PERSON'S MISTAKE.
+
+         Every failure here used to render as a red cross, including
+         PSA refusing us at the account level -- which reads as "your
+         cert number is wrong" when the cert was perfectly good. They
+         then retype it, get the same cross, and conclude the scanner
+         is broken.
+
+         The server now says which kind of failure it was. An
+         unavailable one gets a warning rather than an error, keeps the
+         typed number on screen, and points at the path that still
+         works: the label has everything needed to type the card in. */
+      if(d.unavailable){
+        logEvent('psa_unavailable', String(clean).slice(0,20), false);
+        setPsaStatus('\u26a0\ufe0f ' + (d.error || 'PSA lookup is unavailable right now.'), true);
+        psaLookupInFlight = false;
+        return;
+      }
+      throw new Error(d.error || 'Could not find that cert');
+    }
 
     closePsaScanner();
     renderResult(d);
