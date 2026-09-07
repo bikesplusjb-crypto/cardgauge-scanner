@@ -1739,6 +1739,21 @@ function cgCookie(name){
 
 async function doScan(){
   if(!frontFile||scanning)return;
+  /* A CORRECTION BELONGS TO THE CARD IT WAS TYPED FOR.
+
+     serialAsserted and yearAsserted were cleared only inside
+     scanAnother() -- the "Scan another card" button. Anybody who
+     simply retook the photos and pressed Scan kept the previous
+     card's values, so the serial box would announce "Priced as /25"
+     over a completely different card, and a typed year would silently
+     rewrite the next card's query too.
+
+     Reported from real use: the box always showed the last card's
+     number. Reset here instead, at the one point every photo scan
+     passes through, so it cannot depend on which button somebody
+     happened to press. */
+  serialAsserted = null;
+  yearAsserted   = null;
   /* The gate. Before any work, before any cost -- an account ask that
      arrives after the spinner would waste an API call and read as a
      bait.
@@ -1829,6 +1844,10 @@ function trySample(q){
    query diversity, so the event name is what lets the stats query tell
    them apart later without changing anything the user sees. */
 async function doSearch(isSample){
+  /* Same reasoning as doScan. A typed search is a new card too, and a
+     serial left over from a scan would be asserted over it. */
+  serialAsserted = null;
+  yearAsserted   = null;
   var q=(document.getElementById('searchInput').value||'').trim();
   if(!q){setStatus('Enter a card name first','error');return;}
 
