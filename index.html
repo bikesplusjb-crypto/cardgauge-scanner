@@ -753,6 +753,26 @@ input[type=file]{display:none;}
 .biz-note-go{flex-shrink:0;color:var(--gold);font-weight:700;margin-left:auto;}
 @media(max-width:520px){ .biz-note{border-radius:12px;max-width:none;align-items:flex-start;} }
 
+/* ── SET BUILDER ANNOUNCEMENT ───────────────────────────────────
+   Green rather than the gold used by the shop banner and the blue
+   used by the show-log tip, so three notices in a column read as
+   three different things rather than a wall of banners.
+
+   Deliberately NOT above the camera. The scanner is the product and
+   the thing people came for; a feature announcement that pushes the
+   camera down the page trades the working funnel for the unused one.
+   This sits directly under the scan box, which is the first thing
+   read after the reason they arrived. */
+.set-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
+  background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.32);border-radius:100px;
+  padding:9px 16px;margin:14px auto 0;max-width:44ch;
+  font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--text3);transition:all .2s;}
+.set-note:hover{border-color:var(--green);background:rgba(34,197,94,.15);}
+.set-note b{color:var(--green);}
+.set-note-tag{flex-shrink:0;background:var(--green);color:#052e16;font-weight:900;
+  font-size:9px;letter-spacing:.06em;padding:2px 7px;border-radius:5px;}
+.set-note-go{flex-shrink:0;color:var(--green);font-weight:700;margin-left:auto;}
+@media(max-width:520px){ .set-note{border-radius:12px;max-width:none;align-items:flex-start;} }
 .show-tip{display:flex;align-items:flex-start;gap:9px;text-align:left;text-decoration:none;
   background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.26);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -1321,6 +1341,25 @@ input[type=file]{display:none;}
 
        business.html, but nobody finds that page by guessing the URL. -->
 
+  <!-- THE FEATURE NOBODY COULD FIND.
+
+       The catalog subscription has been paid for since May and the set
+       builder has had 2 lookups since it came back on 1 Sept. The
+       feature works -- 1,251 cards across 86 sets are stored and the
+       match rate is 56% -- it is simply buried where nothing links to
+       it.
+
+       Worth saying plainly that this is an announcement, not a
+       permanent fixture. If it earns its place it stays; if the
+       lookups do not move in two weeks the answer is that people do
+       not want it here, and a louder banner will not change that. -->
+  <a class="set-note" href="https://www.cardgauge.com/my-binder" target="_top"
+     onclick="logEvent('set_banner_click','standalone',false);if(window.ttq)ttq.track('ClickButton',{content_name:'set_banner',content_type:'scanner_standalone'});if(window.fbq)fbq('track','Lead',{content_name:'set_banner',content_type:'scanner_standalone'})">
+    <span class="set-note-tag">NEW</span>
+    <span><b>Building a set?</b> We&rsquo;ll show you exactly which cards you&rsquo;re still missing.</span>
+    <span class="set-note-go">&rarr;</span>
+  </a>
+
   <a class="biz-note" href="https://scan.cardgauge.com/business.html" target="_top"
 
      onclick="logEvent('business_banner_click','standalone',false);if(window.ttq)ttq.track('ClickButton',{content_name:'business_banner_top',content_type:'scanner_standalone'});if(window.fbq)fbq('track','Lead',{content_name:'business_banner_top',content_type:'scanner_standalone'})">
@@ -1671,6 +1710,33 @@ function updateScanBtn(){ updateCapture(); }
 
 document.getElementById('scanBtn').addEventListener('click',doScan);
 
+
+/* ── ONE ID FOR BOTH SIDES OF THE SAME EVENT ────────────────────
+
+   The pixel here and the Conversions API on the server both report a
+   scan. Without a shared id Meta counts it twice on any device where
+   the pixel is not blocked -- which flatters the numbers in exactly
+   the direction that would make a bad ad look good.
+
+   Meta collapses two events carrying the same event_id. The browser
+   makes the id because only the browser knows the moment; it is sent
+   with the scan request so the server can use the identical value.
+
+   _fbp and _fbc are the cookies Meta's own pixel drops. They raise
+   match quality substantially, and the server cannot read them --
+   this is a cross-origin fetch, so no cookie travels with it. Read
+   here and passed along explicitly. */
+function cgEventId(){
+  return 'cg_' + Date.now().toString(36) + '_' +
+         Math.random().toString(36).slice(2, 10);
+}
+function cgCookie(name){
+  try{
+    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }catch(e){ return ''; }
+}
+
 async function doScan(){
   if(!frontFile||scanning)return;
   /* The gate. Before any work, before any cost -- an account ask that
@@ -1698,10 +1764,21 @@ async function doScan(){
     { msg:'Finding real sold prices\u2026', after:2600 },
     { msg:'Checking what sellers are asking\u2026', after:6000 }
   ]);
-  if(window.ttq)ttq.track('Search',{content_type:'card_scan',content_name:'standalone_scan'});if(window.fbq)fbq('track','Search',{content_type:'card_scan',content_name:'standalone_scan'});
+  /* One id, used by the pixel here AND by the server's Conversions API
+     call, so Meta collapses the pair instead of counting the scan
+     twice on any device where the pixel is not blocked. */
+  var cgEid = cgEventId();
+  if(window.ttq)ttq.track('Search',{content_type:'card_scan',content_name:'standalone_scan'});
+  if(window.fbq)fbq('track','Search',{content_type:'card_scan',content_name:'standalone_scan'},{eventID:cgEid});
   try{
     var fd=new FormData();fd.append('front',frontFile);
     if(backFile)fd.append('back',backFile);
+    /* Sent with the scan so the server reports the same event. The two
+       Meta cookies go too -- the server cannot read them, because this
+       is a cross-origin fetch and no cookie travels with it. */
+    fd.append('eventId', cgEid);
+    var _fbp = cgCookie('_fbp'); if(_fbp) fd.append('fbp', _fbp);
+    var _fbc = cgCookie('_fbc'); if(_fbc) fd.append('fbc', _fbc);
     var r=await fetch(API+'/api/scan-card',{method:'POST',body:fd});
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
@@ -6008,7 +6085,45 @@ function needsAccount(){
    It names what an account is for and what it costs -- one field, a
    code, no password -- because the round trip to an email app is what
    actually loses people, not the idea of an account. */
+/* How many times this person has closed the wall in this session.
+
+   Deliberately not persisted. A returning visitor tomorrow gets asked
+   again, which is fair -- this only stops the app nagging inside one
+   sitting. */
+var wallDismissCount = 0;
+var WALL_MAX_ASKS = 3;
+
 function showAccountWall(){
+  /* ASKING SOMEBODY ELEVEN TIMES IS NOT A FUNNEL.
+
+     Measured over the wall's first three days: 46 showings across 12
+     people. One person saw it ELEVEN times and closed it eleven times;
+     another ten and ten. They hit three scans, closed the wall, tried
+     another scan, and got it again -- every time, for as long as they
+     kept going.
+
+     Somebody who has closed this three times has answered the question.
+     Continuing to ask is what makes an app feel like it is nagging, and
+     it costs nothing to stop: they were not converting anyway. The scan
+     is still blocked, they simply are not shouted at about it again.
+
+     Logged so the difference is visible in the data rather than looking
+     like the wall stopped working. */
+  if(wallDismissCount >= WALL_MAX_ASKS){
+    logEvent('account_wall_suppressed', String(wallDismissCount), false);
+    /* Names the actual button. The header control says "Track my
+       collection", not "Sign in", so telling somebody to look for a
+       link in the header sends them hunting for words that are not on
+       the screen.
+
+       Deliberately does NOT list features here. The wall they just
+       closed three times already listed them; repeating that in a bar
+       which disappears in four seconds is the same nagging in smaller
+       type. This exists to stop pestering somebody while leaving the
+       door visible, not to make one more pitch. */
+    toast('Tap \u201cTrack my collection\u201d up top whenever you want to carry on');
+    return;
+  }
   logEvent('account_wall', String(freeScansUsed()), false);
   if(window.ttq) ttq.track('ViewContent',{content_name:'account_wall',content_type:'scanner'});if(window.fbq)fbq('track','ViewContent',{content_name:'account_wall',content_type:'scanner'});
 
@@ -6022,14 +6137,24 @@ function showAccountWall(){
     '<div class="cgw-ov" onclick="if(event.target===this)closeAccountWall()">'
   +   '<div class="cgw">'
   +     '<button class="cgw-x" onclick="closeAccountWall()">&times;</button>'
-  +     '<div class="cgw-h">Create your free CardGauge account</div>'
-  +     '<div class="cgw-p">Scan any card free. Keep what you scan, and we\'ll tell '
-  +       'you when it moves.<br><b>No password. Just a code.</b></div>'
+  +     '<div class="cgw-h">Keep scanning \u2014 free</div>'
+  /* LEAD WITH WHAT THEY WERE DOING, NOT WITH THE ACCOUNT.
+
+     "Create your free CardGauge account" describes the thing WE want.
+     This person was scanning cards and got stopped; what they want is
+     to carry on. The account is how, not why.
+
+     The feature list moved the same way. "Collection tools" and "Price
+     tracking" are category names -- true, and they tell somebody who has
+     never used the app nothing. Each line now says what it does. */
+  +     '<div class="cgw-p">You\'ve used your three free scans. An account gives you '
+  +       'unlimited scanning and somewhere to keep what you find.'
+  +       '<br><b>No password \u2014 just an emailed code.</b></div>'
   +     '<ul class="cgw-list">'
-  +       '<li><span>\u2713</span>Free scanning</li>'
-  +       '<li><span>\u2713</span>MultiScan Beta</li>'
-  +       '<li><span>\u2713</span>Price tracking</li>'
-  +       '<li><span>\u2713</span>Collection tools</li>'
+  +       '<li><span>\u2713</span>Scan as many cards as you like</li>'
+  +       '<li><span>\u2713</span>A binder that remembers what you own</li>'
+  +       '<li><span>\u2713</span>An email when one of your cards moves in price</li>'
+  +       '<li><span>\u2713</span>See which cards a set is still missing</li>'
   +     '</ul>'
   +     '<button class="cgw-cta" onclick="wallToAuth()">CREATE FREE ACCOUNT</button>'
   +     '<div class="cgw-alt">Already have an account? '
@@ -6052,7 +6177,10 @@ function showAccountWall(){
 function closeAccountWall(silent){
   var el = document.getElementById('cgWall');
   if(el) el.innerHTML = '';
-  if(!silent) logEvent('account_wall_dismissed', null, false);
+  if(!silent){
+    wallDismissCount++;
+    logEvent('account_wall_dismissed', String(wallDismissCount), false);
+  }
 }
 
 function wallToAuth(){
@@ -6590,6 +6718,35 @@ async function saveToBinder(){
     });
     if(res.error) throw res.error;
     toast('\u2705 Saved to your binder');
+    /* THE ROW WENT IN AND NOTHING RECORDED IT.
+
+       This path inserts into watchlist_items, tells the person it
+       saved, and fires both ad pixels -- but never called logEvent, so
+       every account save made on scan.cardgauge.com was invisible to
+       CardGauge's own analytics. The Wix copy has always logged it;
+       this file simply never did.
+
+       The effect was a funnel that looked broken from the outside.
+       card_saved last fired on 1 Sept and the dashboard read "0 account
+       saves" for five days, while watchlist_items was quietly gaining
+       scanner-sourced rows the whole time. An hour went into hunting a
+       save path that was working perfectly.
+
+       card_watched is layered on the same way the Wix file does it, so
+       the two surfaces now report identically and the funnel can tell
+       keep-completions from watch-completions wherever they happened. */
+    logEvent('card_saved', String(d.cardName||'Card').slice(0,200), false);
+    /* Unconditional, unlike the Wix copy's version of this.
+
+       That file's saveToBinder(status) takes the keep-or-watch choice
+       as an argument and branches on it. THIS one takes no arguments
+       at all and hardcodes status:'watching' on the insert a few lines
+       above -- the PWA has no keep/watch split. So the branch is
+       already decided and testing a variable that does not exist here
+       would be worse than useless: `status` resolves to window.status,
+       an empty string in every browser, so the check would silently
+       never fire rather than throwing an error anybody would notice. */
+    logEvent('card_watched', String(d.cardName||'Card').slice(0,200), false);
     if(window.ttq) ttq.track('AddToWishlist',{content_name:d.cardName,content_type:'scanner_save'});if(window.fbq)fbq('track','AddToWishlist',{content_name:d.cardName,content_type:'scanner_save'});
     /* Remember it in STATE, not just on the button. The saved look used
        to live only in the DOM node's text, so anything that rebuilt the
