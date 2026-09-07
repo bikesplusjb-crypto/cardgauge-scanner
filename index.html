@@ -5911,6 +5911,25 @@ async function sendAuthCode(isResend){
     var se=document.getElementById('authStepEmail'); if(se) se.style.display='none';
     var sc=document.getElementById('authStepCode'); if(sc) sc.style.display='';
     var cf=document.getElementById('authCode'); if(cf) cf.focus();
+    /* THE MIDDLE STEP OF THE SIGNUP FUNNEL WAS INVISIBLE.
+
+       binder.html logs binder_auth_code_sent immediately after the
+       same signInWithOtp call. This file never did -- so a code sent
+       from the SCANNER, which is where the account wall lives and
+       where nearly every signup begins, recorded nothing at all.
+
+       The cost was a funnel that read as broken. 43 people fired
+       signup_started and the dashboard showed 5 codes sent, because
+       those 5 were the only ones who happened to sign up from the
+       binder page instead. Anyone reading it would conclude the code
+       step was failing, when what was failing was the measurement.
+
+       Same event name as the binder deliberately, so the stats
+       function counts both surfaces without a second branch. Same
+       class of bug as the missing card_saved found this morning: an
+       event that exists in one copy of a duplicated file and not the
+       other. */
+    logEvent('binder_auth_code_sent', isResend ? 'resend' : null, false);
     if(isResend) toast('Code resent');
   }catch(e){
     err.textContent = e.message || 'Could not send code \u2014 try again.';
@@ -5952,6 +5971,15 @@ async function verifyAuthCode(){
 
     var wanted = pendingSave, wantedBench = pendingBench;
     closeAuth(); renderAuth();
+    /* The last step of the funnel, and it was as blind as the one
+       before it. binder_auth_verified fired only from binder.html, so
+       an account created at the scanner -- which is where the wall
+       sends people -- was never recorded as a completion.
+
+       That is why the dashboard read 7 verified against 43 signups
+       started. Not a broken signup: an unlogged one. Same event name
+       as the binder so both surfaces roll into one funnel. */
+    logEvent('binder_auth_verified', null, false);
     toast('\u2705 You\'re in');
     /* Repaint the result first. Signing in changes the save prompt, the
        "not signed in" warning and the bench CTA, and leaving those
