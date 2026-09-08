@@ -1240,6 +1240,10 @@ document.getElementById('detectBtn').onclick=async()=>{
   try{
     detectedCards=await detectCards(sourceFile);
     document.getElementById('detected').textContent=detectedCards.length;
+    /* The batch size is the number that matters here. A beta that
+       cannot say whether shops scan three cards or thirty cannot tell
+       whether Multi-Scan is solving the problem it was built for. */
+    shopLog('biz_detected', String(detectedCards.length));
     // A fresh front detection starts a new batch -- any backs counted
     // from a previous photo no longer apply to these fronts.
     backCards=[]; document.getElementById('backsDetected').textContent=0;
@@ -1349,6 +1353,10 @@ document.getElementById('scanBtn').onclick=async()=>{
   }
   document.getElementById('addAllBtn').disabled=!results.some(r=>r.data);
   const skipped=results.filter(r=>r.status==='Needs review').length;
+  /* Scanned, flagged and whether backs were used -- the three things
+     that decide whether a batch produced usable identifications. */
+  shopLog('biz_scanned', results.length + ' scanned, ' + skipped + ' flagged, backs:'
+    + ((backCards && backCards.length) ? 'yes' : 'no'));
   setStatus('Batch scan finished.'+(skipped?` ${skipped} flagged card(s) were skipped -- review them and scan individually if they look correct.`:'')+' Review the results before adding inventory.','ok');
 };
 
@@ -1407,6 +1415,10 @@ async function addManualCard(){
     document.getElementById('manAsk').value='0';
     document.getElementById('manAuto').checked=false;
     document.getElementById('manPatch').checked=false;
+    /* Separate from biz_inventory_added on purpose: a shop typing
+       cards in by hand rather than photographing them is telling you
+       something about whether Multi-Scan is working for them. */
+    shopLog('biz_manual_added', name.slice(0,80));
     await refreshShopInventory();
   }catch(e){
     alert('Could not add card: '+e.message);
@@ -1459,6 +1471,7 @@ document.getElementById('addAllBtn').onclick=async ()=>{
     const {error}=await SB.from('shop_inventory').insert(rows);
     if(error) throw error;
     document.getElementById('added').textContent=rows.length;
+    shopLog('biz_inventory_added', String(rows.length));
     await refreshShopInventory();
     setStatus(`${rows.length} card(s) added to ${esc(currentShopName)}'s shared inventory.`,'ok');
   }catch(e){
@@ -2621,14 +2634,40 @@ function invShowMore(){ invShown += INV_PAGE; renderInventory(); }
    Wrapped so it can never throw and never blocks. An analytics failure
    must not break a shop's listing screen, and a missing Supabase
    client on an older tablet must not either. */
+/* A session id, because without one none of this can be counted.
+
+   Every business event written so far -- six ebay_listing_opened rows
+   -- carries session_id NULL, and the stats function counts people
+   with count(distinct session_id). Six events from an unknown number
+   of people therefore read as zero people, in the one panel meant to
+   answer whether the Business beta is being used at all.
+
+   Same key and same shape as the scanner's, so a shop that scans on
+   the main site and then opens this tool is one session in the funnel
+   rather than two unrelated fragments. */
+function bizSessionId(){
+  try{
+    let k = sessionStorage.getItem('cg_session');
+    if(!k){
+      k = 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+      sessionStorage.setItem('cg_session', k);
+    }
+    return k;
+  }catch(e){ return null; }
+}
+
 async function shopLog(event, detail){
   try{
     if(typeof SB === 'undefined' || !SB) return;
+    let refHost = '';
+    try{ refHost = document.referrer ? new URL(document.referrer).hostname : ''; }catch(e){}
     await SB.rpc('log_scan_event', {
-      p_event:     String(event).slice(0,40),
-      p_card_name: detail ? String(detail).slice(0,200) : null,
-      p_used_back: false,
-      p_is_owner:  false
+      p_event:         String(event).slice(0,40),
+      p_referrer_host: refHost || null,
+      p_card_name:     detail ? String(detail).slice(0,200) : null,
+      p_used_back:     false,
+      p_session_id:    bizSessionId(),
+      p_is_owner:      false
     });
   }catch(e){ /* never let a log break the page */ }
 }
@@ -3002,7 +3041,7 @@ async function copyEbay(elId, btn){
 }
 
 async function markListed(id){
-  if(!requireWrite()) return;
+  if(!requireWrite('marking a card listed')) return;
   await editInv(id, 'status', 'Listed');
   shopLog('ebay_marked_listed', String(id).slice(0,40));
   closeEbay();
@@ -3236,6 +3275,9 @@ async function confirmSale(id){
     if(error) throw error;
     if(!data) throw new Error('The sale was not recorded.');
     item.status='Sold';
+    /* The only event here that represents real money changing hands,
+       and the one the whole Dashboard rests on. */
+    shopLog('biz_sale_recorded', marketplace || 'unspecified');
     document.getElementById('saleFormArea').innerHTML='';
     renderInventory();
     renderDashboard();
@@ -3251,7 +3293,7 @@ async function clearInventory(){
     await refreshShopInventory();
   }catch(e){alert('Could not clear inventory: '+e.message)}
 }
-function exportInventory(){const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Condition','Location','Market','Cost','Ask','Potential profit','Status','Added'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.condition,x.location,x.market,x.cost,x.ask,x.ask-x.cost,x.status,String(x.createdAt||'').slice(0,10)])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
+function exportInventory(){shopLog('biz_csv_export',String(shopInventory.length));const a=shopInventory,rows=[['Card','Year','Set','Number','Team','Condition','Location','Market','Cost','Ask','Potential profit','Status','Added'],...a.map(x=>[x.name,x.year,x.set,x.number,x.team,x.condition,x.location,x.market,x.cost,x.ask,x.ask-x.cost,x.status,String(x.createdAt||'').slice(0,10)])];const blob=new Blob([rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n')],{type:'text/csv'});const u=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=u;aEl.download='cardgauge-inventory.csv';aEl.click();URL.revokeObjectURL(u)}
 
 async function createBreak(){
   if(!requireWrite('creating breaks')) return;
@@ -3273,6 +3315,7 @@ async function createBreak(){
     // Into the list as well as active, so the picker appears straight
     // away for a shop that now has two rather than only after a reload.
     activeBreak=breakFromRow(data);
+    shopLog('biz_break_created', String(spots.length) + ' spots');
     shopBreaks.unshift(activeBreak);
     save(LS_BREAK+':'+currentShopId,activeBreak.id);
     renderBreaks();
@@ -3415,6 +3458,10 @@ async function toggleSpotVerified(i){
     spot.verifiedSnapshot=null;
   }
   renderAssignments();
+  /* Verification is the differentiator in this tool -- the thing no
+     generic break board does. Whether anybody actually uses it is the
+     single most useful thing this beta can find out. */
+  if(spot.verified) shopLog('biz_spot_verified', String((spot.verifiedSnapshot||[]).length) + ' cards');
   try{
     const {error}=await SB.from('shop_breaks')
       .update({spots:activeBreak.spots,updated_at:new Date().toISOString()})
@@ -3429,6 +3476,7 @@ async function toggleSpotVerified(i){
 // left out, so nobody mistakes an incomplete break for a clean one.
 function buildBreakProof(){
   if(!activeBreak){ alert('No active break.'); return; }
+  shopLog('biz_break_proof', String(activeBreak.spots.filter(s=>s.verified).length) + ' verified');
   const el=document.getElementById('proofArea');
   el.style.display='block';
   const when=d=>d?new Date(d).toLocaleString():'';
@@ -3789,6 +3837,12 @@ function buildLabels(){
 }
 function renderAll(){renderInventory();renderBreaks();renderDashboard()}
 renderAll();
+
+/* This page has never reported a page view, so it does not appear in
+   page_reach beside scan, home, pre-grade and the rest -- the panel
+   that answers "does anybody open this". Logged once on load, using
+   the same event name and the same label shape as every other page. */
+shopLog('page_view', 'business');
 
 // Restore the remembered name, and save it as it's typed -- no submit
 // button, no friction, just persists like everything else in this app.
