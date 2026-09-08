@@ -771,18 +771,7 @@ input[type=file]{display:none;}
 .cg-hint b{color:var(--text2);}
 .cg-hint-v{color:var(--blue,#3b82f6);font-weight:700;}
 .cg-hint-go{margin-left:auto;color:var(--blue,#3b82f6);font-weight:700;white-space:nowrap;}
-/* One line, under the price, sized to be read across a table. Gold
-   rather than green: this is a number to weigh, not a verdict. */
-.buyline{margin-top:11px;padding:13px 15px;border-radius:12px;
-  background:linear-gradient(160deg,rgba(245,158,11,.10),rgba(17,24,39,.4));
-  border:1px solid rgba(245,158,11,.3);}
-.buyline-k{font-family:var(--fm);font-size:9.5px;letter-spacing:.18em;
-  color:var(--gold,#f59e0b);margin-bottom:5px;}
-.buyline-v{font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1.1;
-  color:var(--gold-warm,#fbbf24);}
-.buyline-v span{font-size:14px;font-weight:600;color:var(--text3,#64748b);}
-.buyline-note{font-size:12px;color:var(--text3,#94a3b8);line-height:1.6;margin-top:7px;}
-.buyline-no .buyline-v{font-size:19px;color:var(--text2,#94a3b8);}
+
 .set-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
   background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.32);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -1775,6 +1764,210 @@ function reportCorrection(field, correctedTo){
     }).catch(function(){});
   }catch(e){}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   BUYMAX PANEL — inlined rather than loaded from /buymax-panel.js
+
+   stock-card-api serves API routes only; it has no express.static and
+   no public/ directory, so a <script src> pointing at it would 404.
+   Adding static serving to an API service to deliver one file, then
+   fetching that file cross-origin from scan.cardgauge.com, is more
+   moving parts than pasting it here — and this file already holds
+   every other line of the scanner's JavaScript inline with no build
+   step.
+
+   The trade is the same one the whole codebase carries: another copy
+   to keep in sync. It belongs on the list with the two scanner files
+   when the shared-logic extraction happens.
+   ══════════════════════════════════════════════════════════════ */
+/**
+ * BUYMAX PANEL — scan result screen
+ *
+ * A "what should I pay?" panel that mounts under an existing scan result. It
+ * holds no pricing logic of its own: it posts to /api/buymax and renders what
+ * the engine returns. Change a threshold on the server and this follows.
+ *
+ * USAGE — add one script tag and one call:
+ *
+ *   <script src="/buymax-panel.js"></script>
+ *   <div id="buymax"></div>
+ *
+ *   BuyMaxPanel.mount('#buymax', {
+ *     card: {
+ *       name: cardTitle,          // whatever your scan result already holds
+ *       card_number: cardNumber,
+ *       set: setName,
+ *       year: cardYear,
+ *       player: playerName,
+ *       parallel: chosenParallel, // null when the person picked "Base"
+ *       condition: 'raw'
+ *     },
+ *     apiBase: '',                // same origin by default
+ *     onEvent: (name, data) => logEvent(name, data)   // optional
+ *   });
+ *
+ * Call mount() again after a re-price (parallel chooser, condition change) and
+ * the panel resets itself.
+ */
+(function (global) {
+  'use strict';
+
+  var CSS = [
+    '.bmx{font-family:inherit;border:1.5px solid #C3C6BB;border-radius:6px;padding:16px;margin:16px 0;background:#F7F8F4}',
+    '.bmx h3{margin:0 0 4px;font-size:16px;font-weight:700;color:#16202B}',
+    '.bmx .bmx-sub{margin:0 0 14px;font-size:13px;color:#5A6570;line-height:1.4}',
+    '.bmx-ask{display:flex;align-items:center;gap:10px;margin-bottom:14px}',
+    '.bmx-ask label{font-size:14px;color:#16202B;white-space:nowrap}',
+    '.bmx-ask .bmx-input{display:flex;align-items:center;border:1.5px solid #16202B;border-radius:4px;background:#fff;padding:0 10px;flex:1;max-width:150px}',
+    '.bmx-ask .bmx-input span{color:#5A6570;font-size:16px}',
+    '.bmx-ask input{border:0;outline:0;font:inherit;font-size:18px;font-weight:700;padding:9px 4px;width:100%;background:transparent;color:#16202B}',
+    '.bmx-go{background:#16202B;color:#fff;border:0;border-radius:4px;padding:11px 16px;font:inherit;font-weight:700;font-size:15px;cursor:pointer}',
+    '.bmx-go:disabled{opacity:.45;cursor:default}',
+    '.bmx-go:focus-visible{outline:3px solid #B4791E;outline-offset:2px}',
+    '.bmx-out{margin-top:16px;padding-top:14px;border-top:1.5px solid #C3C6BB}',
+    '.bmx-verdict{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}',
+    '.bmx-verdict b{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1}',
+    '.bmx-verdict.buy b{color:#1F6F4A}.bmx-verdict.pass b{color:#A8322A}.bmx-verdict.review b{color:#B4791E;font-size:22px}',
+    '.bmx-verdict em{font-style:normal;font-size:13px;color:#5A6570}',
+    '.bmx-ladder{display:flex;gap:8px;margin:12px 0}',
+    '.bmx-rung{flex:1;text-align:center;padding:10px 6px;border-radius:4px;background:#fff;border:1.5px solid #C3C6BB}',
+    '.bmx-rung b{display:block;font-size:19px;font-weight:800;letter-spacing:-.02em;color:#16202B}',
+    '.bmx-rung small{display:block;font-size:11px;color:#5A6570;margin-top:2px}',
+    '.bmx-rung.t{border-color:#1F6F4A}.bmx-rung.t b{color:#1F6F4A}',
+    '.bmx-rung.m{border-color:#A8322A}.bmx-rung.m b{color:#A8322A}',
+    '.bmx-why{font-size:14.5px;line-height:1.55;color:#16202B;margin:12px 0 0}',
+    '.bmx-meta{font-size:12.5px;color:#5A6570;margin:10px 0 0;line-height:1.45}',
+    '.bmx-err{font-size:14px;color:#A8322A;margin:12px 0 0}',
+    '.bmx-load{font-size:14px;color:#5A6570;margin:12px 0 0}'
+  ].join('');
+
+  function injectCss() {
+    if (document.getElementById('bmx-css')) return;
+    var el = document.createElement('style');
+    el.id = 'bmx-css';
+    el.textContent = CSS;
+    document.head.appendChild(el);
+  }
+
+  var money = function (n) {
+    return (n === null || n === undefined) ? '—' : '$' + Number(n).toFixed(2);
+  };
+  var money0 = function (n) {
+    return (n === null || n === undefined) ? '—' : '$' + Math.round(Number(n));
+  };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  };
+
+  function mount(target, opts) {
+    injectCss();
+    var root = typeof target === 'string' ? document.querySelector(target) : target;
+    if (!root) return null;
+
+    var apiBase = (opts && opts.apiBase) || '';
+    var card = (opts && opts.card) || {};
+    var emit = (opts && opts.onEvent) || function () {};
+
+    root.innerHTML =
+      '<div class="bmx">' +
+        '<h3>What should I pay?</h3>' +
+        '<p class="bmx-sub">Enter what the seller is asking. This works out the most you can pay and still make money after fees.</p>' +
+        '<div class="bmx-ask">' +
+          '<label for="bmx-price">Seller wants</label>' +
+          '<div class="bmx-input"><span>$</span><input id="bmx-price" type="number" inputmode="decimal" min="0" step="1" placeholder="0"></div>' +
+          '<button class="bmx-go" type="button" disabled>Check</button>' +
+        '</div>' +
+        '<div class="bmx-out" hidden></div>' +
+      '</div>';
+
+    var input = root.querySelector('#bmx-price');
+    var button = root.querySelector('.bmx-go');
+    var out = root.querySelector('.bmx-out');
+
+    input.addEventListener('input', function () {
+      button.disabled = !(Number(input.value) > 0);
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !button.disabled) check();
+    });
+    button.addEventListener('click', check);
+
+    function check() {
+      var ask = Number(input.value);
+      if (!(ask > 0)) return;
+
+      button.disabled = true;
+      out.hidden = false;
+      out.innerHTML = '<p class="bmx-load">Working out what this is worth paying…</p>';
+      emit('buymax_checked', { asking_price: ask, card: card.name });
+
+      fetch(apiBase + '/api/buymax', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: 'card', item: card, asking_price: ask })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          button.disabled = false;
+          if (!d || d.success === false) {
+            out.innerHTML = '<p class="bmx-err">' +
+              esc((d && d.details && d.details[0]) || 'Could not work that out right now.') + '</p>';
+            return;
+          }
+          render(d, ask);
+          emit('buymax_result', {
+            result: d.decision.result,
+            asking_price: ask,
+            maximum_buy_price: d.decision.maximum_buy_price,
+            confidence: d.confidence.buymax_confidence
+          });
+        })
+        .catch(function () {
+          button.disabled = false;
+          out.innerHTML = '<p class="bmx-err">Could not reach the pricing service. Try again in a moment.</p>';
+        });
+    }
+
+    function render(d, ask) {
+      var dec = d.decision;
+      var lad = d.price_ladder || {};
+      var cls = dec.result.toLowerCase();
+      var word = dec.result === 'REVIEW' ? 'Your call' : (dec.result === 'BUY' ? 'Buy it' : 'Walk away');
+
+      var html = '<div class="bmx-verdict ' + cls + '"><b>' + word + '</b><em>at ' + money0(ask) + '</em></div>';
+
+      if (lad.maximum_buy_price !== null && lad.maximum_buy_price !== undefined) {
+        html +=
+          '<div class="bmx-ladder">' +
+            '<div class="bmx-rung t"><b>' + money0(lad.target_offer) + '</b><small>open here</small></div>' +
+            '<div class="bmx-rung m"><b>' + money0(lad.maximum_buy_price) + '</b><small>your ceiling</small></div>' +
+            '<div class="bmx-rung"><b>' + money0(dec.expected_profit) + '</b><small>profit at ' + money0(ask) + '</small></div>' +
+          '</div>';
+      }
+
+      html += '<p class="bmx-why">' + esc(d.explanation.detail) + '</p>';
+
+      var meta = [];
+      if (d.market.sold_market_value) {
+        meta.push('Based on ' + d.market.sold_comp_count + ' completed sales, median ' + money(d.market.sold_market_value) + '.');
+      }
+      if (d.market.listings_used) {
+        meta.push(d.market.listings_used + ' active listings checked, ' + d.market.listings_rejected + ' rejected as a different card.');
+      }
+      meta.push('Confidence ' + d.confidence.buymax_confidence + '/100 · risk ' + d.risk.score + '/100.');
+      (d.meta.assumptions || []).forEach(function (a) { meta.push(a); });
+      html += '<p class="bmx-meta">' + meta.map(esc).join(' ') + '</p>';
+
+      out.innerHTML = html;
+    }
+
+    return { check: check, el: root };
+  }
+
+  global.BuyMaxPanel = { mount: mount };
+})(window);
 
 function cgEventId(){
   return 'cg_' + Date.now().toString(36) + '_' +
@@ -3975,66 +4168,6 @@ function renderCta(d, rows, s){
    seller on different terms knows what to adjust. */
 var SELL_FEE_PCT = 13, SELL_SHIP = 1;
 
-/* ── WHAT TO PAY ────────────────────────────────────────────────
-
-   The decision block above answers "what should I do with this card"
-   for somebody who already owns it. This answers the other question,
-   which is the one asked at a table with a seller waiting: what is the
-   most I can pay and still make anything.
-
-   NOT A DASHBOARD. It is one line under the price, at the moment the
-   number is on screen and a decision is thirty seconds away. A shop
-   screen somebody opens later is a different product for a different
-   day.
-
-   ONLY ON A SOLD MEDIAN WE STAND BEHIND. If the pool is contaminated
-   or too thin, this does not appear at all -- the price itself is
-   already refused in those cases and a buy-at figure derived from a
-   number we would not print is worse than silence. That is why this
-   lives beside the decision block rather than inside it: same bar,
-   separate question.
-
-   THE DEFAULTS ARE STATED, NOT HIDDEN. A collector flipping on eBay
-   pays roughly 13% in fees and a few dollars to post. Those are
-   assumptions, they are visible in the line itself, and anybody whose
-   numbers differ can see immediately which ones to argue with. A
-   figure derived from invisible assumptions is the thing this whole
-   app exists to avoid. */
-var FLIP_FEE_PCT   = 13;    /* eBay final value, roughly */
-var FLIP_SHIP      = 4;     /* sleeve, toploader, envelope, stamp */
-var FLIP_MARGIN_PCT = 30;   /* what makes the handling worth doing */
-
-function buildBuyLine(d){
-  var sold = safeNum(d.sold && d.sold.soldMedian);
-  if(!sold) return '';
-
-  /* The same refusals the price block applies. A buy-at price off a
-     mixed pool would be a confident number built on cards that are not
-     this one. */
-  if(d.sold && (d.sold.soldContaminated || d.sold.soldLimited)) return '';
-
-  var net = sold - (sold * FLIP_FEE_PCT / 100) - FLIP_SHIP;
-  if(net <= 0){
-    /* Postage and fees exceed the card. Worth saying outright -- this
-       is most of a dollar box and people buy them anyway. */
-    return '<div class="buyline buyline-no">'
-      + '<div class="buyline-k">WHAT TO PAY</div>'
-      + '<div class="buyline-v">Not one to flip</div>'
-      + '<div class="buyline-note">At ' + fmtMoney(sold) + ', fees and postage take more '
-      + 'than the card is worth. Fine to own, not to resell on its own.</div></div>';
-  }
-
-  var maxPay = net / (1 + FLIP_MARGIN_PCT / 100);
-
-  return '<div class="buyline">'
-    + '<div class="buyline-k">WHAT TO PAY</div>'
-    + '<div class="buyline-v">' + fmtMoney(maxPay) + ' <span>or less</span></div>'
-    + '<div class="buyline-note">Sells around ' + fmtMoney(sold) + '. After '
-    + FLIP_FEE_PCT + '% fees and $' + FLIP_SHIP + ' postage you keep ' + fmtMoney(net)
-    + ', so ' + fmtMoney(maxPay) + ' leaves ' + FLIP_MARGIN_PCT + '% for the trouble. '
-    + 'Paying more is fine if you want the card \u2014 just not as a flip.</div></div>';
-}
-
 function buildDecision(d, rows, s){
   var sold = safeNum(d.sold && d.sold.soldMedian);
   var raw  = sold
@@ -5118,9 +5251,16 @@ function renderResult(d){
        for a decision the reader has already been given. */
     if(d.isRedemption === true){ html+=buildRedemptionWarning(d); }
     else { html+=buildDecision(d, rows, s); }
-    /* After the decision, not before it. Somebody who owns the card
-       wants the verdict; somebody deciding whether to buy reads on. */
-    html+=buildBuyLine(d);
+    /* BuyMax mounts here after the DOM is written. The div is the whole
+       of what the HTML string contributes -- the panel renders itself,
+       asks for a price, and posts to /api/buymax for the answer.
+
+       buildBuyLine() used to render here. It is gone, deliberately and
+       in the same change: two things computing a buy ceiling on one
+       screen is how four separate bugs happened in this codebase in a
+       single day. The server is the only place that number is worked
+       out now. */
+    html+='<div id="bmxMount"></div>';
     html+=buildGlareTip(d);
 
     /* CORRECTIONS SIT HERE, AFTER THE PRICE, ON EVERY PATH.
@@ -5607,6 +5747,34 @@ function renderResult(d){
 
   html+='</div>';
   el.innerHTML=html;
+
+  /* Mounted after the paint, because the panel needs its container to
+     exist. Called on every render rather than once, so a re-price
+     through the parallel chooser resets it -- a ceiling worked out for
+     the base card must not survive onto the refractor. */
+  try{
+    if(window.BuyMaxPanel && document.getElementById('bmxMount')){
+      BuyMaxPanel.mount('#bmxMount', {
+        /* Not same-origin: this page is served from scan.cardgauge.com
+           and the engine lives on the API host. */
+        apiBase: API,
+        card: {
+          name:        d.cardName || '',
+          player:      d.player || '',
+          year:        d.year || '',
+          brand:       d.brand || '',
+          set:         d.set || '',
+          card_number: d.cardNumber || '',
+          parallel:    d.parallel || '',
+          category:    'card',
+          condition:   'raw'
+        },
+        onEvent: function(name, data){
+          try{ logEvent(name, typeof data==='string' ? data : JSON.stringify(data||'').slice(0,120), false); }catch(e){}
+        }
+      });
+    }
+  }catch(e){}
   /* benchAdd() already ran above, before this HTML was built — so the
      single-save-button decision and this render both saw the same,
      current bench state. Only the actual DOM paint for the bench
