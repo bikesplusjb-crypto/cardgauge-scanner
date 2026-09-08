@@ -1787,9 +1787,16 @@ function reportCorrection(field, correctedTo){
  * holds no pricing logic of its own: it posts to /api/buymax and renders what
  * the engine returns. Change a threshold on the server and this follows.
  *
- * USAGE — add one script tag and one call:
+ * USAGE — inlined in this file rather than loaded by tag.
  *
- *   <script src="/buymax-panel.js"></script>
+ * (The original doc comment showed a script tag here. It has been
+ *  removed, not reworded: an HTML parser closes a script block at the
+ *  literal characters that end one, wherever they appear -- inside a
+ *  string, inside a comment, it does not matter. Pasted in as-is, that
+ *  one line ended this block 170 lines early, dumped the rest of the
+ *  panel onto the page as text, and stopped the scanner taking
+ *  photographs. Nothing in a syntax check catches it, because the
+ *  JavaScript either side is perfectly valid.)
  *   <div id="buymax"></div>
  *
  *   BuyMaxPanel.mount('#buymax', {
