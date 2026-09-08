@@ -5786,9 +5786,52 @@ function renderResult(d){
            and the engine lives on the API host. */
         apiBase: API,
         card: {
-          name:        d.cardName || '',
+          /* THE YEAR THE PRICE WAS ACTUALLY FOUND ON, NOT THE ONE ON
+             SCREEN.
+
+             The scan handler already does this: when a claimed year
+             returns no sales it retries the current year, prices off
+             whatever that finds, and reports the swap as yearGuess. The
+             header keeps the model's read on purpose -- the card in
+             somebody's hand is the authority and we do not silently
+             rewrite it.
+
+             But the panel was sending that displayed name back through
+             the adapter, and the adapter calls getSoldComps directly --
+             which does NOT contain the retry; that lives in the scan
+             handler. So the panel re-asked a question the scanner had
+             already answered, got the same zero the scanner discarded,
+             and refused.
+
+             Seen on a real card: the result showed $3 off 100 sales
+             with a full PSA ladder, while BuyMax two inches below
+             reported no usable comps at all. Two engines, same card,
+             opposite answers, nothing on screen saying which to trust.
+
+             Corrected here and nowhere else. The display is unchanged. */
+          /* THE EXACT QUERY THE PRICE WAS FOUND WITH.
+
+             getSoldComps caches by query string, and both the scanner
+             and BuyMax's adapter call that same function. So an
+             identical query returns the identical cached answer -- no
+             second API call, and the two CANNOT disagree.
+
+             They diverged because the strings differed. The scanner
+             builds its query through tiers, retries a corrected year,
+             broadens when a tier is thin, and reports whatever finally
+             worked as soldQuery. The panel was reconstructing a query
+             from the displayed fields instead -- a different string, a
+             different cache key, a different answer. On a real card the
+             result showed $3 off 100 sales while BuyMax two inches below
+             said no usable comps at all.
+
+             Echoing soldQuery back makes agreement structural rather
+             than coincidental: there is one function, one cache, and one
+             argument. cardName is the fallback for the rare response
+             that carries no soldQuery. */
+          name:        d.soldQuery || d.cardName || '',
           player:      d.player || '',
-          year:        d.year || '',
+          year:        (d.yearGuess && d.yearGuess.triedYear) ? d.yearGuess.triedYear : (d.year || ''),
           brand:       d.brand || '',
           set:         d.set || '',
           card_number: d.cardNumber || '',
