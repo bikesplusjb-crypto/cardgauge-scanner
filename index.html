@@ -3632,8 +3632,7 @@ async function benchSaveAll(){
     if(!isPro && n + todo.length > FREE_CARD_LIMIT){
       var room = Math.max(0, FREE_CARD_LIMIT - n);
       if(!room){
-        toast('Free binder is full \u2014 opening your binder');
-        window.open(BINDER_PAGE,'_blank','noopener');
+        showProWall('bench_save_full');
         if(btn){ btn.disabled=false; benchRender(); }
         return;
       }
@@ -6265,6 +6264,104 @@ function needsAccount(){
 var wallDismissCount = 0;
 var WALL_MAX_ASKS = 3;
 
+/* THE MOMENT SOMEBODY WOULD PAY, SPENT ON A TOAST AND A NEW TAB.
+
+   binder.html has had a proper Pro wall since it was built --
+   showProWall() renders it and logs pro_wall with a reason. This file
+   has never had either. Both cap paths here showed "Free binder is
+   full" and opened the binder in another tab.
+
+   So the pro_wall event has never fired once in the app's life, and
+   the dashboard's Pro funnel reads 0 at the step where money is made.
+   A real user saved exactly 25 cards on 23 August, hit this, and never
+   came back. They were never shown a price.
+
+   Fourth instance of the same bug in two days: something built in one
+   copy of a duplicated file and missing from the other. card_saved,
+   binder_auth_code_sent, binder_auth_verified, and now this.
+
+   Deliberately says what they GET rather than what they have hit. "You
+   have reached your limit" describes our rule; "your binder is full,
+   Pro takes the cap off" describes their situation and what fixes it. */
+/* Pro pricing and checkout, which this file never had -- the wall
+   below is the first thing here that needed them. Kept in sync with
+   my-binder.html and the homepage by hand; if a third copy appears,
+   that is the signal to move them server-side.
+
+   The Stripe link carries the Supabase user id as client_reference_id
+   when we have one, which is the only thread joining a click to a
+   payment in the webhook. */
+const PRO_PRICE = '$12.99';
+/* MATCHES my-binder.html, which is the only file that pairs a link
+   with a price ($12.99). Three different buy.stripe.com links exist
+   across this codebase; 5kQfZh... is the one on the old homepage
+   beside a stale $6.99, and wiring the wall to it would have
+   charged a different amount than the wall quotes. */
+const STRIPE_PRO_LINK = 'https://buy.stripe.com/eVqcN5g9cb6o5W40eD38401';
+function proCheckoutUrl(){
+  try{
+    var parts = [];
+    if(currentUser){
+      if(currentUser.email) parts.push('prefilled_email=' + encodeURIComponent(currentUser.email));
+      if(currentUser.id)    parts.push('client_reference_id=' + encodeURIComponent(currentUser.id));
+    }
+    return parts.length ? STRIPE_PRO_LINK + '?' + parts.join('&') : STRIPE_PRO_LINK;
+  }catch(e){ return STRIPE_PRO_LINK; }
+}
+
+function showProWall(why){
+  try{ logEvent('pro_wall', why || 'unknown', false); }catch(e){}
+  /* Reuses the account wall's host and classes rather than inventing
+     a second set. Created on demand exactly as that one does, so this
+     works whether or not the account wall has ever been shown. */
+  var el = document.getElementById('cgWall');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'cgWall';
+    document.body.appendChild(el);
+  }
+  if(window.ttq) ttq.track('ViewContent',{content_name:'pro_wall',content_type:'scanner'});
+  if(window.fbq) fbq('track','ViewContent',{content_name:'pro_wall',content_type:'scanner'});
+
+  el.innerHTML =
+    '<div class="cgw-ov" onclick="if(event.target===this)closeProWall()">'
+  +   '<div class="cgw">'
+  +     '<button class="cgw-x" onclick="closeProWall()">&times;</button>'
+  +     '<div class="cgw-h">Your binder is full</div>'
+  +     '<div class="cgw-p">All ' + FREE_CARD_LIMIT + ' free cards are saved. Pro takes '
+  +       'the cap off and keeps repricing everything you own, every night.</div>'
+  +     '<ul class="cgw-list">'
+  +       '<li><span>\u2713</span>Unlimited cards in your binder</li>'
+  +       '<li><span>\u2713</span>Every card repriced overnight from real sales</li>'
+  +       '<li><span>\u2713</span>What you paid against what it\u2019s worth now</li>'
+  +       '<li><span>\u2713</span>Finish your sets without a spreadsheet</li>'
+  +     '</ul>'
+  +     '<button class="cgw-cta" onclick="proFromWall(\'' + (why||'unknown') + '\')">'
+  +       'GO PRO \u2014 ' + PRO_PRICE + '/MO</button>'
+  +     '<div class="cgw-alt">'
+  +       '<a onclick="closeProWall(); window.open(BINDER_PAGE,\'_blank\',\'noopener\');">'
+  +       'Open my binder and clear a slot</a></div>'
+  +   '</div>'
+  + '</div>';
+}
+
+function closeProWall(){
+  var el = document.getElementById('cgWall');
+  if(el) el.innerHTML = '';
+  logEvent('pro_wall_dismissed', null, false);
+}
+
+/* Separated from the wall so a click is never counted as a dismissal
+   -- the same mistake the account wall made and had to be fixed for. */
+function proFromWall(why){
+  logEvent('pro_wall_clicked', why || 'unknown', false);
+  if(window.ttq) ttq.track('Subscribe',{content_name:'cardgauge_pro',content_type:'pro_wall'});
+  if(window.fbq) fbq('track','InitiateCheckout',{content_name:'cardgauge_pro'});
+  var el = document.getElementById('cgWall');
+  if(el) el.innerHTML = '';
+  window.open(proCheckoutUrl(), '_blank', 'noopener');
+}
+
 function showAccountWall(){
   /* ASKING SOMEBODY ELEVEN TIMES IS NOT A FUNNEL.
 
@@ -6832,8 +6929,7 @@ async function saveToBinder(){
   try{
     var n = isPro ? 0 : await watchedCount();
     if(!isPro && n >= FREE_CARD_LIMIT){
-      toast('Free binder is full \u2014 opening your binder');
-      window.open(BINDER_PAGE,'_blank','noopener');
+      showProWall('scanner_save_full');
       if(btn){ btn.disabled=false; btn.textContent='\ud83d\udcc2 Add to Binder'; }
       return;
     }
