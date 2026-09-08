@@ -1837,11 +1837,16 @@ function reportCorrection(field, correctedTo){
     '.bmx-verdict.buy b{color:#1F6F4A}.bmx-verdict.pass b{color:#A8322A}.bmx-verdict.review b{color:#B4791E;font-size:22px}',
     '.bmx-verdict em{font-style:normal;font-size:13px;color:#5A6570}',
     '.bmx-ladder{display:flex;gap:8px;margin:12px 0}',
+    /* A lone rung must not stretch full width and read as a banner. */
+    '.bmx-ladder.one .bmx-rung{flex:0 1 auto;min-width:132px}',
     '.bmx-rung{flex:1;text-align:center;padding:10px 6px;border-radius:4px;background:#fff;border:1.5px solid #C3C6BB}',
     '.bmx-rung b{display:block;font-size:19px;font-weight:800;letter-spacing:-.02em;color:#16202B}',
     '.bmx-rung small{display:block;font-size:11px;color:#5A6570;margin-top:2px}',
     '.bmx-rung.t{border-color:#1F6F4A}.bmx-rung.t b{color:#1F6F4A}',
     '.bmx-rung.m{border-color:#A8322A}.bmx-rung.m b{color:#A8322A}',
+    /* Profit lives OUTSIDE the ladder. See render(). */
+    '.bmx-profit{font-size:13.5px;color:#5A6570;margin:0 0 4px;line-height:1.45}',
+    '.bmx-profit b{color:#1F6F4A;font-weight:800}',
     '.bmx-why{font-size:14.5px;line-height:1.55;color:#16202B;margin:12px 0 0}',
     '.bmx-meta{font-size:12.5px;color:#5A6570;margin:10px 0 0;line-height:1.45}',
     '.bmx-err{font-size:14px;color:#A8322A;margin:12px 0 0}',
@@ -1945,13 +1950,41 @@ function reportCorrection(field, correctedTo){
 
       var html = '<div class="bmx-verdict ' + cls + '"><b>' + word + '</b><em>at ' + money0(ask) + '</em></div>';
 
-      if (lad.maximum_buy_price !== null && lad.maximum_buy_price !== undefined) {
+      var haveMax = lad.maximum_buy_price !== null && lad.maximum_buy_price !== undefined;
+
+      if (haveMax) {
+        /* THE LADDER HOLDS PRICES AND NOTHING ELSE.
+
+           It used to carry three boxes: open, ceiling, and the profit at
+           the asking price. Read across they were $25 / $34 / $37 --
+           ascending, identical type -- so the profit read as a price
+           ABOVE the ceiling the box beside it had just said not to pass.
+           A number meaning "you make this" cannot sit in a row of numbers
+           meaning "you pay this".
+
+           walk_away_above is not a third rung either: the engine returns
+           it equal to maximum_buy_price, so drawing both is the same
+           number twice.
+
+           The opening offer is dropped when the seller is already asking
+           at or below it. The engine caps target_offer at the ask and
+           reports that as ask_below_target, so the box would be the ask
+           repeated back -- a dead rung on a screen already too busy. The
+           sentence underneath says what to do instead. */
+        var openRung = !lad.ask_below_target
+          ? '<div class="bmx-rung t"><b>' + money0(lad.target_offer) + '</b><small>open here</small></div>'
+          : '';
+
         html +=
-          '<div class="bmx-ladder">' +
-            '<div class="bmx-rung t"><b>' + money0(lad.target_offer) + '</b><small>open here</small></div>' +
+          '<div class="bmx-ladder' + (openRung ? '' : ' one') + '">' +
+            openRung +
             '<div class="bmx-rung m"><b>' + money0(lad.maximum_buy_price) + '</b><small>your ceiling</small></div>' +
-            '<div class="bmx-rung"><b>' + money0(dec.expected_profit) + '</b><small>profit at ' + money0(ask) + '</small></div>' +
           '</div>';
+
+        if (dec.expected_profit !== null && dec.expected_profit !== undefined) {
+          html += '<p class="bmx-profit">At ' + money0(ask) + ' you clear <b>' +
+            money(dec.expected_profit) + '</b> after fees and costs.</p>';
+        }
       }
 
       html += '<p class="bmx-why">' + esc(d.explanation.detail) + '</p>';
@@ -3263,13 +3296,13 @@ function buildSoldHero(d){
      one sale is not a median, and "sales" does not agree with 1. */
   /* A COUNT LINE MUST NOT CONTRADICT THE HEADER ABOVE IT.
 
-     The header reads "Too few sales to call a price" whenever
-     haveMed is false. This only special-cased nSold === 1, so a card
-     with a hundred sales whose median was withheld -- because the
-     base filter left too little behind -- printed "Median of 100+
-     real sales" directly under a header saying there were not
-     enough. Both sentences describe the same result and only one of
-     them can be true.
+     The header reads "Too few sales to call a price" whenever haveMed
+     is false. This only special-cased nSold === 1, so a card with a
+     hundred sales whose median was withheld -- because the base filter
+     left too little behind -- printed "Median of 100+ real sales"
+     directly under a header saying there were not enough. Both
+     sentences describe the same result and only one of them can be
+     true.
 
      There is no median to report when haveMed is false, so it stops
      using the word. It says how many sales were found, and why that
@@ -3693,7 +3726,7 @@ function benchAdd(d, s){
      The fallback itself is right: a rough number beats a dash. What
      was wrong is labelling it. When the value comes from asks the
      count goes with it, and the row says which kind of number it is. */
-  var value  = contaminated ? 0 : (soldMed || safeNum(s && s.avg));
+  var value   = contaminated ? 0 : (soldMed || safeNum(s && s.avg));
   var fromAsk = !contaminated && !soldMed && value > 0;
 
   var how = contaminated ? 'mixing versions'
@@ -4246,8 +4279,9 @@ function buildDecision(d, rows, s){
 
      A refusal built on a field that does not exist is worse than no
      refusal: it fires on cards with plenty of evidence and reads as
-     the app not being able to see its own screen. Line 4078 already
-     used cnt correctly, which is exactly why nobody caught it. */
+     the app not being able to see its own screen. evidenceN in
+     renderCta already used cnt correctly, which is exactly why nobody
+     caught it. */
   var askCount = safeNum(s && s.cnt) || safeNum(d.raw && d.raw.count) || 0;
   if(!sold && askCount < THIN_RESULT_N){
     logEvent('decision_refused', 'asks:' + askCount, false);
@@ -4561,10 +4595,10 @@ function printCodeHTML(d){
             millimetres apart, one of them made up -- and the made-up one
             sits where a value goes, so it reads as the answer.
 
-            Reported from a real scan. The read code is now the field's
-            value, which also means the common case is one tap on Check
-            rather than retyping a number already on screen. The example
-            only shows when nothing was read. */
+            The read code is now the field's value, which also means the
+            common case is one tap on Check rather than retyping a number
+            already on screen. The example only shows when nothing was
+            read. */
          +   '<input id="pcodeIn" inputmode="numeric" maxlength="3" '
          +     'value="' + esc((pc && pc.code) ? String(pc.code).slice(-3) : '') + '" '
          +     'placeholder="' + ((pc && pc.code) ? '' : '284') + '" '
