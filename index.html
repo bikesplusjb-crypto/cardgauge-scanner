@@ -1726,6 +1726,36 @@ document.getElementById('scanBtn').addEventListener('click',doScan);
    match quality substantially, and the server cannot read them --
    this is a cross-origin fetch, so no cookie travels with it. Read
    here and passed along explicitly. */
+/* SEND A CORRECTION SO THE NEXT PERSON DOES NOT HAVE TO MAKE IT.
+
+   Fire-and-forget on purpose. The correction has already been applied
+   to this person's own result before this runs, so they are not
+   waiting on the network and a failure costs them nothing at all --
+   it costs one data point, which is the right thing to lose.
+
+   The READ is sent, not the truth: what the model produced is the
+   lookup key, because that is what the next person's scan will match
+   on when the model makes the identical mistake. */
+function reportCorrection(field, correctedTo){
+  try{
+    if(!lastResult || !correctedTo) return;
+    fetch(API + '/api/correction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        field: field,
+        correctedTo: String(correctedTo),
+        readYear:       lastResult.year || '',
+        readBrand:      lastResult.brand || '',
+        readSet:        lastResult.set || '',
+        readCardNumber: lastResult.cardNumber || '',
+        readPlayer:     lastResult.player || '',
+        session: (typeof cgSession === 'function' ? cgSession() : '')
+      })
+    }).catch(function(){});
+  }catch(e){}
+}
+
 function cgEventId(){
   return 'cg_' + Date.now().toString(36) + '_' +
          Math.random().toString(36).slice(2, 10);
@@ -4412,6 +4442,10 @@ async function pickParallel(name){
   var was    = String(lastResult.parallel || '').trim();
 
   logEvent('parallel_picked', (was || 'base') + ' -> ' + (chosen || 'base'), !!lastResult.usedBack);
+  /* Only when they actually changed it. Confirming what the model
+     already said is not a correction, and recording it as one would
+     manufacture agreement for a read nobody disputed. */
+  if(chosen && chosen !== was) reportCorrection('parallel', chosen);
 
   /* Strip the old parallel before adding the new one, or repeated
      corrections stack up: the first version's regex was over-escaped
@@ -4623,6 +4657,9 @@ async function applyYear(){
   if(v === was && !yearAsserted){ setStatus('That is what we read already', 'ok'); return; }
 
   logEvent('year_corrected', (was || 'none') + ' -> ' + v, !!lastResult.usedBack);
+  /* Shared so the next person scanning this same misread is offered
+     the fix rather than having to find it themselves. */
+  reportCorrection('year', v);
 
   /* Swap the year in the query rather than appending, or a second
      correction leaves both years in the search. Only a standalone
@@ -4745,6 +4782,7 @@ async function applySerial(){
   }
 
   logEvent('serial_typed', parsed.text, !!(lastResult && lastResult.usedBack));
+  reportCorrection('serial', parsed.text);
   if(go){ go.disabled = true; go.textContent = 'Pricing\u2026'; }
 
   serialAsserted = parsed;
@@ -6091,11 +6129,44 @@ const LOCAL_BINDER_KEY = 'cg_local_binder';
 
 var SCAN_FREE_LIMIT = 3;
 var SCAN_COUNT_KEY  = 'cg_free_scans';
+var SCAN_COUNT_AT   = 'cg_free_scans_at';
+/* How long a used-up allowance takes to come back. */
+var FREE_SCAN_RESET_DAYS = 30;
 
+/* THREE SCANS WAS THREE PER BROWSER, FOR EVER.
+
+   The counter went up and never came down. Somebody who tried
+   CardGauge once, scanned three cards and left came back a week later
+   and was shown a signup wall on their first tap -- having received
+   nothing at all that visit.
+
+   That is most of the "closed it and left" group. Read from the events
+   on 8 Sept: a visitor arrived from Google, loaded the scanner, pressed
+   Scan and hit the wall ten seconds later with zero lookups. Same shape
+   for five other sessions. They were not refusing an account after
+   getting value; they never got any.
+
+   The allowance now renews every 30 days. A returning visitor gets
+   three more scans, which is the whole argument for the free tier: the
+   product proves itself first. Somebody scanning hundreds of cards a
+   month still hits the wall, which is who it is for.
+
+   The window is stored beside the count rather than derived from a
+   calendar month, so it is a rolling 30 days from first use rather
+   than everybody resetting on the 1st. */
 function freeScansUsed(){
   if(!LOCAL_OK) return 0;
-  try{ return parseInt(localStorage.getItem(SCAN_COUNT_KEY) || '0', 10) || 0; }
-  catch(e){ return 0; }
+  try{
+    var started = parseInt(localStorage.getItem(SCAN_COUNT_AT) || '0', 10) || 0;
+    if(started && (Date.now() - started) > FREE_SCAN_RESET_DAYS * 86400000){
+      /* Window expired. Clear both so the next scan starts a new one. */
+      localStorage.removeItem(SCAN_COUNT_KEY);
+      localStorage.removeItem(SCAN_COUNT_AT);
+      try{ logEvent('free_scans_renewed', null, false); }catch(e){}
+      return 0;
+    }
+    return parseInt(localStorage.getItem(SCAN_COUNT_KEY) || '0', 10) || 0;
+  }catch(e){ return 0; }
 }
 
 /* Counted only for signed-out people, and only on a scan that actually
@@ -6105,6 +6176,13 @@ function noteFreeScan(){
   try{
     var n = freeScansUsed() + 1;
     localStorage.setItem(SCAN_COUNT_KEY, String(n));
+    /* Stamped on the FIRST scan of a window and left alone after, so
+       the 30 days run from when they started rather than sliding
+       forward with every scan -- which would mean somebody scanning
+       regularly never renews at all. */
+    if(!localStorage.getItem(SCAN_COUNT_AT)){
+      localStorage.setItem(SCAN_COUNT_AT, String(Date.now()));
+    }
     if(n === SCAN_FREE_LIMIT) logEvent('free_scans_exhausted', String(n), false);
   }catch(e){}
 }
