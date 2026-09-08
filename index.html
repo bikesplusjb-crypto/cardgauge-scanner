@@ -5435,8 +5435,28 @@ function renderResult(d){
     }
 
     if(ladderUntrustworthy){
-      html+='<div class="roi"><div class="roi-head">💎 If you graded it</div>'
-        +'<div class="roi-note" style="color:var(--gold-warm)"><b>Not estimating grades on this one.</b> '
+      /* A REFUSAL THAT FIRES ON 57% OF SCANS IS NOT A REFUSAL, IT IS
+         THE NORMAL STATE.
+
+         Measured over 14 days: grade_ladder_refused fired on 137 of
+         240 scans. Three cards in five got a paragraph explaining why
+         there is no grade ladder -- to somebody who never asked for
+         one. They asked what the card is worth.
+
+         The writing is good and the reasoning is right. It answers a
+         question the person did not pose, on a result screen already
+         rendering six to fifteen elements per scan, above the thing
+         they came for.
+
+         So it collapses to one line, with the full explanation one tap
+         away for the person who wants grades and finds none -- the
+         only person it was ever for. The event still fires unchanged,
+         so the 57% stays visible in the stats even though the
+         paragraph no longer is. */
+      var glId = 'gl-' + Math.random().toString(36).slice(2,8);
+      html+='<div class="roi"><div class="roi-head" style="cursor:pointer" onclick="var e=document.getElementById(\''+glId+'\');if(e)e.style.display=(e.style.display===\'none\'?\'block\':\'none\');">'
+        +'💎 No grade estimate for this one <span style="font-size:11px;opacity:.6">\u2014 why?</span></div>'
+        +'<div class="roi-note" id="'+glId+'" style="display:none;color:var(--gold-warm)"><b>Not estimating grades on this one.</b> '
         + (ladderNoSold && ladderAskCount < THIN_RESULT_N
             ? 'There are no completed sales and almost nothing listed, so a grade estimate '
               + 'would be a multiple of a number we do not have. '
@@ -6952,6 +6972,14 @@ function buildGlareTip(d){
   var shiny = SHINY_RE.test(hay);
   var shaky = String(d.confidence||'').toLowerCase() === 'low'
            || (d.parallelCertain === false);
+  /* NEVER WHEN THE BACK WAS ALREADY USED.
+     Fired on 36% of scans, and the second clause here is the reason:
+     shiny AND no back. But the first clause -- shiny AND low
+     confidence -- had no such guard, so a two-sided scan of a Chrome
+     card could still be told to watch out for glare. That is nagging
+     about a step they already took, and it is the fastest way to
+     train somebody to ignore the tip on the card where it matters. */
+  if(d.usedBack && !shaky) return '';
   if(!(shiny && shaky) && !(shiny && !d.usedBack)) return '';
   cplShown = true;
   logEvent('glare_tip_shown', String(d.cardName||'').slice(0,120), !!d.usedBack);
