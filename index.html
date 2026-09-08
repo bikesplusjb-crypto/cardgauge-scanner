@@ -763,6 +763,14 @@ input[type=file]{display:none;}
    camera down the page trades the working funnel for the unused one.
    This sits directly under the scan box, which is the first thing
    read after the reason they arrived. */
+.cg-hint{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px;
+  padding:8px 11px;border-radius:9px;cursor:pointer;
+  background:rgba(59,130,246,.09);border:1px solid rgba(59,130,246,.28);
+  font-family:var(--fm);font-size:11px;line-height:1.55;color:var(--text3);}
+.cg-hint:hover{background:rgba(59,130,246,.16);}
+.cg-hint b{color:var(--text2);}
+.cg-hint-v{color:var(--blue,#3b82f6);font-weight:700;}
+.cg-hint-go{margin-left:auto;color:var(--blue,#3b82f6);font-weight:700;white-space:nowrap;}
 .set-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
   background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.32);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -4603,6 +4611,43 @@ function queryWithoutSerial(q, assertedText){
    applied to the field where being wrong costs the most. */
 var yearAsserted = null;
 
+/* WHAT OTHER PEOPLE CORRECTED ON THIS SAME MISREAD.
+
+   The server returns knownCorrections when at least two people have
+   made the identical fix to the identical wrong read. Shown inside the
+   box for the field it applies to, not as a seventh panel -- the
+   result screen already fires six to fifteen UI elements per scan and
+   another one would be noise, however useful.
+
+   Offered, never applied. Somebody else's correction is evidence, not
+   authority: they were holding a card that scanned the same way, which
+   is good reason to look again and no reason at all to overwrite what
+   is in front of this person. Tapping it fills the box; it still takes
+   their press to apply. */
+function correctionHint(d, field){
+  try{
+    if(!d || !Array.isArray(d.knownCorrections)) return '';
+    var c = d.knownCorrections.filter(function(x){ return x.field === field; })[0];
+    if(!c || !c.suggested) return '';
+    return '<div class="cg-hint" onclick="applyHint(\'' + field + '\',\''
+        + esc(String(c.suggested).replace(/'/g,"")) + '\')">'
+      + '<b>' + c.agreement + ' other people</b> scanning this card corrected it to '
+      + '<span class="cg-hint-v">' + esc(c.suggested) + '</span>'
+      + '<span class="cg-hint-go">use this</span>'
+      + '</div>';
+  }catch(e){ return ''; }
+}
+
+function applyHint(field, value){
+  try{
+    var id = field === 'year' ? 'yrIn' : (field === 'serial' ? 'serIn' : null);
+    if(!id) return;
+    var el = document.getElementById(id);
+    if(el){ el.value = value; el.focus(); }
+    logEvent('correction_hint_used', field + ':' + value, false);
+  }catch(e){}
+}
+
 function yearBoxHTML(d){
   var read = String((d && d.year) || '').trim();
   var cur  = yearAsserted || read;
@@ -4622,6 +4667,7 @@ function yearBoxHTML(d){
   return '<div class="pcode" style="margin-top:11px">'
     + '<div class="pcode-t">YEAR \u2014 COPYRIGHT CHECK</div>'
     + note
+    + correctionHint(d, 'year')
     + '<div class="ser-in">'
     +   '<input id="yrIn" inputmode="numeric" maxlength="4" placeholder="2026" '
     +     'value="' + esc(cur) + '" onkeydown="if(event.key===\'Enter\')applyYear()">'
@@ -4764,6 +4810,7 @@ function serialBoxHTML(d){
   }
 
   return '<div class="pcode"><div class="pcode-t">SERIAL NUMBER \u2014 NUMBERED CARD CHECK</div>'
+    + correctionHint(d, 'serial')
     + body + '</div>';
 }
 
