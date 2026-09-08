@@ -771,6 +771,18 @@ input[type=file]{display:none;}
 .cg-hint b{color:var(--text2);}
 .cg-hint-v{color:var(--blue,#3b82f6);font-weight:700;}
 .cg-hint-go{margin-left:auto;color:var(--blue,#3b82f6);font-weight:700;white-space:nowrap;}
+/* One line, under the price, sized to be read across a table. Gold
+   rather than green: this is a number to weigh, not a verdict. */
+.buyline{margin-top:11px;padding:13px 15px;border-radius:12px;
+  background:linear-gradient(160deg,rgba(245,158,11,.10),rgba(17,24,39,.4));
+  border:1px solid rgba(245,158,11,.3);}
+.buyline-k{font-family:var(--fm);font-size:9.5px;letter-spacing:.18em;
+  color:var(--gold,#f59e0b);margin-bottom:5px;}
+.buyline-v{font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1.1;
+  color:var(--gold-warm,#fbbf24);}
+.buyline-v span{font-size:14px;font-weight:600;color:var(--text3,#64748b);}
+.buyline-note{font-size:12px;color:var(--text3,#94a3b8);line-height:1.6;margin-top:7px;}
+.buyline-no .buyline-v{font-size:19px;color:var(--text2,#94a3b8);}
 .set-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
   background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.32);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -3963,6 +3975,66 @@ function renderCta(d, rows, s){
    seller on different terms knows what to adjust. */
 var SELL_FEE_PCT = 13, SELL_SHIP = 1;
 
+/* ── WHAT TO PAY ────────────────────────────────────────────────
+
+   The decision block above answers "what should I do with this card"
+   for somebody who already owns it. This answers the other question,
+   which is the one asked at a table with a seller waiting: what is the
+   most I can pay and still make anything.
+
+   NOT A DASHBOARD. It is one line under the price, at the moment the
+   number is on screen and a decision is thirty seconds away. A shop
+   screen somebody opens later is a different product for a different
+   day.
+
+   ONLY ON A SOLD MEDIAN WE STAND BEHIND. If the pool is contaminated
+   or too thin, this does not appear at all -- the price itself is
+   already refused in those cases and a buy-at figure derived from a
+   number we would not print is worse than silence. That is why this
+   lives beside the decision block rather than inside it: same bar,
+   separate question.
+
+   THE DEFAULTS ARE STATED, NOT HIDDEN. A collector flipping on eBay
+   pays roughly 13% in fees and a few dollars to post. Those are
+   assumptions, they are visible in the line itself, and anybody whose
+   numbers differ can see immediately which ones to argue with. A
+   figure derived from invisible assumptions is the thing this whole
+   app exists to avoid. */
+var FLIP_FEE_PCT   = 13;    /* eBay final value, roughly */
+var FLIP_SHIP      = 4;     /* sleeve, toploader, envelope, stamp */
+var FLIP_MARGIN_PCT = 30;   /* what makes the handling worth doing */
+
+function buildBuyLine(d){
+  var sold = safeNum(d.sold && d.sold.soldMedian);
+  if(!sold) return '';
+
+  /* The same refusals the price block applies. A buy-at price off a
+     mixed pool would be a confident number built on cards that are not
+     this one. */
+  if(d.sold && (d.sold.soldContaminated || d.sold.soldLimited)) return '';
+
+  var net = sold - (sold * FLIP_FEE_PCT / 100) - FLIP_SHIP;
+  if(net <= 0){
+    /* Postage and fees exceed the card. Worth saying outright -- this
+       is most of a dollar box and people buy them anyway. */
+    return '<div class="buyline buyline-no">'
+      + '<div class="buyline-k">WHAT TO PAY</div>'
+      + '<div class="buyline-v">Not one to flip</div>'
+      + '<div class="buyline-note">At ' + fmtMoney(sold) + ', fees and postage take more '
+      + 'than the card is worth. Fine to own, not to resell on its own.</div></div>';
+  }
+
+  var maxPay = net / (1 + FLIP_MARGIN_PCT / 100);
+
+  return '<div class="buyline">'
+    + '<div class="buyline-k">WHAT TO PAY</div>'
+    + '<div class="buyline-v">' + fmtMoney(maxPay) + ' <span>or less</span></div>'
+    + '<div class="buyline-note">Sells around ' + fmtMoney(sold) + '. After '
+    + FLIP_FEE_PCT + '% fees and $' + FLIP_SHIP + ' postage you keep ' + fmtMoney(net)
+    + ', so ' + fmtMoney(maxPay) + ' leaves ' + FLIP_MARGIN_PCT + '% for the trouble. '
+    + 'Paying more is fine if you want the card \u2014 just not as a flip.</div></div>';
+}
+
 function buildDecision(d, rows, s){
   var sold = safeNum(d.sold && d.sold.soldMedian);
   var raw  = sold
@@ -5046,6 +5118,9 @@ function renderResult(d){
        for a decision the reader has already been given. */
     if(d.isRedemption === true){ html+=buildRedemptionWarning(d); }
     else { html+=buildDecision(d, rows, s); }
+    /* After the decision, not before it. Somebody who owns the card
+       wants the verdict; somebody deciding whether to buy reads on. */
+    html+=buildBuyLine(d);
     html+=buildGlareTip(d);
 
     /* CORRECTIONS SIT HERE, AFTER THE PRICE, ON EVERY PATH.
