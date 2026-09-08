@@ -3261,11 +3261,31 @@ function buildSoldHero(d){
 
   /* "Median of 1 real sales" was wrong twice in four words: a median of
      one sale is not a median, and "sales" does not agree with 1. */
+  /* A COUNT LINE MUST NOT CONTRADICT THE HEADER ABOVE IT.
+
+     The header reads "Too few sales to call a price" whenever
+     haveMed is false. This only special-cased nSold === 1, so a card
+     with a hundred sales whose median was withheld -- because the
+     base filter left too little behind -- printed "Median of 100+
+     real sales" directly under a header saying there were not
+     enough. Both sentences describe the same result and only one of
+     them can be true.
+
+     There is no median to report when haveMed is false, so it stops
+     using the word. It says how many sales were found, and why that
+     still is not a price. */
   var nSold = Number(sold.soldCount || 0);
-  var countPhrase = !haveMed && nSold === 1
-    ? 'Just <b>1</b> real sale found'
-    : (nSold === 1 ? 'Based on <b>1</b> real sale'
-                   : 'Median of <b>' + soldCountLabel(nSold, sold.limitUsed) + '</b> real sales');
+  var countPhrase;
+  if(!haveMed){
+    countPhrase = nSold === 1
+      ? 'Just <b>1</b> real sale found'
+      : '<b>' + soldCountLabel(nSold, sold.limitUsed) + '</b> sales found, but too few '
+        + 'of them are this exact card to call a price';
+  } else {
+    countPhrase = nSold === 1
+      ? 'Based on <b>1</b> real sale'
+      : 'Median of <b>' + soldCountLabel(nSold, sold.limitUsed) + '</b> real sales';
+  }
 
   return '<div class="sold-hero'+(contaminated?' mixed':'')+(haveMed?'':' thin')+'">'
     +'<div class="sold-hero-lbl">&#9679; '+heroLabel+'</div>'
@@ -3662,7 +3682,19 @@ function benchAdd(d, s){
   /* A value we have already refused to vouch for does not get carried
      into the bench as though it were one. The row shows a dash and
      says why, and the total is honest about how many it could price. */
-  var value = contaminated ? 0 : (soldMed || safeNum(s && s.avg));
+  /* AN ASKING PRICE CARRIED A SOLD COUNT.
+
+     value fell back to the ask median when soldMed was 0, and soldN
+     was set from soldCount regardless -- so a row read "$55, 100
+     sales" where the $55 was what sellers want and the 100 described
+     sales that produced no usable median. The session total was built
+     on it.
+
+     The fallback itself is right: a rough number beats a dash. What
+     was wrong is labelling it. When the value comes from asks the
+     count goes with it, and the row says which kind of number it is. */
+  var value  = contaminated ? 0 : (soldMed || safeNum(s && s.avg));
+  var fromAsk = !contaminated && !soldMed && value > 0;
 
   var how = contaminated ? 'mixing versions'
           : (d.usedBack ? 'scanned \u00b7 both sides'
@@ -3673,7 +3705,11 @@ function benchAdd(d, s){
     name:   name.slice(0,140),
     how:    how,
     value:  value,
-    soldN:  contaminated ? 0 : soldN,
+    /* The count goes with the number it describes. An ask-derived
+       value carrying a sold count is how a row read "$55, 100
+       sales" when the $55 was what sellers want. */
+    soldN:  (contaminated || fromAsk) ? 0 : soldN,
+    fromAsk: fromAsk,
     contaminated: contaminated,
     query:  String(d.searchQuery || '').slice(0,200),
     image:  d.image || null,
@@ -3724,8 +3760,9 @@ function benchHtml(){
 
   var rows = bench.map(function(b,i){
     var val = b.value > 0
-      ? '<div class="bval">'+fmtMoney(b.value)
-        + (b.soldN ? '<small>'+b.soldN+' sales</small>' : '') + '</div>'
+      ? '<div class="bval'+(b.fromAsk?' warn':'')+'">'+fmtMoney(b.value)
+        + (b.soldN ? '<small>'+b.soldN+' sales</small>'
+                   : (b.fromAsk ? '<small>asking price</small>' : '')) + '</div>'
       : '<div class="bval warn">\u2014<small>'
         + (b.contaminated ? 'not priced' : 'no sales') + '</small></div>';
     return '<div class="brow'+(i===0 && !allSaved ? ' now' : '')+'">'
@@ -4201,7 +4238,17 @@ function buildDecision(d, rows, s){
      The ask path still advises when there is a real pool behind it --
      this only refuses when there are no sold comps AND too few asks to
      mean anything. */
-  var askCount = safeNum(s && s.count) || safeNum(d.raw && d.raw.count) || 0;
+  /* s.cnt, NOT s.count. computeStats returns cnt; s.count has never
+     existed, so this always fell through to d.raw.count -- which on a
+     card with one raw listing is 1. That produced "No completed sales
+     came back, and there is only one listing asking for it" printed
+     directly beneath twelve recent sales and 53 listed now.
+
+     A refusal built on a field that does not exist is worse than no
+     refusal: it fires on cards with plenty of evidence and reads as
+     the app not being able to see its own screen. Line 4078 already
+     used cnt correctly, which is exactly why nobody caught it. */
+  var askCount = safeNum(s && s.cnt) || safeNum(d.raw && d.raw.count) || 0;
   if(!sold && askCount < THIN_RESULT_N){
     logEvent('decision_refused', 'asks:' + askCount, false);
     return '<div class="dec-card"><div class="dec-h" style="font-size:15px">'
@@ -4506,7 +4553,21 @@ function printCodeHTML(d){
                + 'three digits say whether this is a short print. Too small to read in most photos.')
          + '</div>'
          + '<div class="pcode-in">'
-         +   '<input id="pcodeIn" inputmode="numeric" maxlength="3" placeholder="284" '
+         /* PREFILLED WITH WHAT WAS READ, NOT WITH AN EXAMPLE.
+
+            The line above says "Read 207 off the back" and the box
+            underneath it showed an empty field with 284 greyed out as a
+            placeholder. Two different three-digit numbers, six
+            millimetres apart, one of them made up -- and the made-up one
+            sits where a value goes, so it reads as the answer.
+
+            Reported from a real scan. The read code is now the field's
+            value, which also means the common case is one tap on Check
+            rather than retyping a number already on screen. The example
+            only shows when nothing was read. */
+         +   '<input id="pcodeIn" inputmode="numeric" maxlength="3" '
+         +     'value="' + esc((pc && pc.code) ? String(pc.code).slice(-3) : '') + '" '
+         +     'placeholder="' + ((pc && pc.code) ? '' : '284') + '" '
          +     'onkeydown="if(event.key===\'Enter\')lookupPrintCode()">'
          +   '<button onclick="lookupPrintCode()">Check</button>'
          + '</div>'
@@ -5416,7 +5477,10 @@ function renderResult(d){
 
        No sales and a handful of asks is the WEAKEST evidence there is,
        not an exemption from the check. */
-    var ladderAskCount = Number((s && s.count) || (d.raw && d.raw.count) || 0);
+    /* Same typo as the decision block above, same consequence: the
+       ladder's thin-evidence guard was reading an undefined field and
+       falling back to the raw listing count. */
+    var ladderAskCount = Number((s && s.cnt) || (d.raw && d.raw.count) || 0);
     var ladderNoSold   = !(d.sold && d.sold.soldCount);
 
     var ladderUntrustworthy = !anyReal
