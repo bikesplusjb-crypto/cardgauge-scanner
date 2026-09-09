@@ -107,7 +107,23 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
   </nav>
 
   <section id="scan" class="view active">
-    <div class="hero"><h1>Scan a whole table at once.</h1><p>Take one photo of several separated cards. CardGauge Business detects card-shaped regions, sends each crop through your existing CardGauge scanner API, and adds the results straight to your shop's inventory.</p></div>
+    <!-- THE FLATBED LINE IS THE PRODUCT DIFFERENCE, SO IT GOES FIRST.
+
+         The recurring complaint about the feeder-based tools is not
+         that they read badly. It is that they mark cards -- rollers,
+         edge wear, corner dings on stock a shop is about to grade or
+         sell. A shop choosing between this and a feeder is making a
+         decision about their inventory, not about software.
+
+         That argument was sitting in a green box below the upload
+         control, under the fold, where somebody deciding whether to
+         try this at all would never reach it. Same sentence, moved to
+         where the decision is actually made. -->
+    <div class="hero">
+      <h1>Scan a whole table at once. Nothing touches your cards.</h1>
+      <p>Lay a row on a flatbed scanner, or take one photo of several separated cards. CardGauge Business detects card-shaped regions, sends each crop through your existing CardGauge scanner API, and adds the results straight to your shop's inventory.</p>
+      <p style="margin-top:10px;color:var(--green)"><b>A flatbed is the recommended input.</b> No rollers, no feed path, no hand holding the card flat &mdash; and the image comes out evenly lit and in focus, which reads better than any photo.</p>
+    </div>
     <!-- STAFF NAME -- FORWARD-COMPATIBLE PLUMBING, NOT A REAL ACCOUNT.
 
          Inventory is local-storage-only right now, one browser, no
@@ -181,8 +197,23 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
            perspective, no hand shake, no bending the card to flatten it, and
            the whole reason shops complain about the alternatives. Removing
            one attribute is the entire cost of supporting it. -->
-      <input id="photo" type="file" accept="image/*">
-      <input id="backPhoto" type="file" accept="image/*" style="display:none">
+      <!-- accept="image/*" IS NOT WIDE ENOUGH FOR A SCANNER'S OUTPUT.
+
+           Removing capture="environment" was the necessary half of
+           reaching the Files picker at all. This is the other half:
+           the picker still greys out anything the OS does not map to
+           the accept list, and flatbed software commonly writes TIFF
+           or BMP. iOS in particular is inconsistent about image/tiff,
+           so a scan that exists on the device can still be unselectable
+           -- the same symptom, one attribute further down.
+
+           Extensions listed alongside the MIME wildcard because the two
+           are matched independently, and a device that fails on one
+           often accepts the other. See handleTiff() for what happens
+           once a TIFF is actually chosen: the browser cannot decode it,
+           so the honest move is to say so rather than fail silently. -->
+      <input id="photo" type="file" accept="image/*,.tif,.tiff,.bmp,.png,.jpg,.jpeg,.webp,.heic">
+      <input id="backPhoto" type="file" accept="image/*,.tif,.tiff,.bmp,.png,.jpg,.jpeg,.webp,.heic" style="display:none">
       <div id="sourceWrap" style="position:relative;display:inline-block">
         <img id="source" class="preview" alt="">
         <canvas id="trayOverlay" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
@@ -1381,6 +1412,27 @@ document.getElementById('scanBtn').onclick=async()=>{
       r.data=d;r.status='Scanned';
     }catch(e){r.status='Failed: '+e.message}
     done++;document.getElementById('scanned').textContent=done;document.getElementById('bar').style.width=(done/results.length*100)+'%';renderResults();
+
+    /* PACED, BECAUSE A FLATBED SHEET IS NOT A PHONE PHOTO.
+
+       This loop was written for the 3-10 cards a photo holds, where
+       back-to-back calls are fine. A 300dpi flatbed sheet holds twenty
+       to forty, and every one of them is a GPT-4o vision call plus an
+       eBay lookup plus a thecardapi pull, fired from one tab with no
+       gap at all.
+
+       refreshWatchlistPrices() on the server paces itself at a second
+       per card for exactly this reason, and it is the same upstreams
+       being called. Without a matching pause here, a full sheet can
+       start collecting 429s partway through -- and the failure lands
+       as "Failed: Server 429" on individual cards, which looks like
+       those cards were the problem rather than the rate.
+
+       Skipped after the last card so a small batch is not made to wait
+       for nothing. */
+    if (results.length > 8 && done < results.length) {
+      await new Promise(function (r) { setTimeout(r, 700); });
+    }
   }
   document.getElementById('addAllBtn').disabled=!results.some(r=>r.data);
   const skipped=results.filter(r=>r.status==='Needs review').length;
@@ -1511,8 +1563,37 @@ document.getElementById('addAllBtn').onclick=async ()=>{
 };
 
 var lastSourceKind = '';
+
+/* THE PICKER NOW OFFERS FILES THE BROWSER CANNOT OPEN.
+
+   Widening accept to reach flatbed output means TIFF and BMP can be
+   chosen. No browser decodes TIFF into an <img>, so imageFromFile()
+   rejects and the batch dies on "Detection error: ..." -- which reads
+   as the tool being broken rather than as a format it cannot read.
+
+   A shop that has just been told a flatbed is the recommended input
+   deserves the actual next step, not a stack trace. Every scanner can
+   save JPEG or PNG; it is one dropdown in their scanning software. */
+function tiffComplaint(file){
+  const n = String((file && file.name) || '').toLowerCase();
+  const t = String((file && file.type) || '').toLowerCase();
+  if (/\.(tif|tiff)$/.test(n) || t === 'image/tiff') {
+    return 'That is a TIFF, and browsers cannot open TIFF files. Your scanner can '
+         + 'save JPEG or PNG instead \u2014 it is usually a dropdown next to the '
+         + 'resolution setting. 300\u2013600dpi JPEG is ideal.';
+  }
+  if (/\.(heic|heif)$/.test(n) && !t) {
+    return 'That looks like a HEIC file, which some browsers cannot open. '
+         + 'Saving or exporting it as JPEG will work.';
+  }
+  return null;
+}
+
 async function detectCards(file){
   await waitForCV();
+
+  const badFormat = tiffComplaint(file);
+  if (badFormat) { setStatus(badFormat, 'err'); throw new Error('unsupported image format'); }
 
   const img=await imageFromFile(file);
   const c=document.createElement('canvas');
@@ -1529,11 +1610,20 @@ async function detectCards(file){
      page-shaped. Phone photos keep the old ceiling, so nothing about the
      existing path gets slower. */
   const px = img.width * img.height;
-  /* Set here rather than guessed from the file name -- an iPhone photo and
-     a scan are told apart by their pixels, not their extension. */
-  try{ lastSourceKind = (px > 9e6 && (Math.max(img.width,img.height)/Math.max(1,Math.min(img.width,img.height))) < 2.2) ? 'scan' : 'photo'; }catch(e){}
   const ratio = Math.max(img.width, img.height) / Math.max(1, Math.min(img.width, img.height));
+  /* ONE TEST, READ TWICE -- IT USED TO BE THE SAME RULE WRITTEN TWICE.
+
+     lastSourceKind evaluated "px > 9e6 && ratio < 2.2" inline, and
+     looksScanned evaluated it again three lines later. They agreed
+     today, and two copies of one rule is exactly how they stop
+     agreeing: change the threshold in the obvious place and the other
+     copy keeps the old answer, silently, in the field that decides
+     which resolution ceiling applies.
+
+     Told apart by pixels rather than by file extension, which was the
+     right instinct and is kept. */
   const looksScanned = px > 9e6 && ratio < 2.2;
+  lastSourceKind = looksScanned ? 'scan' : 'photo';
   const max = looksScanned ? 4200 : 2200;
   const scale=Math.min(1,max/Math.max(img.width,img.height));
   c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
