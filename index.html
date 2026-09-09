@@ -742,16 +742,27 @@ input[type=file]{display:none;}
    One line, same shape as the card-show tip below it. Gold instead of
    blue so it is distinguishable, and the arrow keeps it obviously
    tappable. */
-.biz-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
-  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:100px;
-  padding:9px 16px;margin:14px auto 0;max-width:44ch;
-  font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--text3);transition:all .2s;}
+/* THE ONLY BANNER HERE WITH A PAYING AUDIENCE BEHIND IT.
+
+   Sized as a footnote: 10.5px monospace in a thin pill, the same weight
+   as the set-builder line beside it. It earned 5 clicks in 30 days.
+
+   A shop is the one visitor with a budget, and Business is the one
+   surface with a price on it. Bigger type, a real card rather than a
+   pill, and enough padding to read as a destination instead of a
+   footnote. Same link, same event, same copy -- only the presence
+   changes, so if it still does not convert that is the offer and not
+   the styling. */
+.biz-note{display:flex;align-items:center;gap:12px;text-align:left;text-decoration:none;
+  background:rgba(245,158,11,.13);border:1.5px solid rgba(245,158,11,.5);border-radius:14px;
+  padding:15px 18px;margin:18px auto 0;max-width:52ch;
+  font-family:var(--fm);font-size:13px;line-height:1.6;color:var(--text2,#cbd5e1);transition:all .2s;}
 .biz-note:hover{border-color:var(--gold);background:rgba(245,158,11,.14);}
 .biz-note b{color:var(--gold);}
 .biz-note-tag{flex-shrink:0;background:var(--gold);color:#1a1206;font-weight:900;
-  font-size:9px;letter-spacing:.06em;padding:2px 7px;border-radius:5px;}
-.biz-note-go{flex-shrink:0;color:var(--gold);font-weight:700;margin-left:auto;}
-@media(max-width:520px){ .biz-note{border-radius:12px;max-width:none;align-items:flex-start;} }
+  font-size:11px;letter-spacing:.06em;padding:4px 10px;border-radius:6px;}
+.biz-note-go{flex-shrink:0;color:var(--gold);font-weight:800;font-size:17px;margin-left:auto;}
+@media(max-width:520px){ .biz-note{border-radius:14px;max-width:none;align-items:flex-start;font-size:12.5px;padding:14px 15px;} }
 
 /* ── SET BUILDER ANNOUNCEMENT ───────────────────────────────────
    Green rather than the gold used by the shop banner and the blue
@@ -1314,11 +1325,29 @@ input[type=file]{display:none;}
     </div>
     <div class="search-hint">✏️ Year + brand + player gets the best match</div>
 
-    <button id="psaBtn" onclick="openPsaScanner()" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;
-      border:1px solid rgba(251,191,36,.35);background:rgba(251,191,36,.08);color:var(--gold-warm);
-      font-family:var(--f);font-weight:800;font-size:13px;cursor:pointer;">
-      📇 Already graded? Scan the PSA barcode
-    </button>
+    <!-- THE PSA ENTRY POINT IS GONE. THE CODE BEHIND IT IS NOT.
+
+         It could not do the thing it advertised. PSA refuses the API at
+         the account level -- "Access to this API is limited to approved
+         customers" -- so a cert number can never return a card, a grade
+         or a price. The best it managed was a link to psacard.com, which
+         somebody holding a slab reaches on their own.
+
+         The numbers, 30 days: psa_scanner_opened fired 30 times for 24
+         people; two of them ever got a number to decode. So 22 of 24
+         opened it, fought a barcode on curved reflective plastic, and
+         left with nothing -- from the most prominent button on the
+         capture screen.
+
+         Removing the button, not the feature. openPsaScanner(),
+         lookupPsaCert(), the modal and /api/psa-cert all remain. If PSA
+         ever approves the account it works again by putting this button
+         back -- one element, no rebuild.
+
+         And a graded card is not stranded by this: the scanner reads
+         slab labels itself. A PSA 8 Lightning Leaders Ohtani photographed
+         on 9 Sept came back identified, at $76 off 20 sales, with nobody
+         typing a cert number. The photo path was always the better one. -->
 
     <!-- For somebody who arrived from a video and has no card in their
          hand. Two empty photo boxes are useless to them; one tap on a
@@ -2352,6 +2381,40 @@ async function lookupPsaCert(certNumber){
          unavailable one gets a warning rather than an error, keeps the
          typed number on screen, and points at the path that still
          works: the label has everything needed to type the card in. */
+      /* THE ANSWER WAS BEING WRITTEN WHERE NOBODY COULD SEE IT.
+
+         This function sets TWO status messages: setPsaStatus(), which
+         writes into #psaStatus inside the modal, and setStatusStages(),
+         which drives the main page's blue spinner banner.
+
+         The success path clears the banner -- closePsaScanner(),
+         renderResult(), setStatus('',''). Every failure path did not. So
+         a refused lookup wrote its explanation into the modal and left
+         the page saying 'Looking up PSA cert 141568891...' with a
+         spinner, indefinitely.
+
+         Confirmed against a real attempt on 9 Sept: the request
+         completed server-side in 721ms with PSA's 403, and the screen
+         still showed the spinner. If the modal had closed by then, the
+         entire answer went into a hidden element. From outside it looks
+         exactly like typing a cert number does nothing at all -- which
+         is what it was reported as.
+
+         Cleared first, before anything else is decided, so no branch
+         below can forget to. And when the modal is not on screen the
+         message is put on the page instead, because a message in a
+         hidden container is the same as no message. */
+      setStatus('','');
+      var psaModalEl = document.getElementById('psaModal');
+      var psaModalOpen = !!(psaModalEl && psaModalEl.classList.contains('show'));
+
+      if(!psaModalOpen){
+        setStatus((d.error || 'PSA could not be reached for that cert.')
+          + ' Photograph the slab instead \u2014 the scanner reads the label.', 'warn');
+        psaLookupInFlight = false;
+        return;
+      }
+
       if(d.unavailable){
         /* PSA'S OWN PAGE NEEDS NO API AND NO APPROVAL.
 
@@ -2396,9 +2459,25 @@ async function lookupPsaCert(certNumber){
             + 'style="display:inline-block;margin-top:10px;padding:10px 16px;border-radius:10px;'
             + 'background:var(--green,#22c55e);color:#052e16;font-weight:800;font-size:13px;'
             + 'text-decoration:none">Check cert ' + esc(clean) + ' on PSA \u2192</a>'
-            + '<div style="margin-top:10px;font-size:11.5px;color:var(--text3,#94a3b8);line-height:1.6">'
-            + 'For the price, close this and type the card in from the label \u2014 '
-            + 'year, set, player and grade.</div>';
+            /* THE PRICE PATH IS A PHOTO, NOT A FORM.
+
+               This asked for four fields typed by hand off the label.
+               The scanner reads graded slabs already -- the AI prompt
+               instructs it to, and a PSA 8 Ohtani scanned on 9 Sept
+               returned the right card and $76 from 20 sales without
+               anybody typing anything.
+
+               Somebody holding a slab in front of a camera should be
+               told to take the photo, not to read the label out loud
+               into a form. A button rather than a sentence, because
+               the sentence was the instruction and it still left them
+               to find their own way back. */
+            + '<div style="margin-top:12px;font-size:12px;color:var(--text3,#94a3b8);line-height:1.6">'
+            + 'For the price, just photograph the slab \u2014 the scanner reads the label.</div>'
+            + '<button type="button" onclick="closePsaScanner()" '
+            + 'style="display:inline-block;margin-top:8px;padding:10px 16px;border-radius:10px;'
+            + 'background:transparent;color:var(--green,#22c55e);border:1px solid var(--green,#22c55e);'
+            + 'font-weight:800;font-size:13px;cursor:pointer">\ud83d\udcf7 Scan the slab instead</button>';
         } else {
           setPsaStatus('\u26a0\ufe0f ' + (d.error || 'PSA lookup is unavailable right now.'), true);
         }
@@ -2415,7 +2494,16 @@ async function lookupPsaCert(certNumber){
     logEvent('psa_cert_lookup', d.cardName, false);
     if(window.ttq) ttq.track('Search',{content_name:d.cardName,content_type:'psa_cert_scan'});if(window.fbq)fbq('track','Search',{content_name:d.cardName,content_type:'psa_cert_scan'});
   }catch(e){
-    setPsaStatus('\u274c ' + e.message, true);
+    /* Same clearing rule as the refusal path above. A thrown error left
+       the spinner running too, and a network failure is the case where
+       somebody is most likely to be staring at it. */
+    setStatus('','');
+    var mEl = document.getElementById('psaModal');
+    if(mEl && mEl.classList.contains('show')){
+      setPsaStatus('\u274c ' + e.message, true);
+    }else{
+      setStatus('Could not look that cert up: ' + e.message, 'warn');
+    }
   }
   psaLookupInFlight = false;
 }
