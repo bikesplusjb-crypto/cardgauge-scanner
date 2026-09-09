@@ -4547,6 +4547,26 @@ function buildDecision(d, rows, s){
   var company = (rows && rows.company) || 'PSA';
   var canGrade = anyReal && nine && nine.value > 0 && !(rows && rows.inconsistent);
 
+  /* THE GRADED SIDE HAS TO BE SOLD DATA TOO.
+
+     askOnly already guards the RAW side of the subtraction. Nothing
+     guarded the graded side, so a ladder built entirely from live
+     listings -- rows.basis === 'ask', which the ladder's own note says
+     out loud with "real listings for this card RIGHT NOW" -- could
+     still produce "Grade it. Worth a look."
+
+     Seen on a 2025 Chrome Lightning Leaders Ohtani: PSA 9 "sells for"
+     $169 off asks, set against a $76 completed-sale median, recommending
+     a $25 submission on a $56 edge. Two inches above, this same screen
+     said raw asks were running 59% over what buyers actually pay. At
+     that discount the $169 is nearer $105 and the edge is mostly gone.
+
+     Subtracting a sold price from an asking price is the one comparison
+     this scanner exists to refuse. The arithmetic still shows, because
+     the numbers are real -- but it gets no verdict, and the rows stop
+     saying "sells for" about a price nobody has paid. */
+  var gradeLadderSold = !!(rows && rows.basis === 'sold');
+
   /* The 9 decides it. Most cards do not come back a 10, and
      recommending a submission on the best possible outcome is telling
      somebody to gamble and calling it advice. The 10 is shown because
@@ -4555,7 +4575,8 @@ function buildDecision(d, rows, s){
   /* A grading recommendation compares the graded price against the
      raw one. If the raw side is an asking price, the subtraction is
      comparing a real sale to a hope, so no verdict is offered. */
-  var gradeWins = canGrade && !askOnly && gradeNet > sellNet && nine.value >= raw * GRADE_WORTH_IT_X;
+  var gradeWins = canGrade && !askOnly && gradeLadderSold
+               && gradeNet > sellNet && nine.value >= raw * GRADE_WORTH_IT_X;
 
   var cost = safeNum(decCost);
   var line = function(k,v,cls){
@@ -4634,19 +4655,32 @@ function buildDecision(d, rows, s){
       + (gradeWins ? '<div class="dec-tag">Recommended</div>' : '')
       + '<div class="dec-row"><span class="dec-name">Grade it</span>'
       + '<span class="dec-badge '+(gradeWins?'ok':'warn')+'">'
-      + (gradeWins ? 'Worth a look' : 'A bet') + '</span></div>'
+      /* "A bet" says the odds are against it. On an ask-built ladder the
+         problem is not the odds, it is that the comparison was never
+         valid -- so the badge says which. */
+      + (gradeWins ? 'Worth a look' : (gradeLadderSold ? 'A bet' : 'Asking prices only')) + '</span></div>'
       + '<table class="dec-t">'
-        + line(esc(company)+' 9 sells for', fmtMoney(nine.value))
-        + (top && top!==nine ? line(esc(company)+' '+top.grade+' sells for', fmtMoney(top.value)) : '')
+        /* "Sells for" is a claim about completed sales. When the rung came
+           from live listings it is a claim about what somebody hopes to
+           get, and the row has to say so. */
+        + line(esc(company)+' 9 ' + (gradeLadderSold ? 'sells for' : 'listed at'), fmtMoney(nine.value))
+        + (top && top!==nine
+            ? line(esc(company)+' '+top.grade+' '+(gradeLadderSold ? 'sells for' : 'listed at'), fmtMoney(top.value))
+            : '')
         + line('Fees, shipping, grading', '\u2212' + fmtMoney(nine.value - netOf(nine.value) + GRADE_COST))
         + (cost ? line('You paid', '\u2212' + fmtMoney(cost)) : '')
-        + line('<b>At a 9 you clear</b>', '<b>'+fmtMoney(gradeNet - cost)+'</b>')
+        + line('<b>' + (gradeLadderSold ? 'At a 9 you clear' : 'At a 9, if it sold at that ask')
+               + '</b>', '<b>'+fmtMoney(gradeNet - cost)+'</b>')
       + '</table>'
       + '<div class="dec-fine">'
-        + (gradeWins
-            ? 'About ' + fmtMoney(gradeNet - sellNet) + ' more than selling it raw \u2014 if it grades a 9.'
-            : 'Less than selling it raw once the fee is paid.')
-        + ' Most cards do not come back a ' + (top ? top.grade : '10')
+        + (!gradeLadderSold
+            ? 'Those graded figures are what sellers are ASKING right now, not what slabs '
+              + 'have sold for \u2014 so this is not a recommendation. Asking prices sit above '
+              + 'sold prices, so the real gap is smaller than it looks here. '
+            : gradeWins
+            ? 'About ' + fmtMoney(gradeNet - sellNet) + ' more than selling it raw \u2014 if it grades a 9. '
+            : 'Less than selling it raw once the fee is paid. ')
+        + 'Most cards do not come back a ' + (top ? top.grade : '10')
         + ', so treat the top number as a ceiling rather than a plan.'
       + '</div>'
     + '</div>';
