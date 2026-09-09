@@ -783,12 +783,28 @@ input[type=file]{display:none;}
 .cg-hint-v{color:var(--blue,#3b82f6);font-weight:700;}
 .cg-hint-go{margin-left:auto;color:var(--blue,#3b82f6);font-weight:700;white-space:nowrap;}
 
-.salesc{margin-top:10px;border-top:1px solid var(--line,#1e2d45);padding-top:9px}
-.salesc-t{font-family:var(--fm);font-size:10.5px;letter-spacing:.1em;color:var(--text3,#64748b);
-  cursor:pointer;user-select:none}
-.salesc-t:hover{color:var(--text2,#94a3b8)}
-.salesc-t span{opacity:.6;margin-left:3px}
-.salesc-k{font-family:var(--fm);font-size:9.5px;color:var(--text3,#64748b);margin-top:5px;text-align:center}
+/* SHOWN, NOT HIDDEN.
+
+   This was built as a drawer -- collapsed, 10.5px grey label, opened by
+   tapping. The reasoning was sound at the time: the result screen fires
+   six to fifteen elements and a chart nobody asked for is more of them.
+
+   It was opened once in two days, by the owner. A drawer that nobody
+   opens is not saving space, it is hiding the only picture of the
+   evidence on the page -- twelve real sales with dates, which is the
+   thing the whole product claims to be about.
+
+   So it reads as a panel now: a heading in the text colour, the dates
+   it covers, and the chart open underneath. The toggle stays, so
+   anybody who wants it out of the way still gets that -- it is just no
+   longer the default. */
+.salesc{margin-top:12px;border-top:1px solid var(--line,#1e2d45);padding-top:12px}
+.salesc-t{font-family:var(--fm);font-size:11.5px;letter-spacing:.08em;color:var(--text2,#94a3b8);
+  font-weight:700;cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.salesc-t:hover{color:var(--text,#f1f5f9)}
+.salesc-t span{opacity:.55;margin-left:auto;font-size:10px}
+.salesc-when{font-weight:400;opacity:.7;letter-spacing:.04em}
+.salesc-k{font-family:var(--fm);font-size:10px;color:var(--text3,#64748b);margin-top:7px;text-align:center}
 .set-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
   background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.32);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -3583,7 +3599,11 @@ function salesChartHTML(sold){
     var f = function(v){ return useLog ? Math.log10(Math.max(v, 0.01)) : v; };
     var fLo = f(lo), fHi = f(hi), fSpan = Math.max(0.0001, fHi - fLo);
 
-    var W = 460, H = 150, L = 46, R = 12, T = 12, B = 26;
+    /* Taller and with more room at the left. At 150 high the dots
+       crowded the axis and a cluster of similar prices read as one
+       smear; the extra 55px separates them without the SVG getting
+       wider, since it scales to the container either way. */
+    var W = 460, H = 205, L = 52, R = 14, T = 16, B = 30;
     var x = function(t){ return L + ((t - t0) / span) * (W - L - R); };
     var y = function(p){ return T + (1 - (f(p) - fLo) / fSpan) * (H - T - B); };
 
@@ -3594,7 +3614,13 @@ function salesChartHTML(sold){
        departure from where the price actually sits. */
     if(med > 0 && med >= lo && med <= hi){
       svg += '<line x1="'+L+'" y1="'+y(med).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(med).toFixed(1)+'" '
-           + 'stroke="var(--green,#22c55e)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>';
+           + 'stroke="var(--green,#22c55e)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".6"/>';
+      /* The line was unlabelled, so it read as decoration. It is the
+         number in the headline above -- saying so is what connects the
+         dots to the price the page is claiming. */
+      svg += '<text x="'+(W-R)+'" y="'+(y(med)-5).toFixed(1)+'" font-size="9.5" '
+           + 'fill="var(--green,#22c55e)" text-anchor="end" opacity=".85">median '
+           + esc(fmtMoney(med)) + '</text>';
     }
     svg += '<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(H-B)+'" stroke="var(--line2,#2a3a55)"/>'
          + '<line x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'" stroke="var(--line2,#2a3a55)"/>';
@@ -3609,14 +3635,76 @@ function salesChartHTML(sold){
     svg += '<text x="'+L+'" y="'+(H-8)+'" font-size="9" fill="var(--text3,#64748b)">'+esc(dfmt(t0))+'</text>'
          + '<text x="'+(W-R)+'" y="'+(H-8)+'" font-size="9" fill="var(--text3,#64748b)" text-anchor="end">'+esc(dfmt(t1))+'</text>';
 
+    /* A LINE, BUT NOT THROUGH EVERYTHING.
+
+       A stock chart's line means one thing moved from here to there.
+       These dots are not that: each is a separate transaction, and some
+       are graded copies of the same card. Joining a $79 raw sale to a
+       $153 PSA 9 would draw a price rise that never happened -- the
+       same mixing of populations the sold filter spends this entire
+       file refusing to do.
+
+       So the line follows RAW sales only, which is one population and
+       the one the headline median describes. Graded dots stay on the
+       chart, in gold, off the line.
+
+       Same-day sales are collapsed to their median first. Two copies
+       selling on a Tuesday for $70 and $110 is not a spike and a crash;
+       it is one day with a spread, and drawing it as two points makes
+       the line zigzag on nothing. Collapsing matches what the server
+       does when it writes a daily price.
+
+       Three distinct days minimum. Two points is a straight line
+       between two sales, which looks like a trend and is not one. */
+    var byDay = {};
+    for(var q=0;q<pts.length;q++){
+      if(pts[q].g) continue;                 /* graded stays off the line */
+      var dk = new Date(pts[q].t);
+      dk = dk.getFullYear()+'-'+dk.getMonth()+'-'+dk.getDate();
+      (byDay[dk] = byDay[dk] || { t: pts[q].t, v: [] }).v.push(pts[q].p);
+    }
+    var days = Object.keys(byDay).map(function(k){
+      var a = byDay[k].v.slice().sort(function(m,n){ return m - n; });
+      var mid = Math.floor(a.length/2);
+      return { t: byDay[k].t,
+               p: a.length % 2 ? a[mid] : (a[mid-1] + a[mid]) / 2,
+               n: a.length };
+    }).sort(function(a,b){ return a.t - b.t; });
+
+    if(days.length >= 3){
+      var d0 = '';
+      for(var z=0;z<days.length;z++){
+        d0 += (z ? ' L ' : 'M ') + x(days[z].t).toFixed(1) + ' ' + y(days[z].p).toFixed(1);
+      }
+      svg += '<path d="' + d0 + '" fill="none" stroke="var(--green,#22c55e)" '
+           + 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>';
+      /* Marked so a day built from several sales is visibly sturdier
+         than one built from a single transaction -- the difference the
+         binder chart had no way to show. */
+      for(var z2=0;z2<days.length;z2++){
+        svg += '<circle cx="'+x(days[z2].t).toFixed(1)+'" cy="'+y(days[z2].p).toFixed(1)+'" '
+             + 'r="'+(days[z2].n > 1 ? 3.5 : 2.5)+'" fill="var(--bg,#0a0e1a)" '
+             + 'stroke="var(--green,#22c55e)" stroke-width="2"><title>'
+             + esc(fmtMoney(days[z2].p) + ' \u00b7 ' + dfmt(days[z2].t)
+                   + ' \u00b7 ' + days[z2].n + (days[z2].n === 1 ? ' sale' : ' sales'))
+             + '</title></circle>';
+      }
+    }
+
     for(var k=0;k<pts.length;k++){
       /* Graded sales in gold. They are real sales of the card and
          belong on the chart, but they are a different object from a
          raw copy and a reader should be able to tell them apart
          without reading a legend. */
       var col = pts[k].g ? 'var(--gold,#f59e0b)' : 'var(--green,#22c55e)';
-      svg += '<circle cx="'+x(pts[k].t).toFixed(1)+'" cy="'+y(pts[k].p).toFixed(1)+'" r="4" '
-           + 'fill="'+col+'" opacity=".8"><title>'+esc(fmtMoney(pts[k].p)+' \u00b7 '+dfmt(pts[k].t))+'</title></circle>';
+      /* Individual sales sit UNDER the line once there is one -- they
+         are the evidence, and at full opacity they compete with the
+         trend they produced. Graded stays bright: it is a different
+         object and should be easy to pick out. */
+      var dotOp = (days.length >= 3 && !pts[k].g) ? '.42' : '.85';
+      svg += '<circle cx="'+x(pts[k].t).toFixed(1)+'" cy="'+y(pts[k].p).toFixed(1)+'" r="'
+           + (days.length >= 3 && !pts[k].g ? '4' : '5') + '" '
+           + 'fill="'+col+'" opacity="'+dotOp+'"><title>'+esc(fmtMoney(pts[k].p)+' \u00b7 '+dfmt(pts[k].t))+'</title></circle>';
     }
 
     var anyGraded = pts.some(function(z){ return z.g; });
@@ -3626,10 +3714,17 @@ function salesChartHTML(sold){
       + '<div class="salesc-t" onclick="var e=document.getElementById(\'' + cid + '\');'
       +   'if(e){var o=e.style.display===\'none\';e.style.display=o?\'block\':\'none\';'
       +   'if(o)logEvent(\'sales_chart_opened\',String(' + pts.length + '),false);}">'
-      +   'See the ' + pts.length + ' sales <span>&#9662;</span></div>'
-      + '<div id="' + cid + '" style="display:none">'
+      /* OPEN. The toggle now hides rather than reveals, so the label
+         says what is on screen instead of promising something behind a
+         tap -- and it carries the window the dots cover, which is the
+         question somebody asks of a price chart before any other. */
+      +   pts.length + ' real sales'
+      +   '<span class="salesc-when">' + esc(dfmt(t0)) + ' \u2013 ' + esc(dfmt(t1)) + '</span>'
+      +   '<span>&#9652;</span></div>'
+      + '<div id="' + cid + '" style="display:block">'
       +   '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto">' + svg + '</svg>'
       +   '<div class="salesc-k">'
+      +     (days.length >= 3 ? 'line = raw, by day \u00b7 ' : '')
       +     fmtMoney(lo) + ' low \u00b7 ' + fmtMoney(hi) + ' high'
       +     (useLog ? ' \u00b7 log scale' : '')
       +     (anyGraded ? ' \u00b7 <span style="color:var(--gold,#f59e0b)">gold = graded</span>' : '')
