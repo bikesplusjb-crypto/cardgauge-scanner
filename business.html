@@ -152,9 +152,37 @@ input,select{background:#0b1322;color:var(--text);border:1px solid var(--line);b
         <div class="sub" style="margin-top:6px;font-size:11px">Affiliate link &mdash; costs you nothing, and we don't set the prices.</div>
       </div>
       <div class="sub" style="margin-top:6px;color:var(--gold)">⚠ Don't fill the whole frame with one card — leave a visible margin of background around every edge, even scanning just one. A card pressed up to the edge of the photo can get cropped wrong, since the detector needs to see all four edges to find the card.</div>
-      <label class="drop" for="photo"><strong>📷 Take photo / choose image</strong><br><span class="sub">On a phone, this opens the camera or photo picker.</span></label>
-      <input id="photo" type="file" accept="image/*" capture="environment">
-      <input id="backPhoto" type="file" accept="image/*" capture="environment" style="display:none">
+      <label class="drop" for="photo"><strong>📄 Scan or photograph a batch</strong><br><span class="sub">Flatbed scan, camera, or any image already on your device.</span></label>
+      <!-- FLATBED IS THE RECOMMENDED PATH, AND IT IS A POSITIONING
+           DIFFERENCE AS MUCH AS A TECHNICAL ONE.
+
+           The recurring complaint about the feeder-based tools is that they
+           mark cards -- rollers, edges, corners. A flatbed touches nothing:
+           the card lies still on glass under a lid. For a shop that is the
+           whole argument, and the tool already supported it by accident. It
+           just could not be reached from a phone.
+
+           Stated plainly rather than buried in help text, because a shop
+           deciding between this and a feeder is deciding about their
+           inventory, not their software. -->
+      <div class="sub" style="margin-top:8px;padding:9px 11px;border-radius:9px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.28);color:var(--green,#22c55e);line-height:1.6">
+        <b>A flatbed scanner is the best way to do this.</b> Nothing rolls, feeds or
+        touches the surface, so cards come out exactly as they went in — and the
+        image is flat, evenly lit and in focus, which reads far better than any
+        photo. Lay out a row at a time on the glass, leave a gap between cards,
+        scan at 300–600dpi, and upload the file.
+      </div>
+      <!-- capture="environment" removed from both. It forces the camera on
+           mobile Safari and Chrome and hides the Files picker entirely, which
+           made a flatbed scan impossible to submit from a phone -- the file
+           exists, and the OS will not offer it.
+
+           A flatbed is the better input by some distance: no glare, no
+           perspective, no hand shake, no bending the card to flatten it, and
+           the whole reason shops complain about the alternatives. Removing
+           one attribute is the entire cost of supporting it. -->
+      <input id="photo" type="file" accept="image/*">
+      <input id="backPhoto" type="file" accept="image/*" style="display:none">
       <div id="sourceWrap" style="position:relative;display:inline-block">
         <img id="source" class="preview" alt="">
         <canvas id="trayOverlay" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
@@ -1243,7 +1271,10 @@ document.getElementById('detectBtn').onclick=async()=>{
     /* The batch size is the number that matters here. A beta that
        cannot say whether shops scan three cards or thirty cannot tell
        whether Multi-Scan is solving the problem it was built for. */
-    shopLog('biz_detected', String(detectedCards.length));
+    /* Records the source alongside the count. A beta that cannot say
+       whether shops scan or photograph cannot tell whether the flatbed
+       argument is landing -- and that is the one claim worth testing. */
+    shopLog('biz_detected', String(detectedCards.length) + ' via ' + (lastSourceKind || 'unknown'));
     // A fresh front detection starts a new batch -- any backs counted
     // from a previous photo no longer apply to these fronts.
     backCards=[]; document.getElementById('backsDetected').textContent=0;
@@ -1479,13 +1510,32 @@ document.getElementById('addAllBtn').onclick=async ()=>{
   }
 };
 
+var lastSourceKind = '';
 async function detectCards(file){
   await waitForCV();
 
   const img=await imageFromFile(file);
   const c=document.createElement('canvas');
   const ctx=c.getContext('2d',{willReadFrequently:true});
-  const max=2200, scale=Math.min(1,max/Math.max(img.width,img.height));
+  /* 2200 was chosen for phone photos, where more pixels buy nothing --
+     the lens and the hand are the limit, not the sensor.
+
+     A flatbed scan is different in kind. A 600dpi sheet arrives around
+     5100x6600 and every pixel is real: flat, evenly lit, in focus. Capping
+     that at 2200 discards three quarters of it BEFORE the per-card crop,
+     which is precisely where a scan's advantage would have shown up.
+
+     So the cap lifts for images that are plainly scans -- big, and roughly
+     page-shaped. Phone photos keep the old ceiling, so nothing about the
+     existing path gets slower. */
+  const px = img.width * img.height;
+  /* Set here rather than guessed from the file name -- an iPhone photo and
+     a scan are told apart by their pixels, not their extension. */
+  try{ lastSourceKind = (px > 9e6 && (Math.max(img.width,img.height)/Math.max(1,Math.min(img.width,img.height))) < 2.2) ? 'scan' : 'photo'; }catch(e){}
+  const ratio = Math.max(img.width, img.height) / Math.max(1, Math.min(img.width, img.height));
+  const looksScanned = px > 9e6 && ratio < 2.2;
+  const max = looksScanned ? 4200 : 2200;
+  const scale=Math.min(1,max/Math.max(img.width,img.height));
   c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
   ctx.drawImage(img,0,0,c.width,c.height);
 
@@ -1957,8 +2007,18 @@ function warpCard(source, pts){
   const tl=pts[0],tr=pts[1],br=pts[2],bl=pts[3];
   const width=Math.max(dist(tl,tr),dist(bl,br));
   const height=Math.max(dist(tl,bl),dist(tr,br));
-  const outW=420;
-  const outH=Math.max(588,Math.round(outW*(height/width)));
+  /* 420px was the right target when every source was a phone photo: a
+     card occupied roughly that much of a 2200px frame, so warping larger
+     would have been upscaling noise.
+
+     From a flatbed at 4200px a single card measures 900px or more of real
+     detail, and 420 threw most of it away -- which mattered most for the
+     one thing that is hardest to read and worth the most: the card number
+     in small print on the back.
+
+     Takes what the source actually has, up to 760. Never upscales. */
+  const outW = Math.min(760, Math.max(420, Math.round(width)));
+  const outH=Math.max(Math.round(outW*1.4),Math.round(outW*(height/width)));
 
   const srcPts=cv.matFromArray(4,1,cv.CV_32FC2,[
     tl.x,tl.y,tr.x,tr.y,br.x,br.y,bl.x,bl.y
