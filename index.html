@@ -772,6 +772,12 @@ input[type=file]{display:none;}
 .cg-hint-v{color:var(--blue,#3b82f6);font-weight:700;}
 .cg-hint-go{margin-left:auto;color:var(--blue,#3b82f6);font-weight:700;white-space:nowrap;}
 
+.salesc{margin-top:10px;border-top:1px solid var(--line,#1e2d45);padding-top:9px}
+.salesc-t{font-family:var(--fm);font-size:10.5px;letter-spacing:.1em;color:var(--text3,#64748b);
+  cursor:pointer;user-select:none}
+.salesc-t:hover{color:var(--text2,#94a3b8)}
+.salesc-t span{opacity:.6;margin-left:3px}
+.salesc-k{font-family:var(--fm);font-size:9.5px;color:var(--text3,#64748b);margin-top:5px;text-align:center}
 .set-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
   background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.32);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -2226,8 +2232,24 @@ function openPsaScanner(){
   logEvent('psa_scanner_opened', null, false);
   var m = document.getElementById('psaModal');
   if(m) m.classList.add('show');
-  document.getElementById('psaManualEntry').style.display = 'none';
-  setPsaStatus('Point your camera at the barcode', false);
+
+  /* MANUAL ENTRY IS NOT A FALLBACK, IT IS THE PATH MOST PEOPLE NEED.
+
+     Measured: psa_scanner_opened fired 30 times for 24 people, and
+     psa_unavailable -- which only fires AFTER a barcode decodes --
+     fired twice. So 22 of 24 opened the scanner and never got a number
+     out of it. Their cameras worked; the barcode would not read.
+
+     It was hidden unless Html5Qrcode failed to load entirely, which is
+     the one failure that almost never happens. The common failure --
+     a small scan box, a curved slab, a reflective label -- left people
+     staring at a viewfinder with no way forward.
+
+     Shown from the start now. The camera still runs and still wins
+     when it works; typing four digits is not a punishment. */
+  var man = document.getElementById('psaManualEntry');
+  if(man) man.style.display = '';
+  setPsaStatus('Point your camera at the barcode \u2014 or type the cert number below', false);
 
   if(typeof Html5Qrcode === 'undefined'){
     setPsaStatus('Camera scanning isn\u2019t available right now \u2014 type the cert number below instead.', true);
@@ -2356,8 +2378,19 @@ async function lookupPsaCert(certNumber){
              deliberate and do nothing. */
           box.style.color = 'var(--gold-warm, #fbbf24)';
           box.innerHTML =
-              '<div style="line-height:1.6">Automatic PSA lookup isn\u2019t available yet \u2014 '
-            + 'we\u2019re waiting on API access from PSA.</div>'
+              /* PSA discontinued public API access on 8 Sept and now
+                 sell an enterprise tier at $2,500 a year. "Waiting on
+                 access" was true when it was written and is not any
+                 more, and a message that describes a feature as
+                 pending when it is not reads as neglect.
+
+                 It also overstated what is missing. The cert lookup
+                 works: the barcode gives the number and PSA's own page
+                 gives the record, which is more authoritative than
+                 anything an API would hand back. What is absent is
+                 auto-filling the fields, which is a convenience. */
+              '<div style="line-height:1.6">Cert <b>' + esc(clean) + '</b> read. '
+            + 'PSA holds the record for this slab \u2014 open it below.</div>'
             + '<a href="' + psaUrl + '" target="_blank" rel="noopener" '
             + 'onclick="logEvent(\'psa_link_opened\',\'' + clean + '\',false)" '
             + 'style="display:inline-block;margin-top:10px;padding:10px 16px;border-radius:10px;'
@@ -3364,6 +3397,9 @@ function buildSoldHero(d){
        with the number it explains, not as another full-width panel --
        this screen was deliberately cut down and should stay that way. */
     +compGuardHTML(sold)
+    /* Under the receipt, same block. Somebody who doubts the number
+       taps the count; the sales it came from are right there. */
+    +salesChartHTML(sold)
   +'</div>';
 }
 
@@ -3399,6 +3435,120 @@ function toggleCompGuard(){
   if(l) l.classList.toggle('open', cgOpen);
   if(b) b.classList.toggle('open', cgOpen);
   if(cgOpen) logEvent('compguard_opened', String((lastResult && lastResult.cardName) || '').slice(0,120), false);
+}
+
+/* ── 30 DAYS OF ACTUAL SALES ───────────────────────────────────────
+
+   Every sale in the comp response carries a saleDate and a price, and
+   until now both were used only to compute a median and then thrown
+   away. This draws them.
+
+   NOT A LINE. A line implies a single moving price and invites reading
+   a trend into twelve points. These are individual transactions --
+   different sellers, different conditions, different days -- and a
+   scatter says that. Ten sales between $70 and $81 with one at $153 is
+   a fact about the market that a line would smooth into a slope.
+
+   WHY IT EARNS THE SPACE. A contaminated pool is invisible in a median
+   and unmissable in a scatter. The 2018 Ohtani typed search on 8 Sept
+   returned base cards near $10, refractors near $100 and graded
+   parallels over $1,000 -- three clusters that a median rendered as
+   one authoritative $462. Anybody looking at the dots would have seen
+   in a second what the number hid.
+
+   COLLAPSED BY DEFAULT. The result screen already fires six to fifteen
+   elements per scan and was deliberately cut down today; this does not
+   undo that. It hangs off the sales count, which is the thing somebody
+   taps when they doubt the price. Costs nothing until asked for.
+
+   No library. An inline SVG built from data already in the response --
+   no extra call, no dependency, and it works with the page's own
+   colour variables. */
+function salesChartHTML(sold){
+  try{
+    var sales = (sold && Array.isArray(sold.sales)) ? sold.sales : [];
+    var pts = [];
+    for(var i=0;i<sales.length;i++){
+      var p = Number(sales[i] && sales[i].price);
+      var d = sales[i] && sales[i].saleDate ? new Date(sales[i].saleDate) : null;
+      if(!isFinite(p) || p <= 0 || !d || isNaN(d.getTime())) continue;
+      pts.push({ t: d.getTime(), p: p, g: !!sales[i].isGraded });
+    }
+    /* Under four dots is not a picture of anything. The count line
+       above already says how many sales there were. */
+    if(pts.length < 4) return '';
+
+    pts.sort(function(a,b){ return a.t - b.t; });
+    var t0 = pts[0].t, t1 = pts[pts.length-1].t;
+    var span = Math.max(1, t1 - t0);
+
+    var prices = pts.map(function(x){ return x.p; });
+    var lo = Math.min.apply(null, prices);
+    var hi = Math.max.apply(null, prices);
+
+    /* LOG SCALE WHEN THE RANGE IS WIDE. On a clean card linear is
+       easier to read. On a contaminated one -- $8 base cards beside
+       $10,000 parallels -- linear collapses every real sale onto the
+       floor and shows a single dot at the top, which hides exactly the
+       thing worth seeing. */
+    var useLog = hi / Math.max(lo, 0.01) > 12;
+    var f = function(v){ return useLog ? Math.log10(Math.max(v, 0.01)) : v; };
+    var fLo = f(lo), fHi = f(hi), fSpan = Math.max(0.0001, fHi - fLo);
+
+    var W = 460, H = 150, L = 46, R = 12, T = 12, B = 26;
+    var x = function(t){ return L + ((t - t0) / span) * (W - L - R); };
+    var y = function(p){ return T + (1 - (f(p) - fLo) / fSpan) * (H - T - B); };
+
+    var med = Number(sold.soldMedian) || 0;
+    var svg = '';
+
+    /* The median drawn behind the dots, so an outlier reads as a
+       departure from where the price actually sits. */
+    if(med > 0 && med >= lo && med <= hi){
+      svg += '<line x1="'+L+'" y1="'+y(med).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(med).toFixed(1)+'" '
+           + 'stroke="var(--green,#22c55e)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>';
+    }
+    svg += '<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(H-B)+'" stroke="var(--line2,#2a3a55)"/>'
+         + '<line x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'" stroke="var(--line2,#2a3a55)"/>';
+
+    svg += '<text x="'+(L-6)+'" y="'+(T+4)+'" font-size="9" fill="var(--text3,#64748b)" text-anchor="end">'+fmtMoney(hi)+'</text>'
+         + '<text x="'+(L-6)+'" y="'+(H-B)+'" font-size="9" fill="var(--text3,#64748b)" text-anchor="end">'+fmtMoney(lo)+'</text>';
+
+    var dfmt = function(ms){
+      var dd = new Date(ms);
+      return dd.toLocaleDateString([], {month:'short', day:'numeric'});
+    };
+    svg += '<text x="'+L+'" y="'+(H-8)+'" font-size="9" fill="var(--text3,#64748b)">'+esc(dfmt(t0))+'</text>'
+         + '<text x="'+(W-R)+'" y="'+(H-8)+'" font-size="9" fill="var(--text3,#64748b)" text-anchor="end">'+esc(dfmt(t1))+'</text>';
+
+    for(var k=0;k<pts.length;k++){
+      /* Graded sales in gold. They are real sales of the card and
+         belong on the chart, but they are a different object from a
+         raw copy and a reader should be able to tell them apart
+         without reading a legend. */
+      var col = pts[k].g ? 'var(--gold,#f59e0b)' : 'var(--green,#22c55e)';
+      svg += '<circle cx="'+x(pts[k].t).toFixed(1)+'" cy="'+y(pts[k].p).toFixed(1)+'" r="4" '
+           + 'fill="'+col+'" opacity=".8"><title>'+esc(fmtMoney(pts[k].p)+' \u00b7 '+dfmt(pts[k].t))+'</title></circle>';
+    }
+
+    var anyGraded = pts.some(function(z){ return z.g; });
+    var cid = 'sc-' + Math.random().toString(36).slice(2,8);
+
+    return '<div class="salesc">'
+      + '<div class="salesc-t" onclick="var e=document.getElementById(\'' + cid + '\');'
+      +   'if(e){var o=e.style.display===\'none\';e.style.display=o?\'block\':\'none\';'
+      +   'if(o)logEvent(\'sales_chart_opened\',String(' + pts.length + '),false);}">'
+      +   'See the ' + pts.length + ' sales <span>&#9662;</span></div>'
+      + '<div id="' + cid + '" style="display:none">'
+      +   '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto">' + svg + '</svg>'
+      +   '<div class="salesc-k">'
+      +     fmtMoney(lo) + ' low \u00b7 ' + fmtMoney(hi) + ' high'
+      +     (useLog ? ' \u00b7 log scale' : '')
+      +     (anyGraded ? ' \u00b7 <span style="color:var(--gold,#f59e0b)">gold = graded</span>' : '')
+      +   '</div>'
+      + '</div>'
+      + '</div>';
+  }catch(e){ return ''; }
 }
 
 function compGuardHTML(sold){
