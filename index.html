@@ -742,27 +742,16 @@ input[type=file]{display:none;}
    One line, same shape as the card-show tip below it. Gold instead of
    blue so it is distinguishable, and the arrow keeps it obviously
    tappable. */
-/* THE ONLY BANNER HERE WITH A PAYING AUDIENCE BEHIND IT.
-
-   Sized as a footnote: 10.5px monospace in a thin pill, the same weight
-   as the set-builder line beside it. It earned 5 clicks in 30 days.
-
-   A shop is the one visitor with a budget, and Business is the one
-   surface with a price on it. Bigger type, a real card rather than a
-   pill, and enough padding to read as a destination instead of a
-   footnote. Same link, same event, same copy -- only the presence
-   changes, so if it still does not convert that is the offer and not
-   the styling. */
-.biz-note{display:flex;align-items:center;gap:12px;text-align:left;text-decoration:none;
-  background:rgba(245,158,11,.13);border:1.5px solid rgba(245,158,11,.5);border-radius:14px;
-  padding:15px 18px;margin:18px auto 0;max-width:52ch;
-  font-family:var(--fm);font-size:13px;line-height:1.6;color:var(--text2,#cbd5e1);transition:all .2s;}
+.biz-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:100px;
+  padding:9px 16px;margin:14px auto 0;max-width:44ch;
+  font-family:var(--fm);font-size:10.5px;line-height:1.6;color:var(--text3);transition:all .2s;}
 .biz-note:hover{border-color:var(--gold);background:rgba(245,158,11,.14);}
 .biz-note b{color:var(--gold);}
 .biz-note-tag{flex-shrink:0;background:var(--gold);color:#1a1206;font-weight:900;
-  font-size:11px;letter-spacing:.06em;padding:4px 10px;border-radius:6px;}
-.biz-note-go{flex-shrink:0;color:var(--gold);font-weight:800;font-size:17px;margin-left:auto;}
-@media(max-width:520px){ .biz-note{border-radius:14px;max-width:none;align-items:flex-start;font-size:12.5px;padding:14px 15px;} }
+  font-size:9px;letter-spacing:.06em;padding:2px 7px;border-radius:5px;}
+.biz-note-go{flex-shrink:0;color:var(--gold);font-weight:700;margin-left:auto;}
+@media(max-width:520px){ .biz-note{border-radius:12px;max-width:none;align-items:flex-start;} }
 
 /* ── SET BUILDER ANNOUNCEMENT ───────────────────────────────────
    Green rather than the gold used by the shop banner and the blue
@@ -783,28 +772,12 @@ input[type=file]{display:none;}
 .cg-hint-v{color:var(--blue,#3b82f6);font-weight:700;}
 .cg-hint-go{margin-left:auto;color:var(--blue,#3b82f6);font-weight:700;white-space:nowrap;}
 
-/* SHOWN, NOT HIDDEN.
-
-   This was built as a drawer -- collapsed, 10.5px grey label, opened by
-   tapping. The reasoning was sound at the time: the result screen fires
-   six to fifteen elements and a chart nobody asked for is more of them.
-
-   It was opened once in two days, by the owner. A drawer that nobody
-   opens is not saving space, it is hiding the only picture of the
-   evidence on the page -- twelve real sales with dates, which is the
-   thing the whole product claims to be about.
-
-   So it reads as a panel now: a heading in the text colour, the dates
-   it covers, and the chart open underneath. The toggle stays, so
-   anybody who wants it out of the way still gets that -- it is just no
-   longer the default. */
-.salesc{margin-top:12px;border-top:1px solid var(--line,#1e2d45);padding-top:12px}
-.salesc-t{font-family:var(--fm);font-size:11.5px;letter-spacing:.08em;color:var(--text2,#94a3b8);
-  font-weight:700;cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
-.salesc-t:hover{color:var(--text,#f1f5f9)}
-.salesc-t span{opacity:.55;margin-left:auto;font-size:10px}
-.salesc-when{font-weight:400;opacity:.7;letter-spacing:.04em}
-.salesc-k{font-family:var(--fm);font-size:10px;color:var(--text3,#64748b);margin-top:7px;text-align:center}
+.salesc{margin-top:10px;border-top:1px solid var(--line,#1e2d45);padding-top:9px}
+.salesc-t{font-family:var(--fm);font-size:10.5px;letter-spacing:.1em;color:var(--text3,#64748b);
+  cursor:pointer;user-select:none}
+.salesc-t:hover{color:var(--text2,#94a3b8)}
+.salesc-t span{opacity:.6;margin-left:3px}
+.salesc-k{font-family:var(--fm);font-size:9.5px;color:var(--text3,#64748b);margin-top:5px;text-align:center}
 .set-note{display:flex;align-items:center;gap:9px;text-align:left;text-decoration:none;
   background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.32);border-radius:100px;
   padding:9px 16px;margin:14px auto 0;max-width:44ch;
@@ -1341,29 +1314,11 @@ input[type=file]{display:none;}
     </div>
     <div class="search-hint">✏️ Year + brand + player gets the best match</div>
 
-    <!-- THE PSA ENTRY POINT IS GONE. THE CODE BEHIND IT IS NOT.
-
-         It could not do the thing it advertised. PSA refuses the API at
-         the account level -- "Access to this API is limited to approved
-         customers" -- so a cert number can never return a card, a grade
-         or a price. The best it managed was a link to psacard.com, which
-         somebody holding a slab reaches on their own.
-
-         The numbers, 30 days: psa_scanner_opened fired 30 times for 24
-         people; two of them ever got a number to decode. So 22 of 24
-         opened it, fought a barcode on curved reflective plastic, and
-         left with nothing -- from the most prominent button on the
-         capture screen.
-
-         Removing the button, not the feature. openPsaScanner(),
-         lookupPsaCert(), the modal and /api/psa-cert all remain. If PSA
-         ever approves the account it works again by putting this button
-         back -- one element, no rebuild.
-
-         And a graded card is not stranded by this: the scanner reads
-         slab labels itself. A PSA 8 Lightning Leaders Ohtani photographed
-         on 9 Sept came back identified, at $76 off 20 sales, with nobody
-         typing a cert number. The photo path was always the better one. -->
+    <button id="psaBtn" onclick="openPsaScanner()" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;
+      border:1px solid rgba(251,191,36,.35);background:rgba(251,191,36,.08);color:var(--gold-warm);
+      font-family:var(--f);font-weight:800;font-size:13px;cursor:pointer;">
+      📇 Already graded? Scan the PSA barcode
+    </button>
 
     <!-- For somebody who arrived from a video and has no card in their
          hand. Two empty photo boxes are useless to them; one tap on a
@@ -1888,12 +1843,6 @@ function reportCorrection(field, correctedTo){
     '.bmx-verdict.buy b{color:#1F6F4A}.bmx-verdict.pass b{color:#A8322A}.bmx-verdict.review b{color:#B4791E;font-size:22px}',
     '.bmx-verdict em{font-style:normal;font-size:13px;color:#5A6570}',
     '.bmx-ladder{display:flex;gap:8px;margin:12px 0}',
-    /* One rung when the opening offer and the ceiling round to the
-       same figure -- see the ladder builder. flex:1 on a single
-       child already fills the row, so this only needs to stop the
-       gap reserving space for a rung that is not there. */
-    '.bmx-ladder.one{gap:0}',
-    '.bmx-profit{font-family:var(--fm);font-size:11.5px;color:#5B6150;margin:7px 0 0;text-align:center}',
     '.bmx-rung{flex:1;text-align:center;padding:10px 6px;border-radius:4px;background:#fff;border:1.5px solid #C3C6BB}',
     '.bmx-rung b{display:block;font-size:19px;font-weight:800;letter-spacing:-.02em;color:#16202B}',
     '.bmx-rung small{display:block;font-size:11px;color:#5A6570;margin-top:2px}',
@@ -2063,50 +2012,13 @@ function reportCorrection(field, correctedTo){
               + '</p>';
       }
 
-      /* TWO RUNGS AT MOST, AND ONLY WHEN THEY DIFFER.
-
-         Three problems in three lines, all of them visible on a cheap
-         card:
-
-         The third rung was a PROFIT sitting in a row of prices. Read as
-         a ladder it says "offer $5, never go above $5, then offer
-         minus twelve dollars" -- and buymax.js says outright that
-         walk_away_above is the same number as maximum_buy_price and
-         must not be drawn as a third rung. The profit belongs in the
-         sentence above, which already states it.
-
-         money0 renders a negative as "$-296", which is not a currency
-         format in any locale. moneySigned puts the sign outside.
-
-         And the two remaining rungs collapse into each other on cheap
-         cards, because the 12% opening band is under a dollar and both
-         round to the same figure. "$5 / $5" is not a negotiating range;
-         it is one number printed twice. When they round the same, say
-         the one number once and say what it is. */
       if (ceil !== null) {
-        var openAt   = lad.ask_below_target ? null : lad.target_offer;
-        var sameRung = openAt === null
-                    || money0(openAt) === money0(ceil);
-
-        html += sameRung
-          ? '<div class="bmx-ladder one">'
-            + '<div class="bmx-rung m"><b>' + money0(ceil) + '</b>'
-            + '<small>' + (lad.ask_below_target ? 'your ceiling &mdash; the ask is under it'
-                                                : 'pay no more than this') + '</small></div>'
-            + '</div>'
-          : '<div class="bmx-ladder">'
-            + '<div class="bmx-rung t"><b>' + money0(openAt) + '</b><small>open here</small></div>'
-            + '<div class="bmx-rung m"><b>' + money0(ceil) + '</b><small>never above</small></div>'
-            + '</div>';
-
-        /* The profit, in prose, where a negative reads as a sentence
-           rather than as a malformed price. */
-        if (isFinite(prof)) {
-          html += '<p class="bmx-profit">' + (prof > 0
-                ? 'At ' + money0(ask) + ' you keep ' + money0(prof) + '.'
-                : 'At ' + money0(ask) + ' you lose ' + money0(Math.abs(prof)) + '.')
-                + '</p>';
-        }
+        html +=
+          '<div class="bmx-ladder">'
+        +   '<div class="bmx-rung t"><b>' + money0(lad.target_offer) + '</b><small>offer this</small></div>'
+        +   '<div class="bmx-rung m"><b>' + money0(ceil) + '</b><small>never above</small></div>'
+        +   '<div class="bmx-rung"><b>' + money0(prof) + '</b><small>profit at ' + money0(ask) + '</small></div>'
+        + '</div>';
       }
 
       /* The engine's own words, kept in full and put after the numbers
@@ -2202,7 +2114,6 @@ async function doScan(){
     fd.append('eventId', cgEid);
     var _fbp = cgCookie('_fbp'); if(_fbp) fd.append('fbp', _fbp);
     var _fbc = cgCookie('_fbc'); if(_fbc) fd.append('fbc', _fbc);
-    if(cgIsOwner()) fd.append('fresh','1');
     var r=await fetch(API+'/api/scan-card',{method:'POST',body:fd});
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
@@ -2293,11 +2204,7 @@ async function doSearch(isSample){
   ]);
   if(window.ttq)ttq.track('Search',{content_name:q,content_type:'standalone_search'});if(window.fbq)fbq('track','Search',{content_name:q,content_type:'standalone_search'});
   try{
-    /* Owner mode skips the comp cache so a filter change can be seen
-       immediately. See getSoldComps in server.js -- it still writes,
-       so the next visitor gets the fresh answer. */
-    var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q)
-          + (cgIsOwner() ? '&fresh=1' : ''));
+    var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Search failed');
@@ -2445,40 +2352,6 @@ async function lookupPsaCert(certNumber){
          unavailable one gets a warning rather than an error, keeps the
          typed number on screen, and points at the path that still
          works: the label has everything needed to type the card in. */
-      /* THE ANSWER WAS BEING WRITTEN WHERE NOBODY COULD SEE IT.
-
-         This function sets TWO status messages: setPsaStatus(), which
-         writes into #psaStatus inside the modal, and setStatusStages(),
-         which drives the main page's blue spinner banner.
-
-         The success path clears the banner -- closePsaScanner(),
-         renderResult(), setStatus('',''). Every failure path did not. So
-         a refused lookup wrote its explanation into the modal and left
-         the page saying 'Looking up PSA cert 141568891...' with a
-         spinner, indefinitely.
-
-         Confirmed against a real attempt on 9 Sept: the request
-         completed server-side in 721ms with PSA's 403, and the screen
-         still showed the spinner. If the modal had closed by then, the
-         entire answer went into a hidden element. From outside it looks
-         exactly like typing a cert number does nothing at all -- which
-         is what it was reported as.
-
-         Cleared first, before anything else is decided, so no branch
-         below can forget to. And when the modal is not on screen the
-         message is put on the page instead, because a message in a
-         hidden container is the same as no message. */
-      setStatus('','');
-      var psaModalEl = document.getElementById('psaModal');
-      var psaModalOpen = !!(psaModalEl && psaModalEl.classList.contains('show'));
-
-      if(!psaModalOpen){
-        setStatus((d.error || 'PSA could not be reached for that cert.')
-          + ' Photograph the slab instead \u2014 the scanner reads the label.', 'warn');
-        psaLookupInFlight = false;
-        return;
-      }
-
       if(d.unavailable){
         /* PSA'S OWN PAGE NEEDS NO API AND NO APPROVAL.
 
@@ -2523,25 +2396,9 @@ async function lookupPsaCert(certNumber){
             + 'style="display:inline-block;margin-top:10px;padding:10px 16px;border-radius:10px;'
             + 'background:var(--green,#22c55e);color:#052e16;font-weight:800;font-size:13px;'
             + 'text-decoration:none">Check cert ' + esc(clean) + ' on PSA \u2192</a>'
-            /* THE PRICE PATH IS A PHOTO, NOT A FORM.
-
-               This asked for four fields typed by hand off the label.
-               The scanner reads graded slabs already -- the AI prompt
-               instructs it to, and a PSA 8 Ohtani scanned on 9 Sept
-               returned the right card and $76 from 20 sales without
-               anybody typing anything.
-
-               Somebody holding a slab in front of a camera should be
-               told to take the photo, not to read the label out loud
-               into a form. A button rather than a sentence, because
-               the sentence was the instruction and it still left them
-               to find their own way back. */
-            + '<div style="margin-top:12px;font-size:12px;color:var(--text3,#94a3b8);line-height:1.6">'
-            + 'For the price, just photograph the slab \u2014 the scanner reads the label.</div>'
-            + '<button type="button" onclick="closePsaScanner()" '
-            + 'style="display:inline-block;margin-top:8px;padding:10px 16px;border-radius:10px;'
-            + 'background:transparent;color:var(--green,#22c55e);border:1px solid var(--green,#22c55e);'
-            + 'font-weight:800;font-size:13px;cursor:pointer">\ud83d\udcf7 Scan the slab instead</button>';
+            + '<div style="margin-top:10px;font-size:11.5px;color:var(--text3,#94a3b8);line-height:1.6">'
+            + 'For the price, close this and type the card in from the label \u2014 '
+            + 'year, set, player and grade.</div>';
         } else {
           setPsaStatus('\u26a0\ufe0f ' + (d.error || 'PSA lookup is unavailable right now.'), true);
         }
@@ -2558,16 +2415,7 @@ async function lookupPsaCert(certNumber){
     logEvent('psa_cert_lookup', d.cardName, false);
     if(window.ttq) ttq.track('Search',{content_name:d.cardName,content_type:'psa_cert_scan'});if(window.fbq)fbq('track','Search',{content_name:d.cardName,content_type:'psa_cert_scan'});
   }catch(e){
-    /* Same clearing rule as the refusal path above. A thrown error left
-       the spinner running too, and a network failure is the case where
-       somebody is most likely to be staring at it. */
-    setStatus('','');
-    var mEl = document.getElementById('psaModal');
-    if(mEl && mEl.classList.contains('show')){
-      setPsaStatus('\u274c ' + e.message, true);
-    }else{
-      setStatus('Could not look that cert up: ' + e.message, 'warn');
-    }
+    setPsaStatus('\u274c ' + e.message, true);
   }
   psaLookupInFlight = false;
 }
@@ -2640,7 +2488,6 @@ async function rescanWithBack(f){
     var fd = new FormData();
     fd.append('front', frontFile);
     fd.append('back', f);
-    if(cgIsOwner()) fd.append('fresh','1');
     var r = await fetch(API+'/api/scan-card',{method:'POST',body:fd});
     if(!r.ok) throw new Error('Server error '+r.status);
     var d = await r.json();
@@ -2774,7 +2621,6 @@ async function repriceQuery(q, opts){
        median off 50 sales is not meaningfully worse than off 100 — but
        three chip taps at full cost is 4x the budget for one card. */
     var url = API+'/api/card-market?query='+encodeURIComponent(q)
-          + (cgIsOwner() ? '&fresh=1' : '')
             + (opts.refined ? '&compact=1' : '');
     var r = await fetch(url);
     if(!r.ok) throw new Error('Server error '+r.status);
@@ -3649,11 +3495,7 @@ function salesChartHTML(sold){
     var f = function(v){ return useLog ? Math.log10(Math.max(v, 0.01)) : v; };
     var fLo = f(lo), fHi = f(hi), fSpan = Math.max(0.0001, fHi - fLo);
 
-    /* Taller and with more room at the left. At 150 high the dots
-       crowded the axis and a cluster of similar prices read as one
-       smear; the extra 55px separates them without the SVG getting
-       wider, since it scales to the container either way. */
-    var W = 460, H = 205, L = 52, R = 14, T = 16, B = 30;
+    var W = 460, H = 150, L = 46, R = 12, T = 12, B = 26;
     var x = function(t){ return L + ((t - t0) / span) * (W - L - R); };
     var y = function(p){ return T + (1 - (f(p) - fLo) / fSpan) * (H - T - B); };
 
@@ -3664,13 +3506,7 @@ function salesChartHTML(sold){
        departure from where the price actually sits. */
     if(med > 0 && med >= lo && med <= hi){
       svg += '<line x1="'+L+'" y1="'+y(med).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(med).toFixed(1)+'" '
-           + 'stroke="var(--green,#22c55e)" stroke-width="1.2" stroke-dasharray="4 3" opacity=".6"/>';
-      /* The line was unlabelled, so it read as decoration. It is the
-         number in the headline above -- saying so is what connects the
-         dots to the price the page is claiming. */
-      svg += '<text x="'+(W-R)+'" y="'+(y(med)-5).toFixed(1)+'" font-size="9.5" '
-           + 'fill="var(--green,#22c55e)" text-anchor="end" opacity=".85">median '
-           + esc(fmtMoney(med)) + '</text>';
+           + 'stroke="var(--green,#22c55e)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>';
     }
     svg += '<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(H-B)+'" stroke="var(--line2,#2a3a55)"/>'
          + '<line x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'" stroke="var(--line2,#2a3a55)"/>';
@@ -3685,76 +3521,14 @@ function salesChartHTML(sold){
     svg += '<text x="'+L+'" y="'+(H-8)+'" font-size="9" fill="var(--text3,#64748b)">'+esc(dfmt(t0))+'</text>'
          + '<text x="'+(W-R)+'" y="'+(H-8)+'" font-size="9" fill="var(--text3,#64748b)" text-anchor="end">'+esc(dfmt(t1))+'</text>';
 
-    /* A LINE, BUT NOT THROUGH EVERYTHING.
-
-       A stock chart's line means one thing moved from here to there.
-       These dots are not that: each is a separate transaction, and some
-       are graded copies of the same card. Joining a $79 raw sale to a
-       $153 PSA 9 would draw a price rise that never happened -- the
-       same mixing of populations the sold filter spends this entire
-       file refusing to do.
-
-       So the line follows RAW sales only, which is one population and
-       the one the headline median describes. Graded dots stay on the
-       chart, in gold, off the line.
-
-       Same-day sales are collapsed to their median first. Two copies
-       selling on a Tuesday for $70 and $110 is not a spike and a crash;
-       it is one day with a spread, and drawing it as two points makes
-       the line zigzag on nothing. Collapsing matches what the server
-       does when it writes a daily price.
-
-       Three distinct days minimum. Two points is a straight line
-       between two sales, which looks like a trend and is not one. */
-    var byDay = {};
-    for(var q=0;q<pts.length;q++){
-      if(pts[q].g) continue;                 /* graded stays off the line */
-      var dk = new Date(pts[q].t);
-      dk = dk.getFullYear()+'-'+dk.getMonth()+'-'+dk.getDate();
-      (byDay[dk] = byDay[dk] || { t: pts[q].t, v: [] }).v.push(pts[q].p);
-    }
-    var days = Object.keys(byDay).map(function(k){
-      var a = byDay[k].v.slice().sort(function(m,n){ return m - n; });
-      var mid = Math.floor(a.length/2);
-      return { t: byDay[k].t,
-               p: a.length % 2 ? a[mid] : (a[mid-1] + a[mid]) / 2,
-               n: a.length };
-    }).sort(function(a,b){ return a.t - b.t; });
-
-    if(days.length >= 3){
-      var d0 = '';
-      for(var z=0;z<days.length;z++){
-        d0 += (z ? ' L ' : 'M ') + x(days[z].t).toFixed(1) + ' ' + y(days[z].p).toFixed(1);
-      }
-      svg += '<path d="' + d0 + '" fill="none" stroke="var(--green,#22c55e)" '
-           + 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>';
-      /* Marked so a day built from several sales is visibly sturdier
-         than one built from a single transaction -- the difference the
-         binder chart had no way to show. */
-      for(var z2=0;z2<days.length;z2++){
-        svg += '<circle cx="'+x(days[z2].t).toFixed(1)+'" cy="'+y(days[z2].p).toFixed(1)+'" '
-             + 'r="'+(days[z2].n > 1 ? 3.5 : 2.5)+'" fill="var(--bg,#0a0e1a)" '
-             + 'stroke="var(--green,#22c55e)" stroke-width="2"><title>'
-             + esc(fmtMoney(days[z2].p) + ' \u00b7 ' + dfmt(days[z2].t)
-                   + ' \u00b7 ' + days[z2].n + (days[z2].n === 1 ? ' sale' : ' sales'))
-             + '</title></circle>';
-      }
-    }
-
     for(var k=0;k<pts.length;k++){
       /* Graded sales in gold. They are real sales of the card and
          belong on the chart, but they are a different object from a
          raw copy and a reader should be able to tell them apart
          without reading a legend. */
       var col = pts[k].g ? 'var(--gold,#f59e0b)' : 'var(--green,#22c55e)';
-      /* Individual sales sit UNDER the line once there is one -- they
-         are the evidence, and at full opacity they compete with the
-         trend they produced. Graded stays bright: it is a different
-         object and should be easy to pick out. */
-      var dotOp = (days.length >= 3 && !pts[k].g) ? '.42' : '.85';
-      svg += '<circle cx="'+x(pts[k].t).toFixed(1)+'" cy="'+y(pts[k].p).toFixed(1)+'" r="'
-           + (days.length >= 3 && !pts[k].g ? '4' : '5') + '" '
-           + 'fill="'+col+'" opacity="'+dotOp+'"><title>'+esc(fmtMoney(pts[k].p)+' \u00b7 '+dfmt(pts[k].t))+'</title></circle>';
+      svg += '<circle cx="'+x(pts[k].t).toFixed(1)+'" cy="'+y(pts[k].p).toFixed(1)+'" r="4" '
+           + 'fill="'+col+'" opacity=".8"><title>'+esc(fmtMoney(pts[k].p)+' \u00b7 '+dfmt(pts[k].t))+'</title></circle>';
     }
 
     var anyGraded = pts.some(function(z){ return z.g; });
@@ -3764,17 +3538,10 @@ function salesChartHTML(sold){
       + '<div class="salesc-t" onclick="var e=document.getElementById(\'' + cid + '\');'
       +   'if(e){var o=e.style.display===\'none\';e.style.display=o?\'block\':\'none\';'
       +   'if(o)logEvent(\'sales_chart_opened\',String(' + pts.length + '),false);}">'
-      /* OPEN. The toggle now hides rather than reveals, so the label
-         says what is on screen instead of promising something behind a
-         tap -- and it carries the window the dots cover, which is the
-         question somebody asks of a price chart before any other. */
-      +   pts.length + ' real sales'
-      +   '<span class="salesc-when">' + esc(dfmt(t0)) + ' \u2013 ' + esc(dfmt(t1)) + '</span>'
-      +   '<span>&#9652;</span></div>'
-      + '<div id="' + cid + '" style="display:block">'
+      +   'See the ' + pts.length + ' sales <span>&#9662;</span></div>'
+      + '<div id="' + cid + '" style="display:none">'
       +   '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto">' + svg + '</svg>'
       +   '<div class="salesc-k">'
-      +     (days.length >= 3 ? 'line = raw, by day \u00b7 ' : '')
       +     fmtMoney(lo) + ' low \u00b7 ' + fmtMoney(hi) + ' high'
       +     (useLog ? ' \u00b7 log scale' : '')
       +     (anyGraded ? ' \u00b7 <span style="color:var(--gold,#f59e0b)">gold = graded</span>' : '')
@@ -4657,20 +4424,7 @@ function renderCta(d, rows, s){
    their own. Matches the Business defaults so a shop owner sees the
    same maths in both places. Stated on screen rather than hidden, so a
    seller on different terms knows what to adjust. */
-/* ONE POSTAGE FIGURE ON THE PAGE, NOT TWO.
-
-   This said $1 while BuyMax assumed $4 (BUYMAX_DEFAULT_SHIPPING on the
-   server), and both numbers appeared on the same result screen about
-   eight inches apart -- the decision block's "fees and shipping" line
-   and BuyMax's own disclosed assumptions. Whichever is right, they
-   cannot both be, and a reader who notices stops trusting both.
-
-   $4 is the one to keep. A card in a sleeve, a toploader and a bubble
-   mailer with tracking is not a dollar, and the server has been using
-   $4 since BuyMax shipped. Raising this makes the decision block more
-   conservative, which is the safe direction for a number somebody
-   spends money against. */
-var SELL_FEE_PCT = 13, SELL_SHIP = 4;
+var SELL_FEE_PCT = 13, SELL_SHIP = 1;
 
 function buildDecision(d, rows, s){
   var sold = safeNum(d.sold && d.sold.soldMedian);
@@ -6739,51 +6493,20 @@ async function checkAuthState(){
   }
 }
 
-/* STILL FAILS OPEN, BUT NO LONGER ON THE FIRST DROPPED REQUEST.
-
-   The reasoning for failing open is right and is kept: telling somebody
-   who pays that their binder is full is a worse outcome than granting a
-   session too much. What was wrong is that it LATCHED. One failed call
-   set isPro = true for the rest of the session, with no retry and no
-   way to tell a real subscriber from a network blip.
-
-   Every observed failure has been exactly that blip. Both recorded
-   pro_check_failed events came from ONE session on 4 Sept, 54 seconds
-   apart, both reading 'TypeError: Load failed' -- Safari's message for
-   a request that never completed. A single retry would have caught
-   both, and neither person would have been granted anything.
-
-   So: retry once, briefly, before deciding. Only a second failure
-   falls open, and when it does the grant is marked provisional so the
-   next call re-checks instead of trusting a cached guess. A stale true
-   costs a few saves; a stale true that never re-examines itself is a
-   subscription nobody is paying for. */
-var proProvisional = false;
-
+/* Fails OPEN. If the check itself breaks, a subscriber still gets to save
+   their card — over-granting for one session is far cheaper than telling
+   somebody who pays that their binder is full. */
 async function checkPro(){
-  if(!sbReady() || !currentUser){ isPro = false; proProvisional = false; return false; }
-
-  var lastErr = null;
-  for(var attempt = 0; attempt < 2; attempt++){
-    try{
-      var r = await SB.rpc('is_pro');
-      if(r.error) throw r.error;
-      isPro = r.data === true;
-      proProvisional = false;   /* a real answer clears any earlier guess */
-      return isPro;
-    }catch(e){
-      lastErr = e;
-      /* Short and only once. This runs while somebody is waiting to save
-         a card, so a long backoff would be its own bad outcome. */
-      if(attempt === 0) await new Promise(function(res){ setTimeout(res, 600); });
-    }
+  if(!sbReady() || !currentUser){ isPro = false; return false; }
+  try{
+    var r = await SB.rpc('is_pro');
+    if(r.error) throw r.error;
+    isPro = r.data === true;
+  }catch(e){
+    console.warn('[pro] check failed, allowing:', e.message);
+    logEvent('pro_check_failed', (e && e.message ? e.message : 'unknown').slice(0,120));
+    isPro = true;
   }
-
-  var msg = (lastErr && lastErr.message ? lastErr.message : 'unknown');
-  console.warn('[pro] check failed twice, allowing provisionally:', msg);
-  logEvent('pro_check_failed', ('retried: ' + msg).slice(0,120));
-  isPro = true;
-  proProvisional = true;
   return isPro;
 }
 
@@ -6812,12 +6535,7 @@ function renderAuth(){
       + 'rel="noopener" onclick="logEvent(\'open_binder_clicked\',\'header\',false)">'
       + 'My Binder</a>'
       + '<span class="tb-who">Hi, <b>'+esc(currentUser.email.split('@')[0])+'</b></span>'
-      /* Not shown while the grant is provisional. A PRO badge is a
-         claim about somebody's account, and after two failed checks we
-         do not know whether it is true -- so the saves are allowed and
-         the badge stays off rather than telling a free user they are a
-         subscriber. */
-      + ((isPro && !proProvisional) ? '<span class="tb-pro">PRO</span>' : '')
+      + (isPro ? '<span class="tb-pro">PRO</span>' : '')
       + '<button class="tb-auth" onclick="logOut()">Log Out</button>';
   } else {
     /* THE FOURTH ASK ON THE SAME SCREEN.
@@ -7008,7 +6726,7 @@ async function verifyAuthCode(){
 
 async function logOut(){
   if(sbReady()) await SB.auth.signOut();
-  currentUser=null; isPro=false; proProvisional=false; renderAuth(); toast('Logged out');
+  currentUser=null; isPro=false; renderAuth(); toast('Logged out');
 }
 
 function toast(msg){
