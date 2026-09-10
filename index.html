@@ -1888,6 +1888,12 @@ function reportCorrection(field, correctedTo){
     '.bmx-verdict.buy b{color:#1F6F4A}.bmx-verdict.pass b{color:#A8322A}.bmx-verdict.review b{color:#B4791E;font-size:22px}',
     '.bmx-verdict em{font-style:normal;font-size:13px;color:#5A6570}',
     '.bmx-ladder{display:flex;gap:8px;margin:12px 0}',
+    /* One rung when the opening offer and the ceiling round to the
+       same figure -- see the ladder builder. flex:1 on a single
+       child already fills the row, so this only needs to stop the
+       gap reserving space for a rung that is not there. */
+    '.bmx-ladder.one{gap:0}',
+    '.bmx-profit{font-family:var(--fm);font-size:11.5px;color:#5B6150;margin:7px 0 0;text-align:center}',
     '.bmx-rung{flex:1;text-align:center;padding:10px 6px;border-radius:4px;background:#fff;border:1.5px solid #C3C6BB}',
     '.bmx-rung b{display:block;font-size:19px;font-weight:800;letter-spacing:-.02em;color:#16202B}',
     '.bmx-rung small{display:block;font-size:11px;color:#5A6570;margin-top:2px}',
@@ -2057,13 +2063,50 @@ function reportCorrection(field, correctedTo){
               + '</p>';
       }
 
+      /* TWO RUNGS AT MOST, AND ONLY WHEN THEY DIFFER.
+
+         Three problems in three lines, all of them visible on a cheap
+         card:
+
+         The third rung was a PROFIT sitting in a row of prices. Read as
+         a ladder it says "offer $5, never go above $5, then offer
+         minus twelve dollars" -- and buymax.js says outright that
+         walk_away_above is the same number as maximum_buy_price and
+         must not be drawn as a third rung. The profit belongs in the
+         sentence above, which already states it.
+
+         money0 renders a negative as "$-296", which is not a currency
+         format in any locale. moneySigned puts the sign outside.
+
+         And the two remaining rungs collapse into each other on cheap
+         cards, because the 12% opening band is under a dollar and both
+         round to the same figure. "$5 / $5" is not a negotiating range;
+         it is one number printed twice. When they round the same, say
+         the one number once and say what it is. */
       if (ceil !== null) {
-        html +=
-          '<div class="bmx-ladder">'
-        +   '<div class="bmx-rung t"><b>' + money0(lad.target_offer) + '</b><small>offer this</small></div>'
-        +   '<div class="bmx-rung m"><b>' + money0(ceil) + '</b><small>never above</small></div>'
-        +   '<div class="bmx-rung"><b>' + money0(prof) + '</b><small>profit at ' + money0(ask) + '</small></div>'
-        + '</div>';
+        var openAt   = lad.ask_below_target ? null : lad.target_offer;
+        var sameRung = openAt === null
+                    || money0(openAt) === money0(ceil);
+
+        html += sameRung
+          ? '<div class="bmx-ladder one">'
+            + '<div class="bmx-rung m"><b>' + money0(ceil) + '</b>'
+            + '<small>' + (lad.ask_below_target ? 'your ceiling &mdash; the ask is under it'
+                                                : 'pay no more than this') + '</small></div>'
+            + '</div>'
+          : '<div class="bmx-ladder">'
+            + '<div class="bmx-rung t"><b>' + money0(openAt) + '</b><small>open here</small></div>'
+            + '<div class="bmx-rung m"><b>' + money0(ceil) + '</b><small>never above</small></div>'
+            + '</div>';
+
+        /* The profit, in prose, where a negative reads as a sentence
+           rather than as a malformed price. */
+        if (isFinite(prof)) {
+          html += '<p class="bmx-profit">' + (prof > 0
+                ? 'At ' + money0(ask) + ' you keep ' + money0(prof) + '.'
+                : 'At ' + money0(ask) + ' you lose ' + money0(Math.abs(prof)) + '.')
+                + '</p>';
+        }
       }
 
       /* The engine's own words, kept in full and put after the numbers
@@ -4607,7 +4650,20 @@ function renderCta(d, rows, s){
    their own. Matches the Business defaults so a shop owner sees the
    same maths in both places. Stated on screen rather than hidden, so a
    seller on different terms knows what to adjust. */
-var SELL_FEE_PCT = 13, SELL_SHIP = 1;
+/* ONE POSTAGE FIGURE ON THE PAGE, NOT TWO.
+
+   This said $1 while BuyMax assumed $4 (BUYMAX_DEFAULT_SHIPPING on the
+   server), and both numbers appeared on the same result screen about
+   eight inches apart -- the decision block's "fees and shipping" line
+   and BuyMax's own disclosed assumptions. Whichever is right, they
+   cannot both be, and a reader who notices stops trusting both.
+
+   $4 is the one to keep. A card in a sleeve, a toploader and a bubble
+   mailer with tracking is not a dollar, and the server has been using
+   $4 since BuyMax shipped. Raising this makes the decision block more
+   conservative, which is the safe direction for a number somebody
+   spends money against. */
+var SELL_FEE_PCT = 13, SELL_SHIP = 4;
 
 function buildDecision(d, rows, s){
   var sold = safeNum(d.sold && d.sold.soldMedian);
