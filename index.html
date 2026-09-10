@@ -2202,6 +2202,7 @@ async function doScan(){
     fd.append('eventId', cgEid);
     var _fbp = cgCookie('_fbp'); if(_fbp) fd.append('fbp', _fbp);
     var _fbc = cgCookie('_fbc'); if(_fbc) fd.append('fbc', _fbc);
+    if(cgIsOwner()) fd.append('fresh','1');
     var r=await fetch(API+'/api/scan-card',{method:'POST',body:fd});
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
@@ -2292,7 +2293,11 @@ async function doSearch(isSample){
   ]);
   if(window.ttq)ttq.track('Search',{content_name:q,content_type:'standalone_search'});if(window.fbq)fbq('track','Search',{content_name:q,content_type:'standalone_search'});
   try{
-    var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q));
+    /* Owner mode skips the comp cache so a filter change can be seen
+       immediately. See getSoldComps in server.js -- it still writes,
+       so the next visitor gets the fresh answer. */
+    var r=await fetch(API+'/api/card-market?query='+encodeURIComponent(q)
+          + (cgIsOwner() ? '&fresh=1' : ''));
     if(!r.ok)throw new Error('Server error '+r.status);
     var d=await r.json();
     if(!d.success)throw new Error(d.error||'Search failed');
@@ -2635,6 +2640,7 @@ async function rescanWithBack(f){
     var fd = new FormData();
     fd.append('front', frontFile);
     fd.append('back', f);
+    if(cgIsOwner()) fd.append('fresh','1');
     var r = await fetch(API+'/api/scan-card',{method:'POST',body:fd});
     if(!r.ok) throw new Error('Server error '+r.status);
     var d = await r.json();
@@ -2768,6 +2774,7 @@ async function repriceQuery(q, opts){
        median off 50 sales is not meaningfully worse than off 100 — but
        three chip taps at full cost is 4x the budget for one card. */
     var url = API+'/api/card-market?query='+encodeURIComponent(q)
+          + (cgIsOwner() ? '&fresh=1' : '')
             + (opts.refined ? '&compact=1' : '');
     var r = await fetch(url);
     if(!r.ok) throw new Error('Server error '+r.status);
