@@ -1133,6 +1133,16 @@ input[type=file]{display:none;}
   color:var(--text);padding:11px 22px;border-radius:8px;font-size:12px;font-weight:700;
   z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border2);}
 </style>
+<style>
+/* A single pulse on the bench button after a wall-driven signup. Two
+   seconds of attention on something that was already on the page, not
+   a new interruption -- see the auth success handler. */
+@keyframes cgBenchNudge{
+  0%,100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(34,197,94,0); }
+  35%    { transform:scale(1.04); box-shadow:0 0 0 7px rgba(34,197,94,.22); }
+}
+.bench-btn-nudge{ animation:cgBenchNudge 1.3s ease-in-out 2; }
+</style>
 </head>
 <body>
 
@@ -6999,6 +7009,55 @@ async function verifyAuthCode(){
     if(lastResult){ try{ renderResult(lastResult); }catch(e){} }
     if(wantedBench){ pendingBench = false; benchSaveAll(); }
     else if(wanted) saveToBinder();   // finish what they were trying to do
+    else {
+      /* THEY DID NOT COME HERE TO SAVE ANYTHING, AND THAT IS THE
+         COMMON CASE.
+
+         pendingSave and pendingBench are only set when somebody TAPS a
+         save button. The other route into this handler is the scan
+         wall -- three free scans used, account_wall, openAuth -- and it
+         sets neither. So the person who has just given an email,
+         waited for a code and typed it in gets "You're in" and then
+         nothing at all.
+
+         Measured over four days: free_scans_exhausted and account_wall
+         fire in the SAME 8 sessions. 9 people verified an account. Two
+         cards were saved in seven days. They are not signing up to keep
+         cards; they are signing up to keep scanning, and at the one
+         moment they have an account and a bench full of cards they just
+         looked at, nobody asks.
+
+         The bench already holds them -- benchAdd() runs on every scan
+         with data and stores up to 40 in sessionStorage, which survives
+         the email round trip as long as the tab stays open. Nothing
+         needs building to know what they scanned. It only needs
+         offering.
+
+         Deliberately an offer, not an action. Saving three cards
+         somebody never asked to save, seconds after they handed over an
+         email, is the kind of helpfulness that reads as presumption.
+         The bench is scrolled to and its button pulsed once; the tap
+         stays theirs. */
+      try{
+        var unsaved = bench.filter(function(b){ return !b.saved; }).length;
+        if(unsaved > 0){
+          renderResult && lastResult && renderResult(lastResult);
+          setTimeout(function(){
+            var box = document.getElementById('benchBox');
+            var btn = document.getElementById('benchBtn');
+            if(!box) return;
+            box.scrollIntoView({ behavior:'smooth', block:'center' });
+            if(btn){
+              btn.classList.add('bench-btn-nudge');
+              setTimeout(function(){ btn.classList.remove('bench-btn-nudge'); }, 2600);
+            }
+            toast('\u2705 You\'re in \u2014 keep the ' + unsaved + ' card' +
+                  (unsaved===1?'':'s') + ' you just looked at?');
+            logEvent('bench_offered_after_signup', String(unsaved), false);
+          }, 420);
+        }
+      }catch(e){}
+    }
   }catch(e){
     err.textContent = e.message || 'That code didn\'t work \u2014 check it and try again.';
     err.classList.add('show');
