@@ -1699,7 +1699,90 @@ function wireDrop(slotId, handler){
 wireDrop('slotFront', function(f){ setFrontFile(f); });
 wireDrop('slotBack',  function(f){ setBackFile(f);  });
 
-function setFrontFile(f){
+
+/* SIX FAILED SCANS IN THIRTY-ONE MINUTES, ALL THE SAME ERROR.
+
+   11 Sept, 05:10 to 05:41, one person trying over and over:
+
+     "code": "invalid_image_format"
+     "You uploaded an unsupported image. Please make sure your image
+      has one of the following formats: ['png','jpeg','gif','webp']."
+
+   That is HEIC. It is the iPhone default, and it arrives whenever
+   somebody picks an existing photo from their library rather than
+   taking a new one -- the camera path hands over JPEG, the library
+   path often does not. accept="image/*" lets it through happily,
+   nothing on the way to the server looks at the type, and OpenAI
+   rejects it at the far end. The person got six generic failures and
+   no idea why.
+
+   Safari can DECODE HEIC natively -- it is Apple's own format -- so
+   drawing it to a canvas and re-encoding as JPEG works on exactly the
+   devices that produce it. No library, no server change, no upload of
+   an unusable file.
+
+   FAIL-SAFE BY CONSTRUCTION. This sits on the riskiest path in the
+   app. Every failure mode -- decode error, canvas tainted, toBlob
+   unsupported, anything at all -- returns the ORIGINAL file untouched,
+   so the worst case is exactly what happens today rather than
+   something new. It only ever improves the odds.
+
+   Quality 0.92 and full resolution on purpose: the AI reads copyright
+   lines and card numbers off these, and compressing to save bandwidth
+   would trade the thing the product is for a smaller upload. */
+var OK_IMAGE_TYPES = /^image\/(jpeg|jpg|png|gif|webp)$/i;
+
+function toSupportedImage(f){
+  return new Promise(function(resolve){
+    try{
+      if(!f) return resolve(f);
+      /* An empty type is converted too. Some Android builds report ""
+         for a perfectly good JPEG, and re-encoding one of those costs a
+         moment; sending a HEIC with no type costs the whole scan. */
+      if(OK_IMAGE_TYPES.test(f.type || '')) return resolve(f);
+
+      var url = URL.createObjectURL(f);
+      var img = new Image();
+      var done = false;
+      var finish = function(out){
+        if(done) return; done = true;
+        try{ URL.revokeObjectURL(url); }catch(e){}
+        resolve(out || f);
+      };
+      /* If decoding hangs, do not hang with it. */
+      setTimeout(function(){ finish(f); }, 8000);
+
+      img.onload = function(){
+        try{
+          var c = document.createElement('canvas');
+          c.width  = img.naturalWidth  || img.width;
+          c.height = img.naturalHeight || img.height;
+          if(!c.width || !c.height) return finish(f);
+          c.getContext('2d').drawImage(img, 0, 0);
+          if(!c.toBlob) return finish(f);
+          c.toBlob(function(b){
+            if(!b) return finish(f);
+            try{
+              var name = (f.name || 'card').replace(/\.[a-z0-9]+$/i, '') + '.jpg';
+              finish(new File([b], name, { type:'image/jpeg' }));
+            }catch(e){
+              /* Older Safari has no File constructor; a Blob with a
+                 name is what FormData actually needs. */
+              try{ b.name = name; }catch(e2){}
+              finish(b);
+            }
+          }, 'image/jpeg', 0.92);
+        }catch(e){ finish(f); }
+      };
+      img.onerror = function(){ finish(f); };
+      img.src = url;
+    }catch(e){ resolve(f); }
+  });
+}
+async function setFrontFile(f){
+  /* Converted BEFORE it is stored, so whatever the scan button picks up
+     is already something the far end accepts. See toSupportedImage. */
+  f = await toSupportedImage(f);
   frontFile=f;
   clearBack();                                   // a new front means a new card
   var slot=document.getElementById('slotFront');
@@ -1723,7 +1806,8 @@ function clearFront(e){
   if(btn) btn.style.display='none';
   updateCapture();
 }
-function setBackFile(f){
+async function setBackFile(f){
+  f = await toSupportedImage(f);   // see setFrontFile
   backFile=f;
   var slot=document.getElementById('slotBack');
   var th=document.getElementById('backThumb');
